@@ -19,10 +19,10 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	net "knative.dev/networking/pkg/apis/networking"
-	"knative.dev/pkg/apis"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"knative.dev/pkg/kmeta"
+	net "knative.dev/serving/networking/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis"
+	duckv1 "knative.dev/serving/pkg/apis/duck/v1"
+	"knative.dev/serving/pkg/kmeta"
 )
 
 // +genclient
@@ -122,10 +122,10 @@ type PodAutoscalerStatus struct {
 	// The service is managed by the PA object.
 	MetricsServiceName string `json:"metricsServiceName"`
 
-	// DesiredScale shows the current desired number of replicas for the revision.
+	// DesiredScale 显示了此次修订所需的当前期望副本数量。
 	DesiredScale *int32 `json:"desiredScale,omitempty"`
 
-	// ActualScale shows the actual number of replicas for the revision.
+	// ActualScale 显示了该修订版本的实际副本数量。
 	ActualScale *int32 `json:"actualScale,omitempty"`
 }
 

@@ -25,13 +25,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	autoscalingv2listers "k8s.io/client-go/listers/autoscaling/v2"
-	nv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/ptr"
-	pkgreconciler "knative.dev/pkg/reconciler"
+	nv1alpha1 "knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
+	"knative.dev/serving/pkg/over_logging"
+	"knative.dev/serving/pkg/over_ptr"
+	pkgreconciler "knative.dev/serving/pkg/reconciler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/hpa/resources"
@@ -53,7 +53,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
 	defer cancel()
 
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	logger.Debug("PA exists")
 
 	// HPA-class PA delegates autoscaling to the Kubernetes Horizontal Pod Autoscaler.
@@ -107,8 +107,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 	// HPA is always _active_.
 	pa.Status.MarkActive()
 
-	pa.Status.DesiredScale = ptr.Int32(hpa.Status.DesiredReplicas)
-	pa.Status.ActualScale = ptr.Int32(hpa.Status.CurrentReplicas)
+	pa.Status.DesiredScale = over_ptr.Int32(hpa.Status.DesiredReplicas)
+	pa.Status.ActualScale = over_ptr.Int32(hpa.Status.CurrentReplicas)
 	return nil
 }
 

@@ -19,9 +19,9 @@ package v1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"knative.dev/pkg/apis"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"knative.dev/pkg/kmeta"
+	"knative.dev/serving/pkg/apis"
+	duckv1 "knative.dev/serving/pkg/apis/duck/v1"
+	"knative.dev/serving/pkg/kmeta"
 )
 
 // +genclient
@@ -102,16 +102,6 @@ const (
 )
 
 // IsServiceCondition returns true if the ConditionType is a service condition type
-func IsServiceCondition(t apis.ConditionType) bool {
-	switch t {
-	case
-		ServiceConditionReady,
-		ServiceConditionRoutesReady,
-		ServiceConditionConfigurationsReady:
-		return true
-	}
-	return false
-}
 
 // ServiceStatus represents the Status stanza of the Service resource.
 type ServiceStatus struct {

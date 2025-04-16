@@ -19,7 +19,7 @@ package config
 import (
 	"context"
 
-	"knative.dev/pkg/configmap"
+	"knative.dev/serving/pkg/configmap"
 )
 
 type cfgKey struct{}

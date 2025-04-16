@@ -27,9 +27,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"knative.dev/pkg/environment"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/over_environment"
+	"knative.dev/serving/pkg/over_logging"
+	"knative.dev/serving/pkg/system"
 )
 
 const (
@@ -41,7 +41,7 @@ func main() {
 	logger := setupLogger()
 	defer logger.Sync()
 
-	env := environment.ClientConfig{}
+	env := over_environment.ClientConfig{}
 	env.InitFlags(flag.CommandLine)
 
 	flag.Parse()
@@ -112,11 +112,11 @@ func main() {
 func setupLogger() *zap.SugaredLogger {
 	const component = "old-resource-cleanup"
 
-	config, err := logging.NewConfigFromMap(nil)
+	config, err := over_logging.NewConfigFromMap(nil)
 	if err != nil {
 		log.Fatal("Failed to create logging config: ", err)
 	}
 
-	logger, _ := logging.NewLoggerFromConfig(config, component)
+	logger, _ := over_logging.NewLoggerFromConfig(config, component)
 	return logger
 }

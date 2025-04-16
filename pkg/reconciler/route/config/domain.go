@@ -22,10 +22,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/yaml"
 
-	"knative.dev/networking/pkg/apis/networking"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/network"
+	"knative.dev/serving/networking/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/configmap"
+	"knative.dev/serving/pkg/network"
 )
 
 const (

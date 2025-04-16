@@ -19,15 +19,15 @@ package revision
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"knative.dev/serving/pkg/kmeta"
+	"knative.dev/serving/pkg/over_kmp"
+	"knative.dev/serving/pkg/over_logging"
 
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
-	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/kmp"
-	"knative.dev/pkg/logging"
+	caching "knative.dev/serving/caching/pkg/apis/caching/v1alpha1"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/revision/config"
@@ -45,8 +45,22 @@ func (c *Reconciler) createDeployment(ctx context.Context, rev *v1.Revision) (*a
 	return c.kubeclient.AppsV1().Deployments(deployment.Namespace).Create(ctx, deployment, metav1.CreateOptions{})
 }
 
+func (c *Reconciler) createImageCache(ctx context.Context, rev *v1.Revision, containerName, imageDigest string) (*caching.Image, error) {
+	image := resources.MakeImageCache(rev, containerName, imageDigest)
+	return c.cachingclient.CachingV1alpha1().Images(image.Namespace).Create(ctx, image, metav1.CreateOptions{})
+}
+
+func (c *Reconciler) createPA(
+	ctx context.Context,
+	rev *v1.Revision,
+	deployment *appsv1.Deployment,
+) (*autoscalingv1alpha1.PodAutoscaler, error) {
+	pa := resources.MakePA(rev, deployment)
+	return c.client.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Create(ctx, pa, metav1.CreateOptions{})
+}
+
 func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revision, have *appsv1.Deployment) (*appsv1.Deployment, error) {
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	cfgs := config.FromContext(ctx)
 
 	deployment, err := resources.MakeDeployment(rev, cfgs)
@@ -83,7 +97,7 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revis
 	if equality.Semantic.DeepEqual(have.Spec, d.Spec) {
 		return d, nil
 	}
-	diff, err := kmp.SafeDiff(have.Spec, d.Spec)
+	diff, err := over_kmp.SafeDiff(have.Spec, d.Spec)
 	if err != nil {
 		return nil, err
 	}
@@ -91,18 +105,4 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revis
 	// If what comes back has a different spec, then signal the change.
 	logger.Info("Reconciled deployment diff (-desired, +observed): ", diff)
 	return d, nil
-}
-
-func (c *Reconciler) createImageCache(ctx context.Context, rev *v1.Revision, containerName, imageDigest string) (*caching.Image, error) {
-	image := resources.MakeImageCache(rev, containerName, imageDigest)
-	return c.cachingclient.CachingV1alpha1().Images(image.Namespace).Create(ctx, image, metav1.CreateOptions{})
-}
-
-func (c *Reconciler) createPA(
-	ctx context.Context,
-	rev *v1.Revision,
-	deployment *appsv1.Deployment,
-) (*autoscalingv1alpha1.PodAutoscaler, error) {
-	pa := resources.MakePA(rev, deployment)
-	return c.client.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Create(ctx, pa, metav1.CreateOptions{})
 }

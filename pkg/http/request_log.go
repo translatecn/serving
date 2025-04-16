@@ -27,7 +27,7 @@ import (
 	"text/template"
 	"time"
 
-	netheader "knative.dev/networking/pkg/http/header"
+	netheader "knative.dev/serving/networking/pkg/http/header"
 )
 
 // RequestLogHandler implements an http.Handler that writes request logs

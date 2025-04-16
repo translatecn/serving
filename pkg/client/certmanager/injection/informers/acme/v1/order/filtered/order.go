@@ -22,10 +22,10 @@ import (
 	context "context"
 
 	v1 "github.com/cert-manager/cert-manager/pkg/client/informers/externalversions/acme/v1"
-	controller "knative.dev/pkg/controller"
-	injection "knative.dev/pkg/injection"
-	logging "knative.dev/pkg/logging"
 	filtered "knative.dev/serving/pkg/client/certmanager/injection/informers/factory/filtered"
+	controller "knative.dev/serving/pkg/controller"
+	injection "knative.dev/serving/pkg/injection"
+	logging "knative.dev/serving/pkg/over_logging"
 )
 
 func init() {

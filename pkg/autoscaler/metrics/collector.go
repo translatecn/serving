@@ -24,11 +24,11 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/clock"
-	"knative.dev/pkg/logging/logkey"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/aggregation"
 	"knative.dev/serving/pkg/autoscaler/config"
+	"knative.dev/serving/pkg/over_logging/logkey"
 )
 
 const (
@@ -59,8 +59,6 @@ type StatMessage struct {
 
 // Collector starts and stops metric collection for a given entity.
 type Collector interface {
-	// CreateOrUpdate either creates a collection for the given metric or update it, should
-	// it already exist.
 	CreateOrUpdate(metric *autoscalingv1alpha1.Metric) error
 	// Record allows stats to be captured that came from outside the Collector.
 	Record(key types.NamespacedName, now time.Time, stat Stat)
@@ -111,8 +109,6 @@ func NewMetricCollector(statsScraperFactory StatsScraperFactory, logger *zap.Sug
 	}
 }
 
-// CreateOrUpdate either creates a collection for the given metric or update it, should
-// it already exist.
 func (c *MetricCollector) CreateOrUpdate(metric *autoscalingv1alpha1.Metric) error {
 	logger := c.logger.With(zap.String(logkey.Key, types.NamespacedName{
 		Namespace: metric.Namespace,

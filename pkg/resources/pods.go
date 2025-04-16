@@ -17,13 +17,13 @@ limitations under the License.
 package resources
 
 import (
+	"knative.dev/serving/pkg/apis/serving"
 	"sort"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	"knative.dev/serving/pkg/apis/serving"
 )
 
 // PodAccessor provides access to various dimensions of pods listing
@@ -31,47 +31,6 @@ import (
 type PodAccessor struct {
 	podsLister corev1listers.PodNamespaceLister
 	selector   labels.Selector
-}
-
-// NewPodAccessor creates a PodAccessor implementation that counts
-// pods for a namespace/revision.
-func NewPodAccessor(lister corev1listers.PodLister, namespace, revisionName string) PodAccessor {
-	return PodAccessor{
-		podsLister: lister.Pods(namespace),
-		selector: labels.SelectorFromSet(labels.Set{
-			serving.RevisionLabelKey: revisionName,
-		}),
-	}
-}
-
-// PodCountsByState returns number of pods for the revision grouped by their state, that is
-// of interest to knative (e.g. ignoring failed or terminated pods).
-func (pa PodAccessor) PodCountsByState() (ready, notReady, pending, terminating int, err error) {
-	pods, err := pa.podsLister.List(pa.selector)
-	if err != nil {
-		return 0, 0, 0, 0, err
-	}
-
-	for _, p := range pods {
-		switch p.Status.Phase {
-		case corev1.PodPending:
-			pending++
-			notReady++
-		case corev1.PodRunning:
-			if p.DeletionTimestamp != nil {
-				terminating++
-				notReady++
-				continue
-			}
-			if podReady(p) {
-				ready++
-			} else {
-				notReady++
-			}
-		}
-	}
-
-	return ready, notReady, pending, terminating, nil
 }
 
 // ReadyCount implements EndpointsCounter.
@@ -194,4 +153,45 @@ func (pa PodAccessor) PodIPsSplitByAge(cutOff time.Duration, now time.Time) (old
 		return nil, nil, err
 	}
 	return pp.older, pp.younger, nil
+}
+
+// NewPodAccessor creates a PodAccessor implementation that counts
+// pods for a namespace/revision.
+func NewPodAccessor(lister corev1listers.PodLister, namespace, revisionName string) PodAccessor {
+	return PodAccessor{
+		podsLister: lister.Pods(namespace),
+		selector: labels.SelectorFromSet(labels.Set{
+			serving.RevisionLabelKey: revisionName,
+		}),
+	}
+}
+
+// PodCountsByState returns number of pods for the revision grouped by their state, that is
+// of interest to knative (e.g. ignoring failed or terminated pods).
+func (pa PodAccessor) PodCountsByState() (ready, notReady, pending, terminating int, err error) {
+	pods, err := pa.podsLister.List(pa.selector)
+	if err != nil {
+		return 0, 0, 0, 0, err
+	}
+
+	for _, p := range pods {
+		switch p.Status.Phase {
+		case corev1.PodPending:
+			pending++
+			notReady++
+		case corev1.PodRunning:
+			if p.DeletionTimestamp != nil {
+				terminating++
+				notReady++
+				continue
+			}
+			if podReady(p) {
+				ready++
+			} else {
+				notReady++
+			}
+		}
+	}
+
+	return ready, notReady, pending, terminating, nil
 }

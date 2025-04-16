@@ -19,24 +19,24 @@ package hpa
 import (
 	"context"
 
-	networkingclient "knative.dev/networking/pkg/client/injection/client"
-	sksinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	hpainformer "knative.dev/pkg/client/injection/kube/informers/autoscaling/v2/horizontalpodautoscaler"
-	"knative.dev/pkg/logging"
+	networkingclient "knative.dev/serving/networking/pkg/client/injection/client"
+	sksinformer "knative.dev/serving/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
 	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
+	kubeclient "knative.dev/serving/pkg/client/injection/kube/client"
+	hpainformer "knative.dev/serving/pkg/client/injection/kube/informers/autoscaling/v2/horizontalpodautoscaler"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/over_logging"
 
 	"k8s.io/client-go/tools/cache"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
+	"knative.dev/serving/pkg/configmap"
+	"knative.dev/serving/pkg/controller"
+	pkgreconciler "knative.dev/serving/pkg/reconciler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 )
@@ -46,7 +46,7 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	paInformer := painformer.Get(ctx)
 	sksInformer := sksinformer.Get(ctx)
 	hpaInformer := hpainformer.Get(ctx)
@@ -65,6 +65,8 @@ func NewController(
 		kubeClient: kubeclient.Get(ctx),
 		hpaLister:  hpaInformer.Lister(),
 	}
+	_ = c.ReconcileKind
+
 	impl := pareconciler.NewImpl(ctx, c, autoscaling.HPA, func(impl *controller.Impl) controller.Options {
 		logger.Info("Setting up ConfigMap receivers")
 		configsToResync := []interface{}{
@@ -87,13 +89,19 @@ func NewController(
 	})
 
 	onlyPAControlled := controller.FilterController(&autoscalingv1alpha1.PodAutoscaler{})
-	handleMatchingControllers := cache.FilteringResourceEventHandler{
+
+	hpaInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: pkgreconciler.ChainFilterFuncs(onlyHPAClass, onlyPAControlled),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-	}
-	hpaInformer.Informer().AddEventHandler(handleMatchingControllers)
-	sksInformer.Informer().AddEventHandler(handleMatchingControllers)
-	metricInformer.Informer().AddEventHandler(handleMatchingControllers)
+	})
+	sksInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: pkgreconciler.ChainFilterFuncs(onlyHPAClass, onlyPAControlled),
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+	})
+	metricInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: pkgreconciler.ChainFilterFuncs(onlyHPAClass, onlyPAControlled),
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+	})
 
 	return impl
 }

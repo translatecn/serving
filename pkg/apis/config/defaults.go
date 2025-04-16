@@ -29,9 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"knative.dev/pkg/apis"
-	cm "knative.dev/pkg/configmap"
-	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis"
+	cm "knative.dev/serving/pkg/configmap"
+	"knative.dev/serving/pkg/over_ptr"
 )
 
 const (
@@ -88,7 +88,7 @@ func defaultDefaultsConfig() *Defaults {
 		ContainerConcurrency:                DefaultContainerConcurrency,
 		ContainerConcurrencyMaxLimit:        DefaultMaxRevisionContainerConcurrency,
 		AllowContainerConcurrencyZero:       DefaultAllowContainerConcurrencyZero,
-		EnableServiceLinks:                  ptr.Bool(false),
+		EnableServiceLinks:                  over_ptr.Bool(false),
 	}
 }
 
@@ -97,9 +97,9 @@ func asTriState(key string, target **bool, defValue *bool) cm.ParseFunc {
 		if raw, ok := data[key]; ok {
 			switch {
 			case strings.EqualFold(raw, "true"):
-				*target = ptr.Bool(true)
+				*target = over_ptr.Bool(true)
 			case strings.EqualFold(raw, "false"):
-				*target = ptr.Bool(false)
+				*target = over_ptr.Bool(false)
 			default:
 				*target = defValue
 			}

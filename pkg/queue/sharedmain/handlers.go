@@ -23,17 +23,17 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	netheader "knative.dev/networking/pkg/http/header"
-	netproxy "knative.dev/networking/pkg/http/proxy"
-	netstats "knative.dev/networking/pkg/http/stats"
-	pkghandler "knative.dev/pkg/network/handlers"
-	"knative.dev/pkg/tracing"
-	tracingconfig "knative.dev/pkg/tracing/config"
+	netheader "knative.dev/serving/networking/pkg/http/header"
+	netproxy "knative.dev/serving/networking/pkg/http/proxy"
+	netstats "knative.dev/serving/networking/pkg/http/stats"
 	"knative.dev/serving/pkg/activator"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/http/handler"
+	pkghandler "knative.dev/serving/pkg/network/handlers"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
+	"knative.dev/serving/pkg/tracing"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
 )
 
 func mainHandler(

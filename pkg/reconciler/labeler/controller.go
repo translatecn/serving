@@ -30,9 +30,9 @@ import (
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
 	"knative.dev/serving/pkg/reconciler/configuration/config"
 
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
+	"knative.dev/serving/pkg/configmap"
+	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/over_logging"
 )
 
 // NewController wraps a new instance of the labeler that labels
@@ -41,7 +41,7 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	routeInformer := routeinformer.Get(ctx)
 	configInformer := configurationinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
@@ -50,6 +50,7 @@ func NewController(
 	configStore.WatchConfigs(cmw)
 
 	c := &Reconciler{}
+	_ = c.ReconcileKind
 	impl := routereconciler.NewImpl(ctx, c, func(*controller.Impl) controller.Options {
 		return controller.Options{
 			ConfigStore: configStore,

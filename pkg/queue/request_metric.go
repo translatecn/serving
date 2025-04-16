@@ -25,10 +25,10 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 
-	netheader "knative.dev/networking/pkg/http/header"
-	pkgmetrics "knative.dev/pkg/metrics"
+	netheader "knative.dev/serving/networking/pkg/http/header"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/metrics"
+	pkgmetrics "knative.dev/serving/pkg/metrics"
 )
 
 var (

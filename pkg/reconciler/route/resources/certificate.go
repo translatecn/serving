@@ -22,16 +22,16 @@ import (
 	"sort"
 
 	"k8s.io/apimachinery/pkg/util/sets"
-	"knative.dev/networking/pkg/apis/networking"
-	"knative.dev/networking/pkg/config"
-	"knative.dev/pkg/kmap"
-	"knative.dev/pkg/network"
+	"knative.dev/serving/networking/pkg/apis/networking"
+	"knative.dev/serving/networking/pkg/config"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/over_kmap"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	networkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/pkg/kmeta"
+	networkingv1alpha1 "knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/kmeta"
 	"knative.dev/serving/pkg/reconciler/route/resources/names"
 )
 
@@ -102,7 +102,7 @@ func MakeClusterLocalCertificate(route *v1.Route, tag string, domains sets.Set[s
 			Name:            certName,
 			Namespace:       route.GetNamespace(),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
-			Annotations: kmap.Filter(kmap.Union(map[string]string{
+			Annotations: over_kmap.Filter(over_kmap.Union(map[string]string{
 				networking.CertificateClassAnnotationKey: certClass,
 			}, route.GetAnnotations()), ExcludedAnnotations.Has),
 			Labels: map[string]string{

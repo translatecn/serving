@@ -20,9 +20,9 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/leaderelection"
-	"knative.dev/pkg/reconciler"
+	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/leaderelection"
+	"knative.dev/serving/pkg/reconciler"
 )
 
 type leaderAwareReconciler interface {

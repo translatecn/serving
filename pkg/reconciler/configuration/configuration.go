@@ -30,15 +30,15 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/utils/clock"
 
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/kmp"
-	"knative.dev/pkg/logging"
-	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
+	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/over_kmp"
+	"knative.dev/serving/pkg/over_logging"
+	pkgreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/configuration/resources"
 )
 
@@ -60,7 +60,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
 	defer cancel()
 
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	recorder := controller.GetEventRecorder(ctx)
 
 	// First, fetch the revision that should exist for the current generation.
@@ -159,7 +159,7 @@ func (c *Reconciler) findAndSetLatestReadyRevision(ctx context.Context, config *
 // getSortedCreatedRevisions returns the list of created revisions sorted in descending
 // generation order between the generation of the latest ready revision and config's generation (both inclusive).
 func (c *Reconciler) getSortedCreatedRevisions(ctx context.Context, config *v1.Configuration, latestCreated *v1.Revision, isBYOName bool) ([]*v1.Revision, error) {
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	lister := c.revisionLister.Revisions(config.Namespace)
 	configSelector := labels.SelectorFromSet(labels.Set{
 		serving.ConfigurationLabelKey: config.Name,
@@ -234,7 +234,7 @@ func configGeneration(rev *v1.Revision) (int64, error) {
 func CheckNameAvailability(ctx context.Context, config *v1.Configuration, lister listers.RevisionLister) (*v1.Revision, error) {
 	// If config.Spec.GetTemplate().Name is set, then we can directly look up
 	// the revision by name.
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	name := config.Spec.GetTemplate().Name
 	if name == "" {
 		return nil, nil
@@ -264,7 +264,7 @@ func CheckNameAvailability(ctx context.Context, config *v1.Configuration, lister
 	// We only require spec equality because the rest is immutable and the user may have
 	// annotated or labeled the Revision (beyond what the Configuration might have).
 	if !equality.Semantic.DeepEqual(config.Spec.GetTemplate().Spec, rev.Spec) {
-		diff, err := kmp.SafeDiff(config.Spec.GetTemplate().Spec, rev.Spec)
+		diff, err := over_kmp.SafeDiff(config.Spec.GetTemplate().Spec, rev.Spec)
 		if err != nil {
 			logger.Errorf("Fail to Diff Revision %s spec and its Configration's spec template %v", rev.GetName(), err)
 		}
@@ -297,7 +297,7 @@ func (c *Reconciler) latestCreatedRevision(ctx context.Context, config *v1.Confi
 }
 
 func (c *Reconciler) createRevision(ctx context.Context, config *v1.Configuration) (*v1.Revision, error) {
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 
 	rev := resources.MakeRevision(ctx, config, c.clock.Now())
 	created, err := c.client.ServingV1().Revisions(config.Namespace).Create(ctx, rev, metav1.CreateOptions{})

@@ -17,8 +17,8 @@ limitations under the License.
 package names
 
 import (
-	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/network"
+	"knative.dev/serving/pkg/kmeta"
+	"knative.dev/serving/pkg/network"
 )
 
 // K8sService returns the name of the K8sService for a given route.

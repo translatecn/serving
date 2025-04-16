@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: activator
+  namespace: knative-serving
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: activator
+      role: activator
+  template:
+    metadata:
+      labels:
+        app: activator
+        role: activator
+    spec:
+      containers:
+        - name: activator
+          image: gcr.io/knative-releases/knative.dev/serving/cmd/activator@sha256:cd4bb3af998f4199ea760718a309f50d1bcc9d5c4a1c5446684a6a0115a7aad5
+          ports:
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+            - name: profiling
+              containerPort: 8008
+              protocol: TCP
+            - name: http1
+              containerPort: 8012
+              protocol: TCP
+            - name: h2c
+              containerPort: 8013
+              protocol: TCP
+          env:
+            - name: GOGC
+              value: '500'
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
+            - name: SYSTEM_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: CONFIG_LOGGING_NAME
+              value: config-logging
+            - name: CONFIG_OBSERVABILITY_NAME
+              value: config-observability
+            - name: METRICS_DOMAIN
+              value: knative.dev/internal/serving
+      serviceAccountName: activator

@@ -25,12 +25,12 @@ import (
 	"strings"
 	"time"
 
-	"knative.dev/pkg/apis"
-	"knative.dev/pkg/kmap"
+	"knative.dev/serving/pkg/apis"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
+	"knative.dev/serving/pkg/over_kmap"
 )
 
-func getIntGE0(m map[string]string, key kmap.KeyPriority) (int32, *apis.FieldError) {
+func getIntGE0(m map[string]string, key over_kmap.KeyPriority) (int32, *apis.FieldError) {
 	k, v, ok := key.Get(m)
 	if !ok {
 		return 0, nil

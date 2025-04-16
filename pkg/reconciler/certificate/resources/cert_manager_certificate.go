@@ -24,11 +24,11 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/networking/pkg/apis/networking"
-	"knative.dev/networking/pkg/apis/networking/v1alpha1"
-	netapi "knative.dev/networking/pkg/config"
-	"knative.dev/pkg/apis"
-	"knative.dev/pkg/kmeta"
+	"knative.dev/serving/networking/pkg/apis/networking"
+	"knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
+	netapi "knative.dev/serving/networking/pkg/config"
+	"knative.dev/serving/pkg/apis"
+	"knative.dev/serving/pkg/kmeta"
 	"knative.dev/serving/pkg/reconciler/certificate/config"
 )
 

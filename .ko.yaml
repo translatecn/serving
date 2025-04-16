@@ -1,4 +1,0 @@
-# Use :nonroot base image for all containers
-defaultBaseImage: ghcr.io/wolfi-dev/static:alpine
-baseImageOverrides:
-  github.com/tsenart/vegeta/v12: ubuntu:latest

@@ -19,8 +19,8 @@ package v1beta1
 import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/pkg/apis"
+	netv1alpha1 "knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis"
 )
 
 var domainMappingCondSet = apis.NewLivingConditionSet(
@@ -59,10 +59,7 @@ func (dms *DomainMappingStatus) InitializeConditions() {
 }
 
 const (
-	// ExternalDomainTLSNotEnabledMessage is the message which is set on the
-	// DomainMappingConditionCertificateProvisioned condition when it is set to True
-	// because external-domain-tls was not enabled.
-	ExternalDomainTLSNotEnabledMessage = "external-domain-tls is not enabled"
+
 	// TLSCertificateProvidedExternally indicates that a TLS secret won't be created or managed
 	// instead a reference to an existing TLS secret should have been provided in the DomainMapping spec
 	TLSCertificateProvidedExternally = "TLS certificate was provided externally"

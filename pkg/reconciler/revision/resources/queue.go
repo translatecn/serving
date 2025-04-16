@@ -26,21 +26,21 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	pkgnet "knative.dev/networking/pkg/apis/networking"
-	netheader "knative.dev/networking/pkg/http/header"
-	"knative.dev/pkg/kmap"
-	"knative.dev/pkg/metrics"
-	"knative.dev/pkg/profiling"
-	"knative.dev/pkg/ptr"
-	"knative.dev/pkg/system"
+	pkgnet "knative.dev/serving/networking/pkg/apis/networking"
+	netheader "knative.dev/serving/networking/pkg/http/header"
 	apicfg "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/networking"
+	"knative.dev/serving/pkg/over_kmap"
+	"knative.dev/serving/pkg/over_profiling"
+	"knative.dev/serving/pkg/over_ptr"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/readiness"
 	"knative.dev/serving/pkg/reconciler/revision/config"
+	"knative.dev/serving/pkg/system"
 )
 
 const (
@@ -77,13 +77,13 @@ var (
 
 	profilingPort = corev1.ContainerPort{
 		Name:          profilingPortName,
-		ContainerPort: profiling.ProfilingPort,
+		ContainerPort: over_profiling.ProfilingPort,
 	}
 
 	queueSecurityContext = &corev1.SecurityContext{
-		AllowPrivilegeEscalation: ptr.Bool(false),
-		ReadOnlyRootFilesystem:   ptr.Bool(true),
-		RunAsNonRoot:             ptr.Bool(true),
+		AllowPrivilegeEscalation: over_ptr.Bool(false),
+		ReadOnlyRootFilesystem:   over_ptr.Bool(true),
+		RunAsNonRoot:             over_ptr.Bool(true),
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},
 		},
@@ -210,13 +210,13 @@ func computeResourceRequirements(resourceQuantity *resource.Quantity, fraction f
 	return true, newquantity
 }
 
-func resourceFromAnnotation(m map[string]string, key kmap.KeyPriority) (resource.Quantity, bool) {
+func resourceFromAnnotation(m map[string]string, key over_kmap.KeyPriority) (resource.Quantity, bool) {
 	_, v, _ := key.Get(m)
 	q, err := resource.ParseQuantity(v)
 	return q, err == nil
 }
 
-func fractionFromPercentage(m map[string]string, key kmap.KeyPriority) (float64, bool) {
+func fractionFromPercentage(m map[string]string, key over_kmap.KeyPriority) (float64, bool) {
 	_, v, _ := key.Get(m)
 	value, err := strconv.ParseFloat(v, 64)
 	return value / 100, err == nil

@@ -19,9 +19,9 @@ package resources
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
-	"knative.dev/pkg/kmeta"
+	caching "knative.dev/serving/caching/pkg/apis/caching/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/kmeta"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
 )
 

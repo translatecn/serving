@@ -19,44 +19,40 @@ package revision
 import (
 	"context"
 	"fmt"
+
 	"net/http"
 	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
-	cachingclient "knative.dev/caching/pkg/client/injection/client"
-	imageinformer "knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image"
-	"knative.dev/networking/pkg/apis/networking/v1alpha1"
-	networkingclient "knative.dev/networking/pkg/client/injection/client"
-	certificateinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate"
-	"knative.dev/pkg/changeset"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
+	cachingclient "knative.dev/serving/caching/pkg/client/injection/client"
+	imageinformer "knative.dev/serving/caching/pkg/client/injection/informers/caching/v1alpha1/image"
+	"knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
+	networkingclient "knative.dev/serving/networking/pkg/client/injection/client"
+	certificateinformer "knative.dev/serving/networking/pkg/client/injection/informers/networking/v1alpha1/certificate"
+	"knative.dev/serving/pkg/changeset"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
+	kubeclient "knative.dev/serving/pkg/client/injection/kube/client"
+	deploymentinformer "knative.dev/serving/pkg/client/injection/kube/informers/apps/v1/deployment"
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
 
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	netcfg "knative.dev/networking/pkg/config"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/metrics"
+	netcfg "knative.dev/serving/networking/pkg/config"
 	apisconfig "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/configmap"
+	"knative.dev/serving/pkg/controller"
 	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/metrics"
+	"knative.dev/serving/pkg/over_logging"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 )
 
-// digestResolutionWorkers is the number of image digest resolutions that can
-// take place in parallel. MaxIdleConns and MaxIdleConnsPerHost for the digest
-// resolution's Transport will also be set to this value.
 const digestResolutionWorkers = 100
 
-// NewController initializes the controller and is called by the generated code
-// Registers eventhandlers to enqueue events
 func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
@@ -71,7 +67,7 @@ func newControllerWithOptions(
 	cmw configmap.Watcher,
 	opts ...reconcilerOption,
 ) *controller.Impl {
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
 	deploymentInformer := deploymentinformer.Get(ctx)
 	imageInformer := imageinformer.Get(ctx)
@@ -89,6 +85,7 @@ func newControllerWithOptions(
 		deploymentLister:    deploymentInformer.Lister(),
 		certificateLister:   certificateInformer.Lister(),
 	}
+	_ = c.ReconcileKind
 
 	impl := revisionreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
 		configsToResync := []interface{}{
@@ -113,7 +110,7 @@ func newControllerWithOptions(
 
 	transport := http.DefaultTransport
 	if rt, err := newResolverTransport(k8sCertPath, digestResolutionWorkers, digestResolutionWorkers); err != nil {
-		logging.FromContext(ctx).Errorw("Failed to create resolver transport", zap.Error(err))
+		over_logging.FromContext(ctx).Errorw("Failed to create resolver transport", zap.Error(err))
 	} else {
 		transport = rt
 	}
@@ -133,12 +130,14 @@ func newControllerWithOptions(
 	// Set up an event handler for when the resource types of interest change
 	revisionInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
-	handleMatchingControllers := cache.FilteringResourceEventHandler{
+	deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.FilterController(&v1.Revision{}),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-	}
-	deploymentInformer.Informer().AddEventHandler(handleMatchingControllers)
-	paInformer.Informer().AddEventHandler(handleMatchingControllers)
+	})
+	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.FilterController(&v1.Revision{}),
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+	})
 	certificateInformer.Informer().AddEventHandler(controller.HandleAll(
 		// Call the tracker's OnChanged method, but we've seen the objects
 		// coming through this path missing TypeMeta, so ensure it is properly

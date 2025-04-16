@@ -24,7 +24,7 @@ if [ -z "${GOPATH:-}" ]; then
   export GOPATH=$(go env GOPATH)
 fi
 
-source $(dirname $0)/../vendor/knative.dev/hack/library.sh
+source $(dirname $0)/library.sh
 
 (
   cd ${REPO_ROOT_DIR}

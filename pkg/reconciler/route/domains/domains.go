@@ -28,20 +28,17 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	netapi "knative.dev/networking/pkg/apis/networking"
-	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
-	netcfg "knative.dev/networking/pkg/config"
-	"knative.dev/networking/pkg/ingress"
-	"knative.dev/pkg/apis"
-	pkgnet "knative.dev/pkg/network"
+	netapi "knative.dev/serving/networking/pkg/apis/networking"
+	netv1alpha1 "knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
+	netcfg "knative.dev/serving/networking/pkg/config"
+	"knative.dev/serving/networking/pkg/ingress"
+	"knative.dev/serving/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	pkgnet "knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
 )
-
-// HTTPScheme is the string representation of http.
-const HTTPScheme string = "http"
 
 var ErrDomainName = errors.New("domain name error")
 

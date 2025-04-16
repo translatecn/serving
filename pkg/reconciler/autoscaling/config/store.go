@@ -19,11 +19,11 @@ package config
 import (
 	"context"
 
-	network "knative.dev/networking/pkg"
-	netcfg "knative.dev/networking/pkg/config"
-	"knative.dev/pkg/configmap"
+	network "knative.dev/serving/networking/pkg"
+	netcfg "knative.dev/serving/networking/pkg/config"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
+	"knative.dev/serving/pkg/configmap"
 	"knative.dev/serving/pkg/deployment"
 )
 

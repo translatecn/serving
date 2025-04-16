@@ -19,7 +19,7 @@ package v1alpha1
 import (
 	"context"
 
-	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/apis"
 )
 
 // SetDefaults sets defaults on the entire Metric if applicable.

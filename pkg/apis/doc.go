@@ -15,9 +15,4 @@ limitations under the License.
 */
 
 // +k8s:deepcopy-gen=package
-
-// Package apis contains the knative serving and autoscaling apis.
-// Api versions allow the api contract for a resource to be changed while keeping
-// backward compatibility by supporting multiple concurrent versions
-// of the same resource
 package apis

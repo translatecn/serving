@@ -22,7 +22,7 @@ import (
 	"io"
 	"net/http"
 
-	netheader "knative.dev/networking/pkg/http/header"
+	netheader "knative.dev/serving/networking/pkg/http/header"
 	"knative.dev/serving/pkg/activator"
 )
 

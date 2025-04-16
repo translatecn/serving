@@ -21,10 +21,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"knative.dev/pkg/apis"
-	"knative.dev/pkg/kmeta"
+	"knative.dev/serving/pkg/apis"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/kmeta"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
 )
 

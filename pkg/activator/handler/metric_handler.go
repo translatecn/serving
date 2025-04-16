@@ -20,11 +20,11 @@ import (
 	"net/http"
 	"time"
 
-	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/metrics"
+	pkgmetrics "knative.dev/serving/pkg/metrics"
 )
 
 // NewMetricHandler creates a handler that collects and reports request metrics.

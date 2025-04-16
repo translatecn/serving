@@ -21,18 +21,15 @@ package tools
 
 import (
 	_ "k8s.io/code-generator"
-	_ "knative.dev/hack"
-	_ "knative.dev/pkg/configmap/hash-gen"
 
-	// codegen: hack/generate-knative.sh
-	_ "knative.dev/pkg/hack"
+	_ "knative.dev/serving/pkg/codegen/cmd/injection-gen"
 
 	// API reference docs generation.
 	_ "github.com/ahmetb/gen-crd-api-reference-docs"
 	_ "github.com/ahmetb/gen-crd-api-reference-docs/template"
 
 	// Migration job.
-	_ "knative.dev/pkg/apiextensions/storageversion/cmd/migrate"
+	_ "knative.dev/serving/pkg/apiextensions/storageversion/cmd/migrate"
 
 	_ "k8s.io/code-generator/cmd/client-gen"
 	_ "k8s.io/code-generator/cmd/deepcopy-gen"
@@ -40,16 +37,16 @@ import (
 	_ "k8s.io/code-generator/cmd/informer-gen"
 	_ "k8s.io/code-generator/cmd/lister-gen"
 	_ "k8s.io/kube-openapi/cmd/openapi-gen"
-	_ "knative.dev/pkg/codegen/cmd/injection-gen"
+	_ "knative.dev/serving/pkg/codegen/cmd/injection-gen"
 
 	// For chaos testing the leaderelection stuff.
-	_ "knative.dev/pkg/leaderelection/chaosduck"
+	_ "knative.dev/serving/pkg/leaderelection/chaosduck"
 
 	// caching resource
-	_ "knative.dev/caching/config"
+	_ "knative.dev/serving/caching/config"
 
 	// networking resource
-	_ "knative.dev/networking/config"
+	_ "knative.dev/serving/networking/config"
 
 	// For load testing
 	_ "github.com/tsenart/vegeta/v12"

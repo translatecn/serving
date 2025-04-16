@@ -24,8 +24,8 @@ import (
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 
-	pkgreconciler "knative.dev/pkg/reconciler"
 	metricreconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/metric"
+	pkgreconciler "knative.dev/serving/pkg/reconciler"
 )
 
 // reconciler implements controller.Reconciler for Metric resources.

@@ -538,38 +538,10 @@ func LocalObjectReferenceMask(in *corev1.LocalObjectReference) *corev1.LocalObje
 // ConfigMapKeySelectorMask performs a _shallow_ copy of the Kubernetes ConfigMapKeySelector object to a new
 // Kubernetes ConfigMapKeySelector object bringing over only the fields allowed in the Knative API. This
 // does not validate the contents or the bounds of the provided fields.
-func ConfigMapKeySelectorMask(in *corev1.ConfigMapKeySelector) *corev1.ConfigMapKeySelector {
-	if in == nil {
-		return nil
-	}
-
-	out := new(corev1.ConfigMapKeySelector)
-
-	// Allowed fields
-	out.Key = in.Key
-	out.Optional = in.Optional
-	out.LocalObjectReference = in.LocalObjectReference
-
-	return out
-}
 
 // SecretKeySelectorMask performs a _shallow_ copy of the Kubernetes SecretKeySelector object to a new
 // Kubernetes SecretKeySelector object bringing over only the fields allowed in the Knative API. This
 // does not validate the contents or the bounds of the provided fields.
-func SecretKeySelectorMask(in *corev1.SecretKeySelector) *corev1.SecretKeySelector {
-	if in == nil {
-		return nil
-	}
-
-	out := new(corev1.SecretKeySelector)
-
-	// Allowed fields
-	out.Key = in.Key
-	out.Optional = in.Optional
-	out.LocalObjectReference = in.LocalObjectReference
-
-	return out
-}
 
 // ConfigMapEnvSourceMask performs a _shallow_ copy of the Kubernetes ConfigMapEnvSource object to a new
 // Kubernetes ConfigMapEnvSource object bringing over only the fields allowed in the Knative API. This

@@ -24,8 +24,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/tracker"
+	"knative.dev/serving/pkg/over_logging"
+	"knative.dev/serving/pkg/tracker"
 
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -156,7 +156,7 @@ func setRoutingMeta(ctx context.Context, acc accessor, r *v1.Route, name string,
 		if err != nil {
 			return err
 		}
-		logger := logging.FromContext(ctx)
+		logger := over_logging.FromContext(ctx)
 		logger.Debugf("Labeler V2 applying patch to %q. patch: %q", name, mergePatch)
 		return acc.patch(ctx, r.Namespace, name, types.MergePatchType, patch)
 	}

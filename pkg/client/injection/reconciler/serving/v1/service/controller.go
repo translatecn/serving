@@ -32,14 +32,14 @@ import (
 	scheme "k8s.io/client-go/kubernetes/scheme"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	record "k8s.io/client-go/tools/record"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	controller "knative.dev/pkg/controller"
-	logging "knative.dev/pkg/logging"
-	logkey "knative.dev/pkg/logging/logkey"
-	reconciler "knative.dev/pkg/reconciler"
 	versionedscheme "knative.dev/serving/pkg/client/clientset/versioned/scheme"
 	client "knative.dev/serving/pkg/client/injection/client"
 	service "knative.dev/serving/pkg/client/injection/informers/serving/v1/service"
+	kubeclient "knative.dev/serving/pkg/client/injection/kube/client"
+	controller "knative.dev/serving/pkg/controller"
+	logging "knative.dev/serving/pkg/over_logging"
+	logkey "knative.dev/serving/pkg/over_logging/logkey"
+	reconciler "knative.dev/serving/pkg/reconciler"
 )
 
 const (

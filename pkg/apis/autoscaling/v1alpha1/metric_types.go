@@ -20,9 +20,9 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/apis"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"knative.dev/pkg/kmeta"
+	"knative.dev/serving/pkg/apis"
+	duckv1 "knative.dev/serving/pkg/apis/duck/v1"
+	"knative.dev/serving/pkg/kmeta"
 )
 
 // Metric represents a resource to configure the metric collector with.

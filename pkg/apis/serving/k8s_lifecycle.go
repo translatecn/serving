@@ -20,8 +20,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 
-	"knative.dev/pkg/apis"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/serving/pkg/apis"
+	duckv1 "knative.dev/serving/pkg/apis/duck/v1"
 )
 
 var depCondSet = apis.NewLivingConditionSet(

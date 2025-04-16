@@ -21,7 +21,7 @@ import (
 	"context"
 	"fmt"
 
-	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/apis"
 )
 
 // ConvertTo implements apis.Convertible

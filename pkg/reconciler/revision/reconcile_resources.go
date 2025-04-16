@@ -21,8 +21,8 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
-	"knative.dev/pkg/tracker"
 	networkingaccessor "knative.dev/serving/pkg/reconciler/accessor/networking"
+	"knative.dev/serving/pkg/tracker"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -30,14 +30,14 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	networkingApi "knative.dev/networking/pkg/apis/networking"
-	"knative.dev/networking/pkg/certificates"
-	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/kmp"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/logging/logkey"
+	networkingApi "knative.dev/serving/networking/pkg/apis/networking"
+	"knative.dev/serving/networking/pkg/certificates"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/kmeta"
 	"knative.dev/serving/pkg/networking"
+	"knative.dev/serving/pkg/over_kmp"
+	"knative.dev/serving/pkg/over_logging"
+	"knative.dev/serving/pkg/over_logging/logkey"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
@@ -46,7 +46,7 @@ import (
 func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) error {
 	ns := rev.Namespace
 	deploymentName := resourcenames.Deployment(rev)
-	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
+	logger := over_logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
 
 	deployment, err := c.deploymentLister.Deployments(ns).Get(deploymentName)
 	if apierrs.IsNotFound(err) {
@@ -128,7 +128,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 }
 
 func (c *Reconciler) reconcileImageCache(ctx context.Context, rev *v1.Revision) error {
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 
 	ns := rev.Namespace
 	// Revisions are immutable.
@@ -157,7 +157,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 	}
 
 	paName := resourcenames.PA(rev)
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	logger.Info("Reconciling PA: ", paName)
 
 	pa, err := c.podAutoscalerLister.PodAutoscalers(ns).Get(paName)
@@ -181,7 +181,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 	tmpl := resources.MakePA(rev, deployment)
 	logger.Debugf("Desired PASpec: %#v", tmpl.Spec)
 	if !equality.Semantic.DeepEqual(tmpl.Spec, pa.Spec) {
-		diff, _ := kmp.SafeDiff(tmpl.Spec, pa.Spec) // Can't realistically fail on PASpec.
+		diff, _ := over_kmp.SafeDiff(tmpl.Spec, pa.Spec) // Can't realistically fail on PASpec.
 		logger.Infof("PA %s needs reconciliation, diff(-want,+got):\n%s", pa.Name, diff)
 
 		want := pa.DeepCopy()
@@ -213,7 +213,7 @@ func hasDeploymentTimedOut(deployment *appsv1.Deployment) bool {
 
 func (c *Reconciler) reconcileQueueProxyCertificate(ctx context.Context, rev *v1.Revision) error {
 	ns := rev.Namespace
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	logger.Infof("Reconciling queue-proxy Knative Certificate for system-internal-tls: %s/%s", ns, networking.ServingCertName)
 
 	certClass := config.FromContext(ctx).Network.DefaultCertificateClass

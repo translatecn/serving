@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	cm "knative.dev/pkg/configmap"
+	cm "knative.dev/serving/pkg/configmap"
 )
 
 // Flag is a string value which can be either Enabled, Disabled, or Allowed.
@@ -51,13 +51,12 @@ const (
 	AllowHTTPFullDuplexFeatureKey = "features.knative.dev/http-full-duplex"
 )
 
-// Feature config map keys that are used in schema-tweak
 const (
-	FeatureContainerSpecAddCapabilities     = "kubernetes.containerspec-addcapabilities"
-	FeaturePodSpecAffinity                  = "kubernetes.podspec-affinity"
-	FeaturePodSpecDNSConfig                 = "kubernetes.podspec-dnsconfig"
-	FeaturePodSpecDNSPolicy                 = "kubernetes.podspec-dnspolicy"
-	FeaturePodSpecDryRun                    = "kubernetes.podspec-dryrun"
+	FeatureContainerSpecAddCapabilities = "kubernetes.containerspec-addcapabilities"
+	FeaturePodSpecAffinity              = "kubernetes.podspec-affinity"
+	FeaturePodSpecDNSConfig             = "kubernetes.podspec-dnsconfig"
+	FeaturePodSpecDNSPolicy             = "kubernetes.podspec-dnspolicy"
+
 	FeaturePodSpecEmptyDir                  = "kubernetes.podspec-volumes-emptydir"
 	FeaturePodSpecFieldRef                  = "kubernetes.podspec-fieldref"
 	FeaturePodSpecHostAliases               = "kubernetes.podspec-hostaliases"

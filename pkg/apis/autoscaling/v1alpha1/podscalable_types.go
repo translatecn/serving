@@ -20,8 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"knative.dev/pkg/apis"
-	"knative.dev/pkg/apis/duck"
+	"knative.dev/serving/pkg/apis/duck"
 )
 
 // +genduck
@@ -53,12 +52,6 @@ type PodScalableSpec struct {
 type PodScalableStatus struct {
 	Replicas int32 `json:"replicas,omitempty"`
 }
-
-var (
-	_ duck.Populatable   = (*PodScalable)(nil)
-	_ duck.Implementable = (*PodScalable)(nil)
-	_ apis.Listable      = (*PodScalable)(nil)
-)
 
 // GetFullType implements duck.Implementable
 func (*PodScalable) GetFullType() duck.Populatable {

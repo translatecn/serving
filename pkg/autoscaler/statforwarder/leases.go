@@ -33,47 +33,15 @@ import (
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	leaseinformer "knative.dev/pkg/client/injection/kube/informers/coordination/v1/lease"
-	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/hash"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/autoscaler/bucket"
+	kubeclient "knative.dev/serving/pkg/client/injection/kube/client"
+	leaseinformer "knative.dev/serving/pkg/client/injection/kube/informers/coordination/v1/lease"
+	endpointsinformer "knative.dev/serving/pkg/client/injection/kube/informers/core/v1/endpoints"
+	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/hash"
+	"knative.dev/serving/pkg/over_logging"
+	"knative.dev/serving/pkg/system"
 )
-
-// LeaseBasedProcessor tracks leases and decodes the holder's identity in order to set the
-// appropriate "processor" on the Forwarder.
-func LeaseBasedProcessor(ctx context.Context, f *Forwarder, accept statProcessor) error {
-	selfIP, err := bucket.PodIP()
-	if err != nil {
-		return err
-	}
-	endpointsInformer := endpointsinformer.Get(ctx)
-	lt := &leaseTracker{
-		logger:          logging.FromContext(ctx),
-		selfIP:          selfIP,
-		bs:              f.bs,
-		kc:              kubeclient.Get(ctx),
-		endpointsLister: endpointsInformer.Lister(),
-		id2ip:           make(map[string]string),
-		accept:          accept,
-		fwd:             f,
-	}
-
-	leaseInformer := leaseinformer.Get(ctx)
-	leaseInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: lt.filterFunc(system.Namespace()),
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    lt.leaseUpdated,
-			UpdateFunc: controller.PassNew(lt.leaseUpdated),
-			// TODO(yanweiguo): Set up DeleteFunc.
-		},
-	})
-
-	return nil
-}
 
 // leaseTracker monitors lease resources to update the Forwarder's processor configuration(s)
 // with the appropriate owner's stats endpoint.  When we own the lease, a localProcessor is
@@ -143,6 +111,106 @@ func (f *leaseTracker) filterFunc(namespace string) func(interface{}) bool {
 
 		return true
 	}
+}
+
+// createOrUpdateEndpoints creates an Endpoints object with the given namespace and
+// name, and the Forwarder.selfIP. If the Endpoints object already
+// exists, it will update the Endpoints with the Forwarder.selfIP.
+func (f *leaseTracker) createOrUpdateEndpoints(ctx context.Context, ns, n string) error {
+	wantSubsets := []corev1.EndpointSubset{{
+		Addresses: []corev1.EndpointAddress{{
+			IP: f.selfIP,
+		}},
+		Ports: []corev1.EndpointPort{{
+			Name:     autoscalerPortName,
+			Port:     autoscalerPort,
+			Protocol: corev1.ProtocolTCP,
+		}},
+	}}
+
+	exists := true
+	var lastErr error
+	if err := wait.PollUntilContextTimeout(ctx, retryInterval, retryTimeout, true, func(context.Context) (bool, error) {
+		e, err := f.endpointsLister.Endpoints(ns).Get(n)
+		if apierrs.IsNotFound(err) {
+			exists = false
+			return true, nil
+		}
+
+		if err != nil {
+			lastErr = err
+			// Do not return the error to cause a retry.
+			return false, nil //nolint:nilerr
+		}
+
+		if equality.Semantic.DeepEqual(wantSubsets, e.Subsets) {
+			return true, nil
+		}
+
+		want := e.DeepCopy()
+		want.Subsets = wantSubsets
+		if _, lastErr = f.kc.CoreV1().Endpoints(ns).Update(ctx, want, metav1.UpdateOptions{}); lastErr != nil {
+			// Do not return the error to cause a retry.
+			return false, nil //nolint:nilerr
+		}
+
+		f.logger.Infof("Bucket Endpoints %s updated with IP %s", n, f.selfIP)
+		return true, nil
+	}); err != nil {
+		return lastErr
+	}
+
+	if exists {
+		return nil
+	}
+
+	if err := wait.PollUntilContextTimeout(ctx, retryInterval, retryTimeout, true, func(context.Context) (bool, error) {
+		_, lastErr = f.kc.CoreV1().Endpoints(ns).Create(ctx, &corev1.Endpoints{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      n,
+				Namespace: ns,
+			},
+			Subsets: wantSubsets,
+		}, metav1.CreateOptions{})
+		// Do not return the error to cause a retry.
+		return lastErr == nil, nil
+	}); err != nil {
+		return lastErr
+	}
+
+	return nil
+}
+
+// LeaseBasedProcessor tracks leases and decodes the holder's identity in order to set the
+// appropriate "processor" on the Forwarder.
+func LeaseBasedProcessor(ctx context.Context, f *Forwarder, accept statProcessor) error {
+	selfIP, err := bucket.PodIP()
+	if err != nil {
+		return err
+	}
+	endpointsInformer := endpointsinformer.Get(ctx)
+	lt := &leaseTracker{
+		logger:          over_logging.FromContext(ctx),
+		selfIP:          selfIP,
+		bs:              f.bs,
+		kc:              kubeclient.Get(ctx),
+		endpointsLister: endpointsInformer.Lister(),
+		id2ip:           make(map[string]string),
+		accept:          accept,
+		fwd:             f,
+	}
+
+	leaseInformer := leaseinformer.Get(ctx)
+	leaseInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: lt.filterFunc(system.Namespace()),
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    lt.leaseUpdated,
+			UpdateFunc: controller.PassNew(lt.leaseUpdated),
+			// TODO(yanweiguo): Set up DeleteFunc.
+		},
+	})
+
+	return nil
 }
 
 func (f *leaseTracker) leaseUpdated(obj interface{}) {
@@ -223,74 +291,6 @@ func (f *leaseTracker) createService(ctx context.Context, ns, n string) error {
 			return true, nil
 		}
 
-		// Do not return the error to cause a retry.
-		return lastErr == nil, nil
-	}); err != nil {
-		return lastErr
-	}
-
-	return nil
-}
-
-// createOrUpdateEndpoints creates an Endpoints object with the given namespace and
-// name, and the Forwarder.selfIP. If the Endpoints object already
-// exists, it will update the Endpoints with the Forwarder.selfIP.
-func (f *leaseTracker) createOrUpdateEndpoints(ctx context.Context, ns, n string) error {
-	wantSubsets := []corev1.EndpointSubset{{
-		Addresses: []corev1.EndpointAddress{{
-			IP: f.selfIP,
-		}},
-		Ports: []corev1.EndpointPort{{
-			Name:     autoscalerPortName,
-			Port:     autoscalerPort,
-			Protocol: corev1.ProtocolTCP,
-		}},
-	}}
-
-	exists := true
-	var lastErr error
-	if err := wait.PollUntilContextTimeout(ctx, retryInterval, retryTimeout, true, func(context.Context) (bool, error) {
-		e, err := f.endpointsLister.Endpoints(ns).Get(n)
-		if apierrs.IsNotFound(err) {
-			exists = false
-			return true, nil
-		}
-
-		if err != nil {
-			lastErr = err
-			// Do not return the error to cause a retry.
-			return false, nil //nolint:nilerr
-		}
-
-		if equality.Semantic.DeepEqual(wantSubsets, e.Subsets) {
-			return true, nil
-		}
-
-		want := e.DeepCopy()
-		want.Subsets = wantSubsets
-		if _, lastErr = f.kc.CoreV1().Endpoints(ns).Update(ctx, want, metav1.UpdateOptions{}); lastErr != nil {
-			// Do not return the error to cause a retry.
-			return false, nil //nolint:nilerr
-		}
-
-		f.logger.Infof("Bucket Endpoints %s updated with IP %s", n, f.selfIP)
-		return true, nil
-	}); err != nil {
-		return lastErr
-	}
-
-	if exists {
-		return nil
-	}
-
-	if err := wait.PollUntilContextTimeout(ctx, retryInterval, retryTimeout, true, func(context.Context) (bool, error) {
-		_, lastErr = f.kc.CoreV1().Endpoints(ns).Create(ctx, &corev1.Endpoints{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      n,
-				Namespace: ns,
-			},
-			Subsets: wantSubsets,
-		}, metav1.CreateOptions{})
 		// Do not return the error to cause a retry.
 		return lastErr == nil, nil
 	}); err != nil {

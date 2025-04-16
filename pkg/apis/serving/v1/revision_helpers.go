@@ -20,9 +20,9 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	net "knative.dev/networking/pkg/apis/networking"
-	"knative.dev/pkg/kmeta"
+	net "knative.dev/serving/networking/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/kmeta"
 )
 
 const (
@@ -51,8 +51,6 @@ const (
 type RoutingState string
 
 const (
-	// RoutingStateUnset is the empty value for routing state, this state is unexpected.
-	RoutingStateUnset RoutingState = ""
 
 	// RoutingStatePending is a state after a revision is created, but before
 	// its routing state has been determined. It is treated like active for the purposes

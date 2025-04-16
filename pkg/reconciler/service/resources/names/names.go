@@ -16,7 +16,7 @@ limitations under the License.
 
 package names
 
-import "knative.dev/pkg/kmeta"
+import "knative.dev/serving/pkg/kmeta"
 
 // Configuration returns a configuration name based on a given service name.
 func Configuration(service kmeta.Accessor) string {

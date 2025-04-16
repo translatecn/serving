@@ -19,10 +19,10 @@ package resources
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/networking/pkg/apis/networking"
-	"knative.dev/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/networking/pkg/certificates"
-	"knative.dev/networking/pkg/config"
+	"knative.dev/serving/networking/pkg/apis/networking"
+	"knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/networking/pkg/certificates"
+	"knative.dev/serving/networking/pkg/config"
 	servingnetworking "knative.dev/serving/pkg/networking"
 )
 

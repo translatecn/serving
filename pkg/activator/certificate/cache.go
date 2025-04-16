@@ -22,6 +22,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+
 	"sync"
 
 	"go.uber.org/zap"
@@ -30,16 +31,16 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	v1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"knative.dev/networking/pkg/apis/networking"
-	"knative.dev/pkg/reconciler"
+	"knative.dev/serving/networking/pkg/apis/networking"
+	"knative.dev/serving/pkg/reconciler"
 
-	"knative.dev/networking/pkg/certificates"
-	netcfg "knative.dev/networking/pkg/config"
-	"knative.dev/pkg/controller"
-	nsconfigmapinformer "knative.dev/pkg/injection/clients/namespacedkube/informers/core/v1/configmap"
-	nssecretinformer "knative.dev/pkg/injection/clients/namespacedkube/informers/core/v1/secret"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/system"
+	"knative.dev/serving/networking/pkg/certificates"
+	netcfg "knative.dev/serving/networking/pkg/config"
+	"knative.dev/serving/pkg/controller"
+	nsconfigmapinformer "knative.dev/serving/pkg/injection/clients/namespacedkube/informers/core/v1/configmap"
+	nssecretinformer "knative.dev/serving/pkg/injection/clients/namespacedkube/informers/core/v1/secret"
+	"knative.dev/serving/pkg/over_logging"
+	"knative.dev/serving/pkg/system"
 )
 
 // CertCache caches certificates and CA pool.
@@ -62,7 +63,7 @@ func NewCertCache(ctx context.Context) (*CertCache, error) {
 	cr := &CertCache{
 		secretInformer:    nsSecretInformer,
 		configmapInformer: nsConfigmapInformer,
-		logger:            logging.FromContext(ctx),
+		logger:            over_logging.FromContext(ctx),
 	}
 
 	secret, err := cr.secretInformer.Lister().Secrets(system.Namespace()).Get(netcfg.ServingRoutingCertName)

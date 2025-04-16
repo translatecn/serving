@@ -33,22 +33,21 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/utils/clock"
 
-	"knative.dev/networking/pkg/apis/networking"
-	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
-	netclientset "knative.dev/networking/pkg/client/clientset/versioned"
-	networkinglisters "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
-	netcfg "knative.dev/networking/pkg/config"
-	"knative.dev/pkg/apis"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
-	pkgreconciler "knative.dev/pkg/reconciler"
-	"knative.dev/pkg/tracker"
+	"knative.dev/serving/networking/pkg/apis/networking"
+	netv1alpha1 "knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
+	netclientset "knative.dev/serving/networking/pkg/client/clientset/versioned"
+	networkinglisters "knative.dev/serving/networking/pkg/client/listers/networking/v1alpha1"
+	netcfg "knative.dev/serving/networking/pkg/config"
+	"knative.dev/serving/pkg/apis"
+	duckv1 "knative.dev/serving/pkg/apis/duck/v1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
+	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/over_logging"
+	pkgreconciler "knative.dev/serving/pkg/reconciler"
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 	networkaccessor "knative.dev/serving/pkg/reconciler/accessor/networking"
 	"knative.dev/serving/pkg/reconciler/route/config"
@@ -58,6 +57,7 @@ import (
 	resourcenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 	"knative.dev/serving/pkg/reconciler/route/visibility"
+	"knative.dev/serving/pkg/tracker"
 )
 
 // Reconciler implements controller.Reconciler for Route resources.
@@ -103,7 +103,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
 	defer cancel()
 
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	logger.Debugf("Reconciling route: %#v", r.Spec)
 
 	// When a new generation is observed for the first time, we need to make sure that we
@@ -206,7 +206,7 @@ func (c *Reconciler) externalDomainTLS(ctx context.Context, host string, r *v1.R
 	error,
 ) {
 	var desiredCerts []*netv1alpha1.Certificate
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 
 	tls := []netv1alpha1.IngressTLS{}
 	if !externalDomainTLSEnabled(ctx, r) {
@@ -428,7 +428,7 @@ func (c *Reconciler) deleteOrphanedCerts(ctx context.Context, orphanCerts []*net
 // If traffic is configured we update the RouteStatus with AllTrafficAssigned = True.  Otherwise we
 // mark AllTrafficAssigned = False, with a message referring to one of the missing target.
 func (c *Reconciler) configureTraffic(ctx context.Context, r *v1.Route) (*traffic.Config, error) {
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	t, trafficErr := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
 	if t == nil {
 		return nil, trafficErr
@@ -584,7 +584,7 @@ func externalDomainTLSEnabled(ctx context.Context, r *v1.Route) bool {
 		return false
 	}
 
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	annotationValue := networking.GetDisableExternalDomainTLS(r.Annotations)
 
 	disabledByAnnotation, err := strconv.ParseBool(annotationValue)
@@ -609,7 +609,7 @@ func findMatchingWildcardCert(ctx context.Context, domains []string, certs []*ne
 
 func wildcardCertMatches(ctx context.Context, domains []string, cert *netv1alpha1.Certificate) bool {
 	dnsNames := make(sets.Set[string], len(cert.Spec.DNSNames))
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 
 	for _, dns := range cert.Spec.DNSNames {
 		dnsParts := strings.SplitAfterN(dns, ".", 2)

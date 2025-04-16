@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 
 	// The set of controllers this controller process runs.
 	"flag"
@@ -27,13 +28,11 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	netcfg "knative.dev/networking/pkg/config"
-	"knative.dev/pkg/injection"
-	"knative.dev/pkg/injection/sharedmain"
-	"knative.dev/pkg/reconciler"
-	"knative.dev/pkg/signals"
-	"knative.dev/pkg/system"
+	netcfg "knative.dev/serving/networking/pkg/config"
+	"knative.dev/serving/pkg/injection"
+	"knative.dev/serving/pkg/injection/sharedmain"
 	"knative.dev/serving/pkg/networking"
+	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/certificate"
 	"knative.dev/serving/pkg/reconciler/configuration"
 	"knative.dev/serving/pkg/reconciler/domainmapping"
@@ -44,6 +43,8 @@ import (
 	"knative.dev/serving/pkg/reconciler/route"
 	"knative.dev/serving/pkg/reconciler/serverlessservice"
 	"knative.dev/serving/pkg/reconciler/service"
+	"knative.dev/serving/pkg/signals"
+	"knative.dev/serving/pkg/system"
 
 	versioned "github.com/cert-manager/cert-manager/pkg/client/clientset/versioned"
 	"knative.dev/serving/pkg/client/certmanager/injection/informers/acme/v1/challenge"
@@ -63,6 +64,14 @@ var ctors = []injection.ControllerConstructor{
 	gc.NewController,
 	nscert.NewController,
 	domainmapping.NewController,
+}
+
+func init() {
+	os.Setenv("CONFIG_LOGGING_NAME", "logging")
+	os.Setenv("CONFIG_OBSERVABILITY_NAME", "config-observability")
+	os.Setenv("POD_NAME", "ace")
+	os.Setenv("SYSTEM_NAMESPACE", "knative-serving")
+	os.Setenv("KUBECONFIG", "/Users/acejilam/.kube/koord")
 }
 
 func main() {

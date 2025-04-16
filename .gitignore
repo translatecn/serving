@@ -1,11 +1,7 @@
-# Operating system temporary files
-.DS_Store
-
-# Editor/IDE specific settings
 .idea
-.vscode/
-*.iml
-
-# Temporary output of build tools
-bazel-*
-*.out
+vendor
+out
+tmp
+./diff
+# Ignore DevSpace cache and log folder
+.devspace/

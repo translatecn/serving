@@ -19,14 +19,14 @@ package config
 import (
 	"context"
 
-	network "knative.dev/networking/pkg"
-	netcfg "knative.dev/networking/pkg/config"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/metrics"
-	pkgtracing "knative.dev/pkg/tracing/config"
+	network "knative.dev/serving/networking/pkg"
+	netcfg "knative.dev/serving/networking/pkg/config"
 	apiconfig "knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/configmap"
 	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/metrics"
+	"knative.dev/serving/pkg/over_logging"
+	pkgtracing "knative.dev/serving/pkg/tracing/config"
 )
 
 type cfgKey struct{}
@@ -35,7 +35,7 @@ type cfgKey struct{}
 type Config struct {
 	*apiconfig.Config
 	Deployment    *deployment.Config
-	Logging       *logging.Config
+	Logging       *over_logging.Config
 	Network       *netcfg.Config
 	Observability *metrics.ObservabilityConfig
 	Tracing       *pkgtracing.Config
@@ -64,11 +64,11 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 			"revision",
 			logger,
 			configmap.Constructors{
-				deployment.ConfigName:   deployment.NewConfigFromConfigMap,
-				logging.ConfigMapName(): logging.NewConfigFromConfigMap,
-				metrics.ConfigMapName(): metrics.NewObservabilityConfigFromConfigMap,
-				netcfg.ConfigMapName:    network.NewConfigFromConfigMap,
-				pkgtracing.ConfigName:   pkgtracing.NewTracingConfigFromConfigMap,
+				deployment.ConfigName:        deployment.NewConfigFromConfigMap,
+				over_logging.ConfigMapName(): over_logging.NewConfigFromConfigMap,
+				metrics.ConfigMapName():      metrics.NewObservabilityConfigFromConfigMap,
+				netcfg.ConfigMapName:         network.NewConfigFromConfigMap,
+				pkgtracing.ConfigName:        pkgtracing.NewTracingConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),
@@ -99,7 +99,7 @@ func (s *Store) Load() *Config {
 	if dep, ok := s.UntypedLoad(deployment.ConfigName).(*deployment.Config); ok {
 		cfg.Deployment = dep.DeepCopy()
 	}
-	if log, ok := s.UntypedLoad(logging.ConfigMapName()).(*logging.Config); ok {
+	if log, ok := s.UntypedLoad(over_logging.ConfigMapName()).(*over_logging.Config); ok {
 		cfg.Logging = log.DeepCopy()
 	}
 	if net, ok := s.UntypedLoad(netcfg.ConfigMapName).(*netcfg.Config); ok {

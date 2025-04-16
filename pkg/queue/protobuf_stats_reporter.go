@@ -23,8 +23,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	netheader "knative.dev/networking/pkg/http/header"
-	netstats "knative.dev/networking/pkg/http/stats"
+	netheader "knative.dev/serving/networking/pkg/http/header"
+	netstats "knative.dev/serving/networking/pkg/http/stats"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 )
 

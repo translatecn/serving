@@ -24,8 +24,8 @@ import (
 	"net/http"
 	"sync"
 
-	nethttp "knative.dev/networking/pkg/http"
-	netheader "knative.dev/networking/pkg/http/header"
+	nethttp "knative.dev/serving/networking/pkg/http"
+	netheader "knative.dev/serving/networking/pkg/http/header"
 )
 
 var errUnsupportedMetricType = errors.New("unsupported metric type")

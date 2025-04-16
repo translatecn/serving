@@ -19,9 +19,9 @@ package handler
 import (
 	"net/http"
 
-	"knative.dev/pkg/tracing"
-	tracingconfig "knative.dev/pkg/tracing/config"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
+	"knative.dev/serving/pkg/tracing"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
 )
 
 // NewTracingHandler creates a wrapper around tracing.HTTPSpanMiddleware that completely

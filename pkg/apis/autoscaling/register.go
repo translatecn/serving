@@ -19,7 +19,7 @@ package autoscaling
 import (
 	"time"
 
-	"knative.dev/pkg/kmap"
+	"knative.dev/serving/pkg/over_kmap"
 )
 
 const (
@@ -224,60 +224,60 @@ const (
 )
 
 var (
-	ClassAnnotation = kmap.KeyPriority{
+	ClassAnnotation = over_kmap.KeyPriority{
 		ClassAnnotationKey,
 	}
-	InitialScaleAnnotation = kmap.KeyPriority{
+	InitialScaleAnnotation = over_kmap.KeyPriority{
 		InitialScaleAnnotationKey,
 		GroupName + "/initialScale",
 	}
 
-	MaxScaleAnnotation = kmap.KeyPriority{
+	MaxScaleAnnotation = over_kmap.KeyPriority{
 		MaxScaleAnnotationKey,
 		GroupName + "/maxScale",
 	}
-	MetricAnnotation = kmap.KeyPriority{
+	MetricAnnotation = over_kmap.KeyPriority{
 		MetricAnnotationKey,
 	}
-	MetricAggregationAlgorithmAnnotation = kmap.KeyPriority{
+	MetricAggregationAlgorithmAnnotation = over_kmap.KeyPriority{
 		MetricAggregationAlgorithmKey,
 		GroupName + "/metricAggregationAlgorithm",
 	}
-	ActivationScale = kmap.KeyPriority{
+	ActivationScale = over_kmap.KeyPriority{
 		ActivationScaleKey,
 	}
-	MinScaleAnnotation = kmap.KeyPriority{
+	MinScaleAnnotation = over_kmap.KeyPriority{
 		MinScaleAnnotationKey,
 		GroupName + "/minScale",
 	}
-	PanicThresholdPercentageAnnotation = kmap.KeyPriority{
+	PanicThresholdPercentageAnnotation = over_kmap.KeyPriority{
 		PanicThresholdPercentageAnnotationKey,
 		GroupName + "/panicThresholdPercentage",
 	}
-	PanicWindowPercentageAnnotation = kmap.KeyPriority{
+	PanicWindowPercentageAnnotation = over_kmap.KeyPriority{
 		PanicWindowPercentageAnnotationKey,
 		GroupName + "/panicWindowPercentage",
 	}
-	ScaleDownDelayAnnotation = kmap.KeyPriority{
+	ScaleDownDelayAnnotation = over_kmap.KeyPriority{
 		ScaleDownDelayAnnotationKey,
 		GroupName + "/scaleDownDelay",
 	}
-	ScaleToZeroPodRetentionPeriodAnnotation = kmap.KeyPriority{
+	ScaleToZeroPodRetentionPeriodAnnotation = over_kmap.KeyPriority{
 		ScaleToZeroPodRetentionPeriodKey,
 		GroupName + "/scaleToZeroPodRetentionPeriod",
 	}
-	TargetAnnotation = kmap.KeyPriority{
+	TargetAnnotation = over_kmap.KeyPriority{
 		TargetAnnotationKey,
 	}
-	TargetBurstCapacityAnnotation = kmap.KeyPriority{
+	TargetBurstCapacityAnnotation = over_kmap.KeyPriority{
 		TargetBurstCapacityKey,
 		GroupName + "/targetBurstCapacity",
 	}
-	TargetUtilizationPercentageAnnotation = kmap.KeyPriority{
+	TargetUtilizationPercentageAnnotation = over_kmap.KeyPriority{
 		TargetUtilizationPercentageKey,
 		GroupName + "/targetUtilizationPercentage",
 	}
-	WindowAnnotation = kmap.KeyPriority{
+	WindowAnnotation = over_kmap.KeyPriority{
 		WindowAnnotationKey,
 	}
 )

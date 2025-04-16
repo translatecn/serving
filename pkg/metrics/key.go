@@ -18,7 +18,7 @@ package metrics
 
 import (
 	"go.opencensus.io/tag"
-	"knative.dev/pkg/metrics/metricskey"
+	"knative.dev/serving/pkg/metrics/metricskey"
 )
 
 const (
@@ -27,9 +27,6 @@ const (
 
 	// LabelServiceName is the label for the deployed service name
 	LabelServiceName = "service_name"
-
-	// LabelRouteName is the label for immutable name of the route that receives the request
-	LabelRouteName = "route_name"
 
 	// LabelRouteTag is the label for immutable name of the route tag that receives the request
 	LabelRouteTag = "route_tag"
@@ -54,16 +51,6 @@ const (
 
 	// LabelResponseCodeClass is the label for the HTTP response status code class. For example, "2xx", "3xx", etc.
 	LabelResponseCodeClass = metricskey.LabelResponseCodeClass
-
-	// LabelResponseError is the label for client error. For HTTP, A non-2xx status code doesn't cause an error.
-	LabelResponseError = metricskey.LabelResponseError
-
-	// LabelResponseTimeout is the label timeout.
-	LabelResponseTimeout = metricskey.LabelResponseTimeout
-
-	// ValueUnknown is the default value if the field is unknown, e.g. project will be unknown if Knative
-	// is not running on GKE.
-	ValueUnknown = metricskey.ValueUnknown
 )
 
 // Create the tag keys that will be used to add tags to our measurements.

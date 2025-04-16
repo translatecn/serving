@@ -32,58 +32,54 @@ import (
 	"go.uber.org/zap"
 
 	// Injection related imports.
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/injection"
 	"knative.dev/serving/pkg/activator"
+	kubeclient "knative.dev/serving/pkg/client/injection/kube/client"
 	"knative.dev/serving/pkg/http/handler"
+	"knative.dev/serving/pkg/injection"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	network "knative.dev/networking/pkg"
-	netcfg "knative.dev/networking/pkg/config"
-	netprobe "knative.dev/networking/pkg/http/probe"
-	"knative.dev/pkg/configmap"
-	configmapinformer "knative.dev/pkg/configmap/informer"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/injection/sharedmain"
-	pkglogging "knative.dev/pkg/logging"
-	"knative.dev/pkg/logging/logkey"
-	"knative.dev/pkg/metrics"
-	pkgnet "knative.dev/pkg/network"
-	"knative.dev/pkg/profiling"
-	"knative.dev/pkg/signals"
-	"knative.dev/pkg/system"
-	"knative.dev/pkg/tracing"
-	tracingconfig "knative.dev/pkg/tracing/config"
-	"knative.dev/pkg/version"
-	"knative.dev/pkg/websocket"
+	network "knative.dev/serving/networking/pkg"
+	netcfg "knative.dev/serving/networking/pkg/config"
+	netprobe "knative.dev/serving/networking/pkg/http/over_probe"
 	"knative.dev/serving/pkg/activator/certificate"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	activatorhandler "knative.dev/serving/pkg/activator/handler"
 	activatornet "knative.dev/serving/pkg/activator/net"
 	apiconfig "knative.dev/serving/pkg/apis/config"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
+	"knative.dev/serving/pkg/configmap"
+	configmapinformer "knative.dev/serving/pkg/configmap/informer"
+	"knative.dev/serving/pkg/controller"
 	pkghttp "knative.dev/serving/pkg/http"
-	"knative.dev/serving/pkg/logging"
+	"knative.dev/serving/pkg/injection/sharedmain"
+	"knative.dev/serving/pkg/metrics"
+	pkgnet "knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/networking"
+	"knative.dev/serving/pkg/over_logging"
+	pkglogging "knative.dev/serving/pkg/over_logging"
+	"knative.dev/serving/pkg/over_logging/logkey"
+	"knative.dev/serving/pkg/over_profiling"
+	"knative.dev/serving/pkg/over_version"
+	"knative.dev/serving/pkg/signals"
+	"knative.dev/serving/pkg/system"
+	"knative.dev/serving/pkg/tracing"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
+	"knative.dev/serving/pkg/websocket"
 )
 
 const (
 	component = "activator"
-
 	// The port on which autoscaler WebSocket server listens.
 	autoscalerPort = ":8080"
 )
 
 type config struct {
-	PodName string `split_words:"true" required:"true"`
-	PodIP   string `split_words:"true" required:"true"`
-
-	// These are here to allow configuring higher values of keep-alive for larger environments.
-	// TODO: run loadtests using these flags to determine optimal default values.
-	MaxIdleProxyConns        int `split_words:"true" default:"1000"`
-	MaxIdleProxyConnsPerHost int `split_words:"true" default:"100"`
+	PodName                  string `split_words:"true" required:"true"`
+	PodIP                    string `split_words:"true" required:"true"`
+	MaxIdleProxyConns        int    `split_words:"true" default:"1000"`
+	MaxIdleProxyConnsPerHost int    `split_words:"true" default:"100"`
 }
 
 func main() {
@@ -112,7 +108,7 @@ func main() {
 	// We sometimes startup faster than we can reach kube-api. Poll on failure to prevent us terminating
 	var err error
 	if perr := wait.PollUntilContextTimeout(ctx, time.Second, 60*time.Second, true, func(context.Context) (bool, error) {
-		if err = version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
+		if err = over_version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
 			log.Print("Failed to get k8s version ", err)
 		}
 		return err == nil, nil
@@ -146,6 +142,8 @@ func main() {
 	// reconnect for the first request after the probe succeeds.
 	logger.Debugf("MaxIdleProxyConns: %d, MaxIdleProxyConnsPerHost: %d", env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
 	transport := pkgnet.NewProxyAutoTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
+
+	// ✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅
 
 	// Fetch networking configuration to determine whether EnableMeshPodAddressability
 	// is enabled or not.
@@ -211,7 +209,8 @@ func main() {
 
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
-	ah := activatorhandler.New(ctx, throttler, transport, networkConfig.EnableMeshPodAddressability, logger, tlsEnabled)
+	// ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️
+	ah := activatorhandler.New(ctx, throttler, transport, networkConfig.EnableMeshPodAddressability, logger, tlsEnabled) // 开始转发了
 	ah = handler.NewTimeoutHandler(ah, "activator request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
 		if rev := activatorhandler.RevisionFrom(r.Context()); rev != nil {
 			responseStartTimeout := 0 * time.Second
@@ -228,10 +227,9 @@ func main() {
 			apiconfig.DefaultRevisionResponseStartTimeoutSeconds * time.Second,
 			apiconfig.DefaultRevisionIdleTimeoutSeconds * time.Second
 	})
-	ah = concurrencyReporter.Handler(ah)
-	ah = activatorhandler.NewTracingHandler(ah)
-	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, logging.NewSyncFileWriter(os.Stdout), "",
-		requestLogTemplateInputGetter, false /*enableProbeRequestLog*/)
+	ah = concurrencyReporter.Handler(ah)        // ✅
+	ah = activatorhandler.NewTracingHandler(ah) // ✅
+	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, over_logging.NewSyncFileWriter(os.Stdout), "", requestLogTemplateInputGetter, false /*enableProbeRequestLog*/)
 	if err != nil {
 		logger.Fatalw("Unable to create request log handler", zap.Error(err))
 	}
@@ -239,20 +237,20 @@ func main() {
 
 	// NOTE: MetricHandler is being used as the outermost handler of the meaty bits. We're not interested in measuring
 	// the healthchecks or probes.
-	ah = activatorhandler.NewMetricHandler(env.PodName, ah)
-	// We need the context handler to run first so ctx gets the revision info.
+	ah = activatorhandler.NewMetricHandler(env.PodName, ah) // ✅
+	// 我们需要先让上下文处理程序运行，这样 ctx 才能获取修订信息。
 	ah = activatorhandler.WrapActivatorHandlerWithFullDuplex(ah, logger)
-	ah = activatorhandler.NewContextHandler(ctx, ah, configStore)
+	ah = activatorhandler.NewContextHandler(ctx, ah, configStore) // ✅
 
 	// Network probe handlers.
-	ah = &activatorhandler.ProbeHandler{NextHandler: ah}
-	ah = netprobe.NewHandler(ah)
+	ah = &activatorhandler.ProbeHandler{NextHandler: ah} // ✅
+	ah = netprobe.NewHandler(ah)                         // ✅
 	// Set up our health check based on the health of stat sink and environmental factors.
 	sigCtx := signals.NewContext()
-	hc := newHealthCheck(sigCtx, logger, statSink)
-	ah = &activatorhandler.HealthHandler{HealthCheck: hc, NextHandler: ah, Logger: logger}
+	hc := newHealthCheck(sigCtx, logger, statSink)                                         // ✅
+	ah = &activatorhandler.HealthHandler{HealthCheck: hc, NextHandler: ah, Logger: logger} // ✅
 
-	profilingHandler := profiling.NewHandler(logger, false)
+	profilingHandler := over_profiling.NewHandler(logger, false)
 	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher.Watch(pkglogging.ConfigMapName(), pkglogging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 
@@ -260,7 +258,7 @@ func main() {
 	configMapWatcher.Watch(metrics.ConfigMapName(),
 		metrics.ConfigMapWatcher(ctx, component, nil /* SecretFetcher */, logger),
 		updateRequestLogFromConfigMap(logger, reqLogHandler),
-		profilingHandler.UpdateFromConfigMap)
+		profilingHandler.UpdateFromConfigMap) // ✅
 
 	if err = configMapWatcher.Start(ctx.Done()); err != nil {
 		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
@@ -269,7 +267,7 @@ func main() {
 	servers := map[string]*http.Server{
 		"http1":   pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTPPort), ah),
 		"h2c":     pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTP2Port), ah),
-		"profile": profiling.NewServer(profilingHandler),
+		"profile": over_profiling.NewServer(profilingHandler),
 	}
 
 	errCh := make(chan error, len(servers))

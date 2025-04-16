@@ -22,11 +22,11 @@ import (
 	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	controller "knative.dev/pkg/controller"
-	injection "knative.dev/pkg/injection"
-	logging "knative.dev/pkg/logging"
 	externalversions "knative.dev/serving/pkg/client/informers/externalversions"
 	client "knative.dev/serving/pkg/client/injection/client"
+	controller "knative.dev/serving/pkg/controller"
+	injection "knative.dev/serving/pkg/injection"
+	logging "knative.dev/serving/pkg/over_logging"
 )
 
 func init() {

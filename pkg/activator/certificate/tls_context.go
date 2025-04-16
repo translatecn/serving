@@ -23,9 +23,9 @@ import (
 	"fmt"
 	"net"
 
-	"knative.dev/networking/pkg/certificates"
-	pkgnet "knative.dev/pkg/network"
+	"knative.dev/serving/networking/pkg/certificates"
 	"knative.dev/serving/pkg/activator/handler"
+	pkgnet "knative.dev/serving/pkg/network"
 )
 
 // TLSContext returns DialTLSContextFunc.

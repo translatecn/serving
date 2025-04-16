@@ -24,8 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/kmeta"
+	"knative.dev/serving/pkg/over_ptr"
 
 	"knative.dev/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
@@ -68,7 +68,7 @@ func MakeHPA(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig.Con
 					Name: corev1.ResourceCPU,
 					Target: autoscalingv2.MetricTarget{
 						Type:               autoscalingv2.UtilizationMetricType,
-						AverageUtilization: ptr.Int32(int32(math.Ceil(target))),
+						AverageUtilization: over_ptr.Int32(int32(math.Ceil(target))),
 					},
 				},
 			}}

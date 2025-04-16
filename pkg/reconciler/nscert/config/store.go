@@ -19,9 +19,9 @@ package config
 import (
 	"context"
 
-	network "knative.dev/networking/pkg"
-	netcfg "knative.dev/networking/pkg/config"
-	"knative.dev/pkg/configmap"
+	network "knative.dev/serving/networking/pkg"
+	netcfg "knative.dev/serving/networking/pkg/config"
+	"knative.dev/serving/pkg/configmap"
 	routecfg "knative.dev/serving/pkg/reconciler/route/config"
 )
 

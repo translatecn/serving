@@ -21,11 +21,11 @@ package route
 import (
 	context "context"
 
-	controller "knative.dev/pkg/controller"
-	injection "knative.dev/pkg/injection"
-	logging "knative.dev/pkg/logging"
 	v1 "knative.dev/serving/pkg/client/informers/externalversions/serving/v1"
 	factory "knative.dev/serving/pkg/client/injection/informers/factory"
+	controller "knative.dev/serving/pkg/controller"
+	injection "knative.dev/serving/pkg/injection"
+	logging "knative.dev/serving/pkg/over_logging"
 )
 
 func init() {

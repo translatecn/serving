@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"sync/atomic"
 
-	"knative.dev/pkg/websocket"
+	"knative.dev/serving/pkg/websocket"
 )
 
 var (

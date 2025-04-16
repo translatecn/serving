@@ -30,13 +30,13 @@ import (
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	ksvcreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/service"
 
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/kmp"
-	"knative.dev/pkg/logging"
-	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
+	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/over_kmp"
+	"knative.dev/serving/pkg/over_logging"
+	pkgreconciler "knative.dev/serving/pkg/reconciler"
 	configresources "knative.dev/serving/pkg/reconciler/configuration/resources"
 	"knative.dev/serving/pkg/reconciler/service/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
@@ -73,7 +73,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkg
 	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
 	defer cancel()
 
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 
 	config, err := c.Config(ctx, service)
 	if err != nil {
@@ -193,7 +193,7 @@ func (c *Reconciler) checkRoutesNotReady(config *v1.Configuration, logger *zap.S
 		}
 	}
 	ignoreFields := cmpopts.IgnoreFields(v1.TrafficTarget{}, "URL", "LatestRevision")
-	if diff, err := kmp.SafeDiff(got, want, ignoreFields); err != nil || diff != "" {
+	if diff, err := over_kmp.SafeDiff(got, want, ignoreFields); err != nil || diff != "" {
 		logger.Errorf("Route %s is not yet what we want: %s", route.Name, diff)
 		service.Status.MarkRouteNotYetReady()
 	}
@@ -205,8 +205,8 @@ func (c *Reconciler) createConfiguration(ctx context.Context, service *v1.Servic
 }
 
 func configSemanticEquals(ctx context.Context, desiredConfig, config *v1.Configuration) (bool, error) {
-	logger := logging.FromContext(ctx)
-	specDiff, err := kmp.SafeDiff(desiredConfig.Spec, config.Spec)
+	logger := over_logging.FromContext(ctx)
+	specDiff, err := over_kmp.SafeDiff(desiredConfig.Spec, config.Spec)
 	if err != nil {
 		logger.Warnw("Error diffing config spec", zap.Error(err))
 		return false, fmt.Errorf("failed to diff Configuration: %w", err)
@@ -235,7 +235,7 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1.Ser
 		return config, nil
 	}
 
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	logger.Warnf("Service-delegated Configuration %q diff found. Clobbering.", existing.Name)
 
 	// Preserve the rest of the object (e.g. ObjectMeta except for labels).
@@ -251,8 +251,8 @@ func (c *Reconciler) createRoute(ctx context.Context, service *v1.Service) (*v1.
 }
 
 func routeSemanticEquals(ctx context.Context, desiredRoute, route *v1.Route) (bool, error) {
-	logger := logging.FromContext(ctx)
-	specDiff, err := kmp.SafeDiff(desiredRoute.Spec, route.Spec)
+	logger := over_logging.FromContext(ctx)
+	specDiff, err := over_kmp.SafeDiff(desiredRoute.Spec, route.Spec)
 	if err != nil {
 		logger.Errorw("Error diffing route spec", zap.Error(err))
 		return false, fmt.Errorf("failed to diff Route: %w", err)

@@ -19,11 +19,12 @@ package serverlessservice
 import (
 	"context"
 	"fmt"
-	"strconv"
-
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
+	"knative.dev/serving/debug/diff"
+	pkgreconciler "knative.dev/serving/pkg/reconciler"
+	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -34,17 +35,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	sksreconciler "knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice"
-
-	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/pkg/hash"
-	"knative.dev/pkg/logging"
-	pkgreconciler "knative.dev/pkg/reconciler"
-	"knative.dev/pkg/system"
+	netv1alpha1 "knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/hash"
 	"knative.dev/serving/pkg/networking"
+	"knative.dev/serving/pkg/over_logging"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources"
-	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
+	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/over_names"
 	presources "knative.dev/serving/pkg/resources"
+	"knative.dev/serving/pkg/system"
 )
 
 // reconciler implements controller.Reconciler for Service resources.
@@ -59,37 +57,8 @@ type reconciler struct {
 	listerFactory func(schema.GroupVersionResource) (cache.GenericLister, error)
 }
 
-// Check that our Reconciler implements Interface
-var _ sksreconciler.Interface = (*reconciler)(nil)
-
-// Reconcile compares the actual state with the desired, and attempts to
-// converge the two. It then updates the Status block of the Revision resource
-// with the current status of the resource.
-func (r *reconciler) ReconcileKind(ctx context.Context, sks *netv1alpha1.ServerlessService) pkgreconciler.Event {
-	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
-	defer cancel()
-
-	logger := logging.FromContext(ctx)
-	// Don't reconcile if we're being deleted.
-	if sks.GetDeletionTimestamp() != nil {
-		return nil
-	}
-
-	for i, fn := range []func(context.Context, *netv1alpha1.ServerlessService) error{
-		r.reconcilePrivateService, // First make sure our data source is setup.
-		r.reconcilePublicService,
-		r.reconcilePublicEndpoints,
-	} {
-		if err := fn(ctx, sks); err != nil {
-			logger.Debugw(strconv.Itoa(i)+": reconcile failed", zap.Error(err))
-			return err
-		}
-	}
-	return nil
-}
-
 func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 
 	sn := sks.Name
 	srv, err := r.serviceLister.Services(sks.Namespace).Get(sn)
@@ -115,6 +84,7 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 		want.Spec.Selector = nil
 
 		if !equality.Semantic.DeepEqual(want.Spec, srv.Spec) {
+			diff.Write("Service", srv, want)
 			logger.Info("Public K8s Service changed; reconciling: ", sn, cmp.Diff(want.Spec, srv.Spec))
 			if _, err = r.kubeclient.CoreV1().Services(sks.Namespace).Update(ctx, want, metav1.UpdateOptions{}); err != nil {
 				return fmt.Errorf("failed to update public K8s Service: %w", err)
@@ -126,68 +96,8 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 	return nil
 }
 
-// subsetEndpoints computes a subset of all endpoints of size `n` using a consistent
-// selection algorithm. For non empty input, subsetEndpoints returns a copy of the
-// input with the irrelevant endpoints and empty subsets filtered out, if the input
-// size is larger than `n`,
-// Otherwise the input is returned as is.
-// `target` is the revision name for which we are computing a subset.
-func subsetEndpoints(eps *corev1.Endpoints, target string, n int) *corev1.Endpoints {
-	// n == 0 means all, and if there are no subsets there's no work to do either.
-	if len(eps.Subsets) == 0 || n == 0 {
-		return eps
-	}
-
-	addrs := make(sets.Set[string], len(eps.Subsets[0].Addresses))
-	for _, ss := range eps.Subsets {
-		for _, addr := range ss.Addresses {
-			addrs.Insert(addr.IP)
-		}
-	}
-
-	// The input is not larger than desired.
-	if len(addrs) <= n {
-		return eps
-	}
-
-	selection := hash.ChooseSubset(addrs, n, target)
-
-	// Copy the informer's copy, so we can filter it out.
-	neps := eps.DeepCopy()
-	// Standard in place filter using read and write indices.
-	// This preserves the original object order.
-	r, w := 0, 0
-	for r < len(neps.Subsets) {
-		ss := neps.Subsets[r]
-		// And same algorithm internally.
-		ra, wa := 0, 0
-		for ra < len(ss.Addresses) {
-			if selection.Has(ss.Addresses[ra].IP) {
-				ss.Addresses[wa] = ss.Addresses[ra]
-				wa++
-			}
-			ra++
-		}
-		// At least one address from the subset was preserved, so keep it.
-		if wa > 0 {
-			ss.Addresses = ss.Addresses[:wa]
-			// At least one address from the subset was preserved, so keep it.
-			neps.Subsets[w] = ss
-			w++
-		}
-		r++
-	}
-	// We are guaranteed here to have w > 0, because
-	// 0. There's at least one subset (checked above).
-	// 1. A subset cannot be empty (k8s validation).
-	// 2. len(addrs) is at least as big as n
-	// Thus there's at least 1 non empty subset (and for all intents and purposes we'll have 1 always).
-	neps.Subsets = neps.Subsets[:w]
-	return neps
-}
-
 func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	dlogger := logger.Desugar()
 
 	var (
@@ -279,6 +189,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 			want := eps.DeepCopy()
 			want.Subsets = wantSubsets
 			logger.Info("Public K8s Endpoints changed; reconciling: ", sn)
+			diff.Write("Endpoint", eps, want)
 			if _, err = r.kubeclient.CoreV1().Endpoints(sks.Namespace).Update(ctx, want, metav1.UpdateOptions{}); err != nil {
 				return fmt.Errorf("failed to update public K8s Endpoints: %w", err)
 			}
@@ -302,15 +213,23 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 	return nil
 }
 
-func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
-	logger := logging.FromContext(ctx)
+func (r *reconciler) getSelector(sks *netv1alpha1.ServerlessService) (map[string]string, error) {
+	scale, err := presources.GetScaleResource(sks.Namespace, sks.Spec.ObjectRef, r.listerFactory)
+	if err != nil {
+		return nil, err
+	}
+	return scale.Spec.Selector.MatchLabels, nil
+}
 
-	selector, err := r.getSelector(sks)
+func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
+	logger := over_logging.FromContext(ctx)
+
+	selector, err := r.getSelector(sks) // 获取 sks 对应deployment 中的 labelSelector
 	if err != nil {
 		return fmt.Errorf("error retrieving deployment selector spec: %w", err)
 	}
 
-	sn := names.PrivateService(sks.Name)
+	sn := over_names.PrivateService(sks.Name)
 	svc, err := r.serviceLister.Services(sks.Namespace).Get(sn)
 	if apierrs.IsNotFound(err) {
 		logger.Info("SKS has no private service; creating.")
@@ -337,6 +256,7 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 			// Spec has only public fields and cmp can't panic here.
 			logger.Debug("Private service diff(-want,+got):", cmp.Diff(want.Spec, svc.Spec))
 			sks.Status.MarkEndpointsNotReady("UpdatingPrivateService")
+			diff.Write("Service", svc, want)
 			logger.Info("Reconciling a changed private K8s Service  ", svc.Name)
 			if _, err = r.kubeclient.CoreV1().Services(sks.Namespace).Update(ctx, want, metav1.UpdateOptions{}); err != nil {
 				return fmt.Errorf("failed to update private K8s Service: %w", err)
@@ -349,10 +269,87 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 	return nil
 }
 
-func (r *reconciler) getSelector(sks *netv1alpha1.ServerlessService) (map[string]string, error) {
-	scale, err := presources.GetScaleResource(sks.Namespace, sks.Spec.ObjectRef, r.listerFactory)
-	if err != nil {
-		return nil, err
+// subsetEndpoints computes a subset of all endpoints of size `n` using a consistent
+// selection algorithm. For non empty input, subsetEndpoints returns a copy of the
+// input with the irrelevant endpoints and empty subsets filtered out, if the input
+// size is larger than `n`,
+// Otherwise the input is returned as is.
+// `target` is the revision name for which we are computing a subset.
+func subsetEndpoints(eps *corev1.Endpoints, target string, n int) *corev1.Endpoints {
+	// n == 0 means all, and if there are no subsets there's no work to do either.
+	if len(eps.Subsets) == 0 || n == 0 {
+		return eps
 	}
-	return scale.Spec.Selector.MatchLabels, nil
+
+	addrs := make(sets.Set[string], len(eps.Subsets[0].Addresses))
+	for _, ss := range eps.Subsets {
+		for _, addr := range ss.Addresses {
+			addrs.Insert(addr.IP)
+		}
+	}
+
+	// The input is not larger than desired.
+	if len(addrs) <= n {
+		return eps
+	}
+
+	selection := hash.ChooseSubset(addrs, n, target)
+
+	// Copy the informer's copy, so we can filter it out.
+	neps := eps.DeepCopy()
+	// Standard in place filter using read and write indices.
+	// This preserves the original object order.
+	r, w := 0, 0
+	for r < len(neps.Subsets) {
+		ss := neps.Subsets[r]
+		// And same algorithm internally.
+		ra, wa := 0, 0
+		for ra < len(ss.Addresses) {
+			if selection.Has(ss.Addresses[ra].IP) {
+				ss.Addresses[wa] = ss.Addresses[ra]
+				wa++
+			}
+			ra++
+		}
+		// At least one address from the subset was preserved, so keep it.
+		if wa > 0 {
+			ss.Addresses = ss.Addresses[:wa]
+			// At least one address from the subset was preserved, so keep it.
+			neps.Subsets[w] = ss
+			w++
+		}
+		r++
+	}
+	// We are guaranteed here to have w > 0, because
+	// 0. There's at least one subset (checked above).
+	// 1. A subset cannot be empty (k8s validation).
+	// 2. len(addrs) is at least as big as n
+	// Thus there's at least 1 non empty subset (and for all intents and purposes we'll have 1 always).
+	neps.Subsets = neps.Subsets[:w]
+	return neps
+}
+
+// Reconcile compares the actual state with the desired, and attempts to
+// converge the two. It then updates the Status block of the Revision resource
+// with the current status of the resource.
+func (r *reconciler) ReconcileKind(ctx context.Context, sks *netv1alpha1.ServerlessService) pkgreconciler.Event {
+	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
+	defer cancel()
+	logger := over_logging.FromContext(ctx)
+	// Don't reconcile if we're being deleted.
+	if sks.GetDeletionTimestamp() != nil {
+		return nil
+	}
+
+	for i, fn := range []func(context.Context, *netv1alpha1.ServerlessService) error{
+		r.reconcilePrivateService, // 创建私有 服务
+		r.reconcilePublicService,
+		r.reconcilePublicEndpoints,
+	} {
+		if err := fn(ctx, sks); err != nil {
+			logger.Debugw(strconv.Itoa(i)+": reconcile failed", zap.Error(err))
+			return err
+		}
+	}
+	return nil
 }

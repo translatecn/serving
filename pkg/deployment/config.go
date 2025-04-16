@@ -29,8 +29,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
 
-	cm "knative.dev/pkg/configmap"
-	"knative.dev/pkg/ptr"
+	cm "knative.dev/serving/pkg/configmap"
+	"knative.dev/serving/pkg/over_ptr"
 )
 
 const (
@@ -97,14 +97,6 @@ var (
 	// QueueSidecarMemoryLimitDefault is the default limit.memory to set for the
 	// queue sidecar.
 	QueueSidecarMemoryLimitDefault = resource.MustParse("800Mi")
-
-	// QueueSidecarEphemeralStorageRequestDefault is the default request.ephemeral-storage set for the
-	// queue sidecar.
-	QueueSidecarEphemeralStorageRequestDefault = resource.MustParse("512Mi")
-
-	// QueueSidecarEphemeralStorageLimitDefault is the default limit.ephemeral-storage to set for the
-	// queue sidecar.
-	QueueSidecarEphemeralStorageLimitDefault = resource.MustParse("1024Mi")
 )
 
 func defaultConfig() *Config {
@@ -139,7 +131,7 @@ func (d Config) PodRuntimeClassName(lbs map[string]string) *string {
 	if runtimeClassName == "" {
 		return nil
 	}
-	return ptr.String(runtimeClassName)
+	return over_ptr.String(runtimeClassName)
 }
 
 type RuntimeClassNameLabelSelector struct {

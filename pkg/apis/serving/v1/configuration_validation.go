@@ -20,7 +20,7 @@ import (
 	"context"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
 )
 

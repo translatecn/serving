@@ -18,6 +18,7 @@ package net
 
 import (
 	"context"
+	netcfg "knative.dev/serving/networking/pkg/config"
 	"net/http"
 	"sort"
 	"sync"
@@ -31,20 +32,19 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
-	pkgnet "knative.dev/networking/pkg/apis/networking"
-	netcfg "knative.dev/networking/pkg/config"
-	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/logging/logkey"
-	"knative.dev/pkg/reconciler"
+	pkgnet "knative.dev/serving/networking/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
+	endpointsinformer "knative.dev/serving/pkg/client/injection/kube/informers/core/v1/endpoints"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
+	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/kmeta"
 	"knative.dev/serving/pkg/networking"
+	"knative.dev/serving/pkg/over_logging"
+	"knative.dev/serving/pkg/over_logging/logkey"
 	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/reconciler"
 )
 
 const (
@@ -288,50 +288,6 @@ func (rt *revisionThrottler) resetTrackers() {
 	}
 }
 
-// updateCapacity updates the capacity of the throttler and recomputes
-// the assigned trackers to the Activator instance.
-// Currently updateCapacity is ensured to be invoked from a single go routine
-// and this does not synchronize
-func (rt *revisionThrottler) updateCapacity(backendCount int) {
-	// We have to make assignments on each updateCapacity, since if number
-	// of activators changes, then we need to rebalance the assignedTrackers.
-	ac, ai := int(rt.numActivators.Load()), int(rt.activatorIndex.Load())
-	numTrackers := func() int {
-		// We do not have to process the `podTrackers` under lock, since
-		// updateCapacity is guaranteed to be executed by a single goroutine.
-		// But `assignedTrackers` is being read by the serving thread, so the
-		// actual assignment has to be done under lock.
-
-		// We're using cluster IP.
-		if rt.clusterIPTracker != nil {
-			return 0
-		}
-
-		// Sort, so we get more or less stable results.
-		sort.Slice(rt.podTrackers, func(i, j int) bool {
-			return rt.podTrackers[i].dest < rt.podTrackers[j].dest
-		})
-		assigned := rt.podTrackers
-		if rt.containerConcurrency > 0 {
-			rt.resetTrackers()
-			assigned = assignSlice(rt.podTrackers, ai, ac)
-		}
-		rt.logger.Debugf("Trackers %d/%d: assignment: %v", ai, ac, assigned)
-		// The actual write out of the assigned trackers has to be under lock.
-		rt.mux.Lock()
-		defer rt.mux.Unlock()
-		rt.assignedTrackers = assigned
-		return len(assigned)
-	}()
-
-	capacity := rt.calculateCapacity(backendCount, numTrackers, ac)
-	rt.logger.Infof("Set capacity to %d (backends: %d, index: %d/%d)",
-		capacity, backendCount, ai, ac)
-
-	rt.backendCount = backendCount
-	rt.breaker.UpdateConcurrency(capacity)
-}
-
 func (rt *revisionThrottler) updateThrottlerState(backendCount int, trackers []*podTracker, clusterIPDest *podTracker) {
 	rt.logger.Infof("Updating Revision Throttler with: clusterIP = %v, trackers = %d, backends = %d",
 		clusterIPDest, len(trackers), backendCount)
@@ -376,81 +332,6 @@ func pickIndices(numTrackers, selfIndex, numActivators int) (beginIndex, endInde
 	return beginIndex, endIndex, remnants
 }
 
-// assignSlice picks a subset of the individual pods to send requests to
-// for this Activator instance. This only matters in case of direct
-// to pod IP routing, and is irrelevant, when ClusterIP is used.
-// assignSlice should receive podTrackers sorted by address.
-func assignSlice(trackers []*podTracker, selfIndex, numActivators int) []*podTracker {
-	// When we're unassigned, doesn't matter what we return.
-	lt := len(trackers)
-	if selfIndex == -1 || lt <= 1 {
-		return trackers
-	}
-
-	// If there's just a single activator. Take all the trackers.
-	if numActivators == 1 {
-		return trackers
-	}
-
-	// If the number of pods is not divisible by the number of activators, we allocate one pod to each activator exclusively.
-	// examples
-	// 1. we have 20 pods and 3 activators -> we'd get 2 remnants so activator with index 0,1 would each pick up a unique tracker
-	// 2. we have 24 pods and 5 activators -> we'd get 4 remnants so the activator 0,1,2,3 would each pick up a unique tracker
-	bi, ei, remnants := pickIndices(lt, selfIndex, numActivators)
-	x := append(trackers[:0:0], trackers[bi:ei]...)
-	if remnants > 0 {
-		tail := trackers[len(trackers)-remnants:]
-		if len(tail) > selfIndex {
-			t := tail[selfIndex]
-			x = append(x, t)
-		}
-	}
-	return x
-}
-
-// This function will never be called in parallel but `try` can be called in parallel to this so we need
-// to lock on updating concurrency / trackers
-func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
-	rt.logger.Debugw("Handling update",
-		zap.String("ClusterIP", update.ClusterIPDest), zap.Object("dests", logging.StringSet(update.Dests)))
-
-	// ClusterIP is not yet ready, so we want to send requests directly to the pods.
-	// NB: this will not be called in parallel, thus we can build a new podTrackers
-	// array before taking out a lock.
-	if update.ClusterIPDest == "" {
-		// Create a map for fast lookup of existing trackers.
-		trackersMap := make(map[string]*podTracker, len(rt.podTrackers))
-		for _, tracker := range rt.podTrackers {
-			trackersMap[tracker.dest] = tracker
-		}
-
-		trackers := make([]*podTracker, 0, len(update.Dests))
-
-		// Loop over dests, reuse existing tracker if we have one, otherwise create
-		// a new one.
-		for newDest := range update.Dests {
-			tracker, ok := trackersMap[newDest]
-			if !ok {
-				if rt.containerConcurrency == 0 {
-					tracker = newPodTracker(newDest, nil)
-				} else {
-					tracker = newPodTracker(newDest, queue.NewBreaker(queue.BreakerParams{
-						QueueDepth:      breakerQueueDepth,
-						MaxConcurrency:  rt.containerConcurrency,
-						InitialCapacity: rt.containerConcurrency, // Presume full unused capacity.
-					}))
-				}
-			}
-			trackers = append(trackers, tracker)
-		}
-
-		rt.updateThrottlerState(len(update.Dests), trackers, nil /*clusterIP*/)
-		return
-	}
-
-	rt.updateThrottlerState(len(update.Dests), nil /*trackers*/, newPodTracker(update.ClusterIPDest, nil))
-}
-
 // Throttler load balances requests to revisions based on capacity. When `Run` is called it listens for
 // updates to revision backends and decides when and when and where to forward a request.
 type Throttler struct {
@@ -469,7 +350,7 @@ func NewThrottler(ctx context.Context, ipAddr string) *Throttler {
 		revisionThrottlers: make(map[types.NamespacedName]*revisionThrottler),
 		revisionLister:     revisionInformer.Lister(),
 		ipAddress:          ipAddr,
-		logger:             logging.FromContext(ctx),
+		logger:             over_logging.FromContext(ctx),
 		epsUpdateCh:        make(chan *corev1.Endpoints),
 	}
 
@@ -486,8 +367,7 @@ func NewThrottler(ctx context.Context, ipAddr string) *Throttler {
 
 	// Handles public service updates.
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: reconciler.LabelFilterFunc(networking.ServiceTypeKey,
-			string(networking.ServiceTypePublic), false),
+		FilterFunc: reconciler.LabelFilterFunc(networking.ServiceTypeKey, string(networking.ServiceTypePublic), false),
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    t.publicEndpointsUpdated,
 			UpdateFunc: controller.PassNew(t.publicEndpointsUpdated),
@@ -496,17 +376,10 @@ func NewThrottler(ctx context.Context, ipAddr string) *Throttler {
 	return t
 }
 
-// Run starts the throttler and blocks until the context is done.
-func (t *Throttler) Run(ctx context.Context, probeTransport http.RoundTripper, usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode) {
-	rbm := newRevisionBackendsManager(ctx, probeTransport, usePassthroughLb, meshMode)
-	// Update channel is closed when ctx is done.
-	t.run(rbm.updates())
-}
-
 func (t *Throttler) run(updateCh <-chan revisionDestsUpdate) {
 	for {
 		select {
-		case update, ok := <-updateCh:
+		case update, ok := <-updateCh: // endpoint 发生变化
 			if !ok {
 				t.logger.Info("The Throttler has stopped.")
 				return
@@ -527,37 +400,6 @@ func (t *Throttler) Try(ctx context.Context, revID types.NamespacedName, functio
 	return rt.try(ctx, function)
 }
 
-func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*revisionThrottler, error) {
-	// First, see if we can succeed with just an RLock. This is in the request path so optimizing
-	// for this case is important
-	t.revisionThrottlersMutex.RLock()
-	revThrottler, ok := t.revisionThrottlers[revID]
-	t.revisionThrottlersMutex.RUnlock()
-	if ok {
-		return revThrottler, nil
-	}
-
-	// Redo with a write lock since we failed the first time and may need to create
-	t.revisionThrottlersMutex.Lock()
-	defer t.revisionThrottlersMutex.Unlock()
-	revThrottler, ok = t.revisionThrottlers[revID]
-	if !ok {
-		rev, err := t.revisionLister.Revisions(revID.Namespace).Get(revID.Name)
-		if err != nil {
-			return nil, err
-		}
-		revThrottler = newRevisionThrottler(
-			revID,
-			int(rev.Spec.GetContainerConcurrency()),
-			pkgnet.ServicePortName(rev.GetProtocol()),
-			queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: revisionMaxConcurrency},
-			t.logger,
-		)
-		t.revisionThrottlers[revID] = revThrottler
-	}
-	return revThrottler, nil
-}
-
 // revisionUpdated is used to ensure we have a backlog set up for a revision as soon as it is created
 // rather than erroring with revision not found until a networking probe succeeds
 func (t *Throttler) revisionUpdated(obj interface{}) {
@@ -567,8 +409,7 @@ func (t *Throttler) revisionUpdated(obj interface{}) {
 	t.logger.Debug("Revision update", zap.String(logkey.Key, revID.String()))
 
 	if _, err := t.getOrCreateRevisionThrottler(revID); err != nil {
-		t.logger.Errorw("Failed to get revision throttler for revision",
-			zap.Error(err), zap.String(logkey.Key, revID.String()))
+		t.logger.Errorw("Failed to get revision throttler for revision", zap.Error(err), zap.String(logkey.Key, revID.String()))
 	}
 }
 
@@ -590,18 +431,6 @@ func (t *Throttler) revisionDeleted(obj interface{}) {
 	delete(t.revisionThrottlers, revID)
 }
 
-func (t *Throttler) handleUpdate(update revisionDestsUpdate) {
-	if rt, err := t.getOrCreateRevisionThrottler(update.Rev); err != nil {
-		if k8serrors.IsNotFound(err) {
-			t.logger.Debugw("Revision not found. It was probably removed", zap.String(logkey.Key, update.Rev.String()))
-		} else {
-			t.logger.Errorw("Failed to get revision throttler", zap.Error(err), zap.String(logkey.Key, update.Rev.String()))
-		}
-	} else {
-		rt.handleUpdate(update)
-	}
-}
-
 func (t *Throttler) handlePubEpsUpdate(eps *corev1.Endpoints) {
 	t.logger.Infof("Public EPS updates: %#v", eps)
 
@@ -621,36 +450,6 @@ func (t *Throttler) handlePubEpsUpdate(eps *corev1.Endpoints) {
 	} else {
 		rt.handlePubEpsUpdate(eps, t.ipAddress)
 	}
-}
-
-func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP string) {
-	// NB: this is guaranteed to be executed on a single thread.
-	epSet := healthyAddresses(eps, rt.protocol)
-	if !epSet.Has(selfIP) {
-		// No need to do anything, this activator is not in path.
-		return
-	}
-
-	// We are using List to have the IP addresses sorted for consistent results.
-	epsL := sets.List(epSet)
-	//nolint:gosec // number of k8s replicas is bounded by int32
-	newNA, newAI := int32(len(epsL)), int32(inferIndex(epsL, selfIP))
-	if newAI == -1 {
-		// No need to do anything, this activator is not in path.
-		return
-	}
-
-	na, ai := rt.numActivators.Load(), rt.activatorIndex.Load()
-	if na == newNA && ai == newAI {
-		// The state didn't change, do nothing
-		return
-	}
-
-	rt.numActivators.Store(newNA)
-	rt.activatorIndex.Store(newAI)
-	rt.logger.Infof("This activator index is %d/%d was %d/%d",
-		newAI, newNA, ai, na)
-	rt.updateCapacity(rt.backendCount)
 }
 
 // inferIndex returns the index of this activator slice.
@@ -779,3 +578,198 @@ func (ib *infiniteBreaker) Maybe(ctx context.Context, thunk func()) error {
 }
 
 func (ib *infiniteBreaker) Reserve(context.Context) (func(), bool) { return noop, true }
+
+func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*revisionThrottler, error) {
+	// First, see if we can succeed with just an RLock. This is in the request path so optimizing
+	// for this case is important
+	t.revisionThrottlersMutex.RLock()
+	revThrottler, ok := t.revisionThrottlers[revID]
+	t.revisionThrottlersMutex.RUnlock()
+	if ok {
+		return revThrottler, nil
+	}
+
+	// Redo with a write lock since we failed the first time and may need to create
+	t.revisionThrottlersMutex.Lock()
+	defer t.revisionThrottlersMutex.Unlock()
+	revThrottler, ok = t.revisionThrottlers[revID]
+	if !ok {
+		rev, err := t.revisionLister.Revisions(revID.Namespace).Get(revID.Name)
+		if err != nil {
+			return nil, err
+		}
+		revThrottler = newRevisionThrottler(
+			revID,
+			int(rev.Spec.GetContainerConcurrency()),
+			pkgnet.ServicePortName(rev.GetProtocol()),
+			queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: revisionMaxConcurrency},
+			t.logger,
+		)
+		t.revisionThrottlers[revID] = revThrottler
+	}
+	return revThrottler, nil
+}
+
+// Run starts the throttler and blocks until the context is done.
+func (t *Throttler) Run(ctx context.Context, probeTransport http.RoundTripper, usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode) {
+	rbm := newRevisionBackendsManager(ctx, probeTransport, usePassthroughLb, meshMode)
+	// Update channel is closed when ctx is done.
+	t.run(rbm.updates())
+}
+
+func (t *Throttler) handleUpdate(update revisionDestsUpdate) {
+	if rt, err := t.getOrCreateRevisionThrottler(update.Rev); err != nil {
+		if k8serrors.IsNotFound(err) {
+			t.logger.Debugw("Revision not found. It was probably removed", zap.String(logkey.Key, update.Rev.String()))
+		} else {
+			t.logger.Errorw("Failed to get revision throttler", zap.Error(err), zap.String(logkey.Key, update.Rev.String()))
+		}
+	} else {
+		rt.handleUpdate(update)
+	}
+}
+
+// assignSlice picks a subset of the individual pods to send requests to
+// for this Activator instance. This only matters in case of direct
+// to pod IP routing, and is irrelevant, when ClusterIP is used.
+// assignSlice should receive podTrackers sorted by address.
+func assignSlice(trackers []*podTracker, selfIndex, numActivators int) []*podTracker {
+	// When we're unassigned, doesn't matter what we return.
+	lt := len(trackers)
+	if selfIndex == -1 || lt <= 1 {
+		return trackers
+	}
+
+	// If there's just a single activator. Take all the trackers.
+	if numActivators == 1 {
+		return trackers
+	}
+
+	// If the number of pods is not divisible by the number of activators, we allocate one pod to each activator exclusively.
+	// examples
+	// 1. we have 20 pods and 3 activators -> we'd get 2 remnants so activator with index 0,1 would each pick up a unique tracker
+	// 2. we have 24 pods and 5 activators -> we'd get 4 remnants so the activator 0,1,2,3 would each pick up a unique tracker
+	bi, ei, remnants := pickIndices(lt, selfIndex, numActivators)
+	x := append(trackers[:0:0], trackers[bi:ei]...)
+	if remnants > 0 {
+		tail := trackers[len(trackers)-remnants:]
+		if len(tail) > selfIndex {
+			t := tail[selfIndex]
+			x = append(x, t)
+		}
+	}
+	return x
+}
+
+func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP string) {
+	// NB: this is guaranteed to be executed on a single thread.
+	epSet := healthyAddresses(eps, rt.protocol)
+	if !epSet.Has(selfIP) {
+		// No need to do anything, this activator is not in path.
+		return
+	}
+
+	// We are using List to have the IP addresses sorted for consistent results.
+	epsL := sets.List(epSet)
+	//nolint:gosec // number of k8s replicas is bounded by int32
+	newNA, newAI := int32(len(epsL)), int32(inferIndex(epsL, selfIP))
+	if newAI == -1 {
+		// No need to do anything, this activator is not in path.
+		return
+	}
+
+	na, ai := rt.numActivators.Load(), rt.activatorIndex.Load()
+	if na == newNA && ai == newAI {
+		// The state didn't change, do nothing
+		return
+	}
+
+	rt.numActivators.Store(newNA)
+	rt.activatorIndex.Store(newAI)
+	rt.logger.Infof("This activator index is %d/%d was %d/%d",
+		newAI, newNA, ai, na)
+	rt.updateCapacity(rt.backendCount)
+}
+
+// This function will never be called in parallel but `try` can be called in parallel to this so we need
+// to lock on updating concurrency / trackers
+func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
+	rt.logger.Debugw("Handling update", zap.String("ClusterIP", update.ClusterIPDest), zap.Object("dests", over_logging.StringSet(update.Dests)))
+
+	// ClusterIP is not yet ready, so we want to send requests directly to the pods.
+	// NB: this will not be called in parallel, thus we can build a new podTrackers
+	// array before taking out a lock.
+	if update.ClusterIPDest == "" {
+		// Create a map for fast lookup of existing trackers.
+		trackersMap := make(map[string]*podTracker, len(rt.podTrackers))
+		for _, tracker := range rt.podTrackers {
+			trackersMap[tracker.dest] = tracker
+		}
+		trackers := make([]*podTracker, 0, len(update.Dests))
+		// Loop over dests, reuse existing tracker if we have one, otherwise create
+		// a new one.
+		for newDest := range update.Dests {
+			tracker, ok := trackersMap[newDest]
+			if !ok {
+				if rt.containerConcurrency == 0 {
+					tracker = newPodTracker(newDest, nil)
+				} else {
+					tracker = newPodTracker(newDest, queue.NewBreaker(queue.BreakerParams{
+						QueueDepth:      breakerQueueDepth,
+						MaxConcurrency:  rt.containerConcurrency,
+						InitialCapacity: rt.containerConcurrency, // Presume full unused capacity.
+					}))
+				}
+			}
+			trackers = append(trackers, tracker)
+		}
+
+		rt.updateThrottlerState(len(update.Dests), trackers, nil /*clusterIP*/)
+		return
+	}
+
+	rt.updateThrottlerState(len(update.Dests), nil /*trackers*/, newPodTracker(update.ClusterIPDest, nil))
+}
+
+// updateCapacity updates the capacity of the throttler and recomputes
+// the assigned trackers to the Activator instance.
+// Currently updateCapacity is ensured to be invoked from a single go routine
+// and this does not synchronize
+func (rt *revisionThrottler) updateCapacity(backendCount int) {
+	// We have to make assignments on each updateCapacity, since if number
+	// of activators changes, then we need to rebalance the assignedTrackers.
+	ac, ai := int(rt.numActivators.Load()), int(rt.activatorIndex.Load())
+	numTrackers := func() int {
+		// We do not have to process the `podTrackers` under lock, since
+		// updateCapacity is guaranteed to be executed by a single goroutine.
+		// But `assignedTrackers` is being read by the serving thread, so the
+		// actual assignment has to be done under lock.
+
+		// We're using cluster IP.
+		if rt.clusterIPTracker != nil {
+			return 0
+		}
+
+		// Sort, so we get more or less stable results.
+		sort.Slice(rt.podTrackers, func(i, j int) bool {
+			return rt.podTrackers[i].dest < rt.podTrackers[j].dest
+		})
+		assigned := rt.podTrackers
+		if rt.containerConcurrency > 0 {
+			rt.resetTrackers()
+			assigned = assignSlice(rt.podTrackers, ai, ac)
+		}
+		rt.logger.Debugf("Trackers %d/%d: assignment: %v", ai, ac, assigned)
+		// The actual write out of the assigned trackers has to be under lock.
+		rt.mux.Lock()
+		defer rt.mux.Unlock()
+		rt.assignedTrackers = assigned
+		return len(assigned)
+	}()
+
+	capacity := rt.calculateCapacity(backendCount, numTrackers, ac)
+	rt.logger.Infof("Set capacity to %d (backends: %d, index: %d/%d)", capacity, backendCount, ai, ac)
+
+	rt.backendCount = backendCount
+	rt.breaker.UpdateConcurrency(capacity)
+}

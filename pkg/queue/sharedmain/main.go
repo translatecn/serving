@@ -34,22 +34,22 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"knative.dev/networking/pkg/certificates"
-	netstats "knative.dev/networking/pkg/http/stats"
-	pkglogging "knative.dev/pkg/logging"
-	"knative.dev/pkg/logging/logkey"
-	"knative.dev/pkg/metrics"
-	pkgnet "knative.dev/pkg/network"
-	"knative.dev/pkg/profiling"
-	"knative.dev/pkg/signals"
-	"knative.dev/pkg/tracing"
-	tracingconfig "knative.dev/pkg/tracing/config"
-	"knative.dev/pkg/tracing/propagation/tracecontextb3"
+	"knative.dev/serving/networking/pkg/certificates"
+	netstats "knative.dev/serving/networking/pkg/http/stats"
 	pkghttp "knative.dev/serving/pkg/http"
-	"knative.dev/serving/pkg/logging"
+	"knative.dev/serving/pkg/metrics"
+	pkgnet "knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/networking"
+	"knative.dev/serving/pkg/over_logging"
+	pkglogging "knative.dev/serving/pkg/over_logging"
+	"knative.dev/serving/pkg/over_logging/logkey"
+	"knative.dev/serving/pkg/over_profiling"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/readiness"
+	"knative.dev/serving/pkg/signals"
+	"knative.dev/serving/pkg/tracing"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
+	"knative.dev/serving/pkg/tracing/propagation/tracecontextb3"
 )
 
 const (
@@ -66,14 +66,6 @@ const (
 
 	// keyPath is the path for the server certificate key mounted by queue-proxy.
 	keyPath = queue.CertDirectory + "/" + certificates.PrivateKeyName
-
-	// PodInfoAnnotationsPath is an exported path for the annotations file
-	// This path is used by QP Options (Extensions).
-	PodInfoAnnotationsPath = queue.PodInfoDirectory + "/" + queue.PodInfoAnnotationsFilename
-
-	// QPOptionTokenDirPath is a directory for per audience tokens
-	// This path is used by QP Options (Extensions) as <QPOptionTokenDirPath>/<Audience>
-	QPOptionTokenDirPath = queue.TokenDirectory
 )
 
 type config struct {
@@ -247,7 +239,7 @@ func Main(opts ...Option) error {
 	}
 
 	if env.EnableProfiling {
-		httpServers["profile"] = profiling.NewServer(profiling.NewHandler(logger, true))
+		httpServers["profile"] = over_profiling.NewServer(over_profiling.NewHandler(logger, true))
 	}
 
 	tlsServers := make(map[string]*http.Server)
@@ -400,7 +392,7 @@ func requestLogHandler(logger *zap.SugaredLogger, currentHandler http.Handler, e
 		PodName:       env.ServingPod,
 		PodIP:         env.ServingPodIP,
 	}
-	handler, err := pkghttp.NewRequestLogHandler(currentHandler, logging.NewSyncFileWriter(os.Stdout), env.ServingRequestLogTemplate,
+	handler, err := pkghttp.NewRequestLogHandler(currentHandler, over_logging.NewSyncFileWriter(os.Stdout), env.ServingRequestLogTemplate,
 		pkghttp.RequestLogTemplateInputGetterFromRevision(revInfo), env.ServingEnableProbeRequestLog)
 	if err != nil {
 		logger.Errorw("Error setting up request logger. Request logs will be unavailable.", zap.Error(err))

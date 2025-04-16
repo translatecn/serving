@@ -23,10 +23,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"knative.dev/pkg/apis"
-	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis"
 	"knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/kmeta"
+	"knative.dev/serving/pkg/over_ptr"
 )
 
 // SetDefaults implements apis.Defaultable
@@ -50,14 +50,14 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 
 	// Default TimeoutSeconds based on our configmap.
 	if rs.TimeoutSeconds == nil || *rs.TimeoutSeconds == 0 {
-		rs.TimeoutSeconds = ptr.Int64(cfg.Defaults.RevisionTimeoutSeconds)
+		rs.TimeoutSeconds = over_ptr.Int64(cfg.Defaults.RevisionTimeoutSeconds)
 	}
 
 	// Default IdleTimeoutSeconds only in case we have a non-zero default and the latter is not larger than the revision timeout.
 	// A zero default or a zero value set from the user or a nil value skips timer setup at the QP side.
 	if rs.IdleTimeoutSeconds == nil {
 		if cfg.Defaults.RevisionIdleTimeoutSeconds < *rs.TimeoutSeconds && cfg.Defaults.RevisionIdleTimeoutSeconds != 0 {
-			rs.IdleTimeoutSeconds = ptr.Int64(cfg.Defaults.RevisionIdleTimeoutSeconds)
+			rs.IdleTimeoutSeconds = over_ptr.Int64(cfg.Defaults.RevisionIdleTimeoutSeconds)
 		}
 	}
 
@@ -65,13 +65,13 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 	// A zero default or a zero value set from the user or a nil value skips timer setup at the QP side.
 	if rs.ResponseStartTimeoutSeconds == nil {
 		if cfg.Defaults.RevisionResponseStartTimeoutSeconds < *rs.TimeoutSeconds && cfg.Defaults.RevisionResponseStartTimeoutSeconds != 0 {
-			rs.ResponseStartTimeoutSeconds = ptr.Int64(cfg.Defaults.RevisionResponseStartTimeoutSeconds)
+			rs.ResponseStartTimeoutSeconds = over_ptr.Int64(cfg.Defaults.RevisionResponseStartTimeoutSeconds)
 		}
 	}
 
 	// Default ContainerConcurrency based on our configmap.
 	if rs.ContainerConcurrency == nil {
-		rs.ContainerConcurrency = ptr.Int64(cfg.Defaults.ContainerConcurrency)
+		rs.ContainerConcurrency = over_ptr.Int64(cfg.Defaults.ContainerConcurrency)
 	}
 
 	// Avoid clashes with user-supplied names when generating defaults.
@@ -191,13 +191,13 @@ func (*RevisionSpec) applyReadinessProbeDefaults(container *corev1.Container) {
 
 func (*RevisionSpec) applyGRPCProbeDefaults(container *corev1.Container) {
 	if container.ReadinessProbe != nil && container.ReadinessProbe.GRPC != nil && container.ReadinessProbe.GRPC.Service == nil {
-		container.ReadinessProbe.GRPC.Service = ptr.String("")
+		container.ReadinessProbe.GRPC.Service = over_ptr.String("")
 	}
 	if container.LivenessProbe != nil && container.LivenessProbe.GRPC != nil && container.LivenessProbe.GRPC.Service == nil {
-		container.LivenessProbe.GRPC.Service = ptr.String("")
+		container.LivenessProbe.GRPC.Service = over_ptr.String("")
 	}
 	if container.StartupProbe != nil && container.StartupProbe.GRPC != nil && container.StartupProbe.GRPC.Service == nil {
-		container.StartupProbe.GRPC.Service = ptr.String("")
+		container.StartupProbe.GRPC.Service = over_ptr.String("")
 	}
 }
 
@@ -221,7 +221,7 @@ func (rs *RevisionSpec) defaultSecurityContext(psc *corev1.PodSecurityContext, c
 	}
 
 	if updatedSC.AllowPrivilegeEscalation == nil {
-		updatedSC.AllowPrivilegeEscalation = ptr.Bool(false)
+		updatedSC.AllowPrivilegeEscalation = over_ptr.Bool(false)
 	}
 	if psc.SeccompProfile == nil || psc.SeccompProfile.Type == "" {
 		if updatedSC.SeccompProfile == nil {
@@ -248,7 +248,7 @@ func (rs *RevisionSpec) defaultSecurityContext(psc *corev1.PodSecurityContext, c
 	}
 
 	if psc.RunAsNonRoot == nil {
-		updatedSC.RunAsNonRoot = ptr.Bool(true)
+		updatedSC.RunAsNonRoot = over_ptr.Bool(true)
 	}
 
 	if *updatedSC != (corev1.SecurityContext{}) {

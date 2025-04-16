@@ -18,9 +18,9 @@ package v1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/apis"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"knative.dev/pkg/kmeta"
+	"knative.dev/serving/pkg/apis"
+	duckv1 "knative.dev/serving/pkg/apis/duck/v1"
+	"knative.dev/serving/pkg/kmeta"
 )
 
 // +genclient
@@ -74,9 +74,6 @@ const (
 )
 
 // IsConfigurationCondition returns true if the given ConditionType is a ConfigurationCondition.
-func IsConfigurationCondition(t apis.ConditionType) bool {
-	return t == ConfigurationConditionReady
-}
 
 // ConfigurationStatusFields holds the fields of Configuration's status that
 // are not generally shared.  This is defined separately and inlined so that

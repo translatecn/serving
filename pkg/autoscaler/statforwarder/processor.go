@@ -23,9 +23,9 @@ import (
 	gorillawebsocket "github.com/gorilla/websocket"
 	"go.uber.org/zap"
 
-	"knative.dev/pkg/logging/logkey"
-	"knative.dev/pkg/websocket"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
+	"knative.dev/serving/pkg/over_logging/logkey"
+	"knative.dev/serving/pkg/websocket"
 )
 
 // The timeout value for a Websocket connection to be established. If a connection via IP
@@ -57,13 +57,6 @@ var _ bucketProcessor = (*localProcessor)(nil)
 
 func (p *localProcessor) is(holder string) bool {
 	return p.holder == holder
-}
-
-func (p *localProcessor) process(sm asmetrics.StatMessage) error {
-	l := p.logger.With(zap.String(logkey.Key, sm.Key.String()))
-	l.Debug("Accept stat as owner of bucket ", p.bkt)
-	p.accept(sm)
-	return nil
 }
 
 func (p *localProcessor) shutdown() {}
@@ -145,4 +138,10 @@ func (p *remoteProcessor) shutdown() {
 	if c := p.getConn(); c != nil {
 		c.Shutdown()
 	}
+}
+func (p *localProcessor) process(sm asmetrics.StatMessage) error {
+	l := p.logger.With(zap.String(logkey.Key, sm.Key.String()))
+	l.Debug("Accept stat as owner of bucket ", p.bkt)
+	p.accept(sm)
+	return nil
 }

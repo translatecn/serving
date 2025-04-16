@@ -20,7 +20,7 @@ import (
 	"context"
 
 	"go.uber.org/zap"
-	"knative.dev/pkg/leaderelection"
+	"knative.dev/serving/pkg/leaderelection"
 )
 
 // StatefulSetBasedProcessor configured "processors" for each of the statefulset ordinals.

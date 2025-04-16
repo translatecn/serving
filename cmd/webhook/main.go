@@ -18,39 +18,38 @@ package main
 
 import (
 	"context"
-
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/injection/sharedmain"
-	"knative.dev/pkg/leaderelection"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/metrics"
-	"knative.dev/pkg/signals"
-	"knative.dev/pkg/webhook"
-	"knative.dev/pkg/webhook/certificates"
-	"knative.dev/pkg/webhook/configmaps"
-	"knative.dev/pkg/webhook/resourcesemantics"
-	"knative.dev/pkg/webhook/resourcesemantics/defaulting"
-	"knative.dev/pkg/webhook/resourcesemantics/validation"
 	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/configmap"
+	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/injection/sharedmain"
+	"knative.dev/serving/pkg/leaderelection"
+	"knative.dev/serving/pkg/metrics"
+	"knative.dev/serving/pkg/over_logging"
 	certconfig "knative.dev/serving/pkg/reconciler/certificate/config"
+	"knative.dev/serving/pkg/signals"
+	"knative.dev/serving/pkg/webhook"
+	"knative.dev/serving/pkg/webhook/certificates"
+	"knative.dev/serving/pkg/webhook/configmaps"
+	"knative.dev/serving/pkg/webhook/resourcesemantics"
+	"knative.dev/serving/pkg/webhook/resourcesemantics/defaulting"
+	"knative.dev/serving/pkg/webhook/resourcesemantics/validation"
 
 	// resource validation types
-	net "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	net "knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	extravalidation "knative.dev/serving/pkg/webhook"
 
 	// config validation constructors
-	network "knative.dev/networking/pkg"
-	netcfg "knative.dev/networking/pkg/config"
-	tracingconfig "knative.dev/pkg/tracing/config"
+	network "knative.dev/serving/networking/pkg"
+	netcfg "knative.dev/serving/networking/pkg/config"
 	apisconfig "knative.dev/serving/pkg/apis/config"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/gc"
 	domainconfig "knative.dev/serving/pkg/reconciler/route/config"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
 )
 
 var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
@@ -82,7 +81,7 @@ var callbacks = map[schema.GroupVersionKind]validation.Callback{
 
 func newDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	// Decorate contexts with the current state of the config.
-	store := apisconfig.NewStore(logging.FromContext(ctx).Named("config-store"))
+	store := apisconfig.NewStore(over_logging.FromContext(ctx).Named("config-store"))
 	store.WatchConfigs(cmw)
 
 	return defaulting.NewAdmissionController(ctx,
@@ -107,7 +106,7 @@ func newDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher
 
 func newValidationAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	// Decorate contexts with the current state of the config.
-	store := apisconfig.NewStore(logging.FromContext(ctx).Named("config-store"))
+	store := apisconfig.NewStore(over_logging.FromContext(ctx).Named("config-store"))
 	store.WatchConfigs(cmw)
 
 	return validation.NewAdmissionController(ctx,
@@ -151,7 +150,7 @@ func newConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 			deployment.ConfigName:            deployment.NewConfigFromConfigMap,
 			apisconfig.FeaturesConfigName:    apisconfig.NewFeaturesConfigFromConfigMap,
 			metrics.ConfigMapName():          metrics.NewObservabilityConfigFromConfigMap,
-			logging.ConfigMapName():          logging.NewConfigFromConfigMap,
+			over_logging.ConfigMapName():     over_logging.NewConfigFromConfigMap,
 			leaderelection.ConfigMapName():   leaderelection.NewConfigFromConfigMap,
 			domainconfig.DomainConfigName:    domainconfig.NewDomainFromConfigMap,
 			apisconfig.DefaultsConfigName:    apisconfig.NewDefaultsConfigFromConfigMap,

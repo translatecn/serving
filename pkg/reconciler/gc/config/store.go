@@ -19,10 +19,10 @@ package config
 import (
 	"context"
 
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/logging"
 	apiconfig "knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/configmap"
 	"knative.dev/serving/pkg/gc"
+	"knative.dev/serving/pkg/over_logging"
 )
 
 type cfgKey struct{}
@@ -64,7 +64,7 @@ func NewStore(ctx context.Context, onAfterStore ...func(name string, value inter
 	return &Store{
 		UntypedStore: configmap.NewUntypedStore(
 			"configuration",
-			logging.FromContext(ctx),
+			over_logging.FromContext(ctx),
 			configmap.Constructors{
 				gc.ConfigName:                gc.NewConfigFromConfigMapFunc(ctx),
 				apiconfig.FeaturesConfigName: apiconfig.NewFeaturesConfigFromConfigMap,

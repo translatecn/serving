@@ -24,11 +24,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/networking/pkg/apis/networking/v1alpha1"
-	clientset "knative.dev/networking/pkg/client/clientset/versioned"
-	listers "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/kmeta"
+	"knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
+	clientset "knative.dev/serving/networking/pkg/client/clientset/versioned"
+	listers "knative.dev/serving/networking/pkg/client/listers/networking/v1alpha1"
+	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/kmeta"
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 )
 

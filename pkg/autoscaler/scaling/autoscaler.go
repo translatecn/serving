@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"knative.dev/serving/pkg/resources"
 	"math"
 	"sync"
 	"time"
@@ -27,14 +28,12 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	pkgmetrics "knative.dev/pkg/metrics"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/autoscaler/aggregation/max"
 	"knative.dev/serving/pkg/autoscaler/metrics"
-	"knative.dev/serving/pkg/resources"
-
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
+	pkgmetrics "knative.dev/serving/pkg/metrics"
 )
 
 type podCounter interface {
@@ -60,76 +59,6 @@ type autoscaler struct {
 	// specMux guards the current DeciderSpec.
 	specMux     sync.RWMutex
 	deciderSpec *DeciderSpec
-}
-
-// New creates a new instance of default autoscaler implementation.
-func New(
-	reporterCtx context.Context,
-	namespace, revision string,
-	metricClient metrics.MetricClient,
-	podCounter resources.EndpointsCounter,
-	deciderSpec *DeciderSpec,
-) UniScaler {
-	var delayer *max.TimeWindow
-	if deciderSpec.ScaleDownDelay > 0 {
-		delayer = max.NewTimeWindow(deciderSpec.ScaleDownDelay, tickInterval)
-	}
-
-	return newAutoscaler(reporterCtx, namespace, revision, metricClient,
-		podCounter, deciderSpec, delayer)
-}
-
-func newAutoscaler(
-	reporterCtx context.Context,
-	namespace, revision string,
-	metricClient metrics.MetricClient,
-	podCounter podCounter,
-	deciderSpec *DeciderSpec,
-	delayWindow *max.TimeWindow,
-) *autoscaler {
-	// We always start in the panic mode, if the deployment is scaled up over 1 pod.
-	// If the scale is 0 or 1, normal Autoscaler behavior is fine.
-	// When Autoscaler restarts we lose metric history, which causes us to
-	// momentarily scale down, and that is not a desired behaviour.
-	// Thus, we're keeping at least the current scale until we
-	// accumulate enough data to make conscious decisions.
-	curC, err := podCounter.ReadyCount()
-	if err != nil {
-		// This always happens on new revision creation, since decider
-		// is reconciled before SKS has even chance of creating the service/endpoints.
-		curC = 0
-	}
-	var pt time.Time
-	if curC > 1 {
-		pt = time.Now()
-		// A new instance of autoscaler is created in panic mode.
-		pkgmetrics.Record(reporterCtx, panicM.M(1))
-	} else {
-		pkgmetrics.Record(reporterCtx, panicM.M(0))
-	}
-
-	return &autoscaler{
-		namespace:    namespace,
-		revision:     revision,
-		metricClient: metricClient,
-		reporterCtx:  reporterCtx,
-
-		deciderSpec: deciderSpec,
-		podCounter:  podCounter,
-
-		delayWindow: delayWindow,
-
-		panicTime:    pt,
-		maxPanicPods: int32(curC), //nolint:gosec // k8s replica count is bounded by int32
-	}
-}
-
-// Update reconfigures the UniScaler according to the DeciderSpec.
-func (a *autoscaler) Update(deciderSpec *DeciderSpec) {
-	a.specMux.Lock()
-	defer a.specMux.Unlock()
-
-	a.deciderSpec = deciderSpec
 }
 
 // Scale calculates the desired scale based on current statistics given the current time.
@@ -318,4 +247,72 @@ func (a *autoscaler) currentSpec() *DeciderSpec {
 	a.specMux.RLock()
 	defer a.specMux.RUnlock()
 	return a.deciderSpec
+}
+
+// New creates a new instance of default autoscaler implementation.
+func New(
+	reporterCtx context.Context,
+	namespace, revision string,
+	metricClient metrics.MetricClient,
+	podCounter resources.EndpointsCounter,
+	deciderSpec *DeciderSpec,
+) UniScaler {
+	var delayer *max.TimeWindow
+	if deciderSpec.ScaleDownDelay > 0 {
+		delayer = max.NewTimeWindow(deciderSpec.ScaleDownDelay, tickInterval)
+	}
+
+	return newAutoscaler(reporterCtx, namespace, revision, metricClient, podCounter, deciderSpec, delayer)
+}
+
+func newAutoscaler(
+	reporterCtx context.Context,
+	namespace, revision string,
+	metricClient metrics.MetricClient,
+	podCounter podCounter,
+	deciderSpec *DeciderSpec,
+	delayWindow *max.TimeWindow,
+) *autoscaler {
+	// We always start in the panic mode, if the deployment is scaled up over 1 pod.
+	// If the scale is 0 or 1, normal Autoscaler behavior is fine.
+	// When Autoscaler restarts we lose metric history, which causes us to
+	// momentarily scale down, and that is not a desired behaviour.
+	// Thus, we're keeping at least the current scale until we
+	// accumulate enough data to make conscious decisions.
+	curC, err := podCounter.ReadyCount()
+	if err != nil {
+		// This always happens on new revision creation, since decider
+		// is reconciled before SKS has even chance of creating the service/endpoints.
+		curC = 0
+	}
+	var pt time.Time
+	if curC > 1 {
+		pt = time.Now()
+		// A new instance of autoscaler is created in panic mode.
+		pkgmetrics.Record(reporterCtx, panicM.M(1))
+	} else {
+		pkgmetrics.Record(reporterCtx, panicM.M(0))
+	}
+
+	return &autoscaler{
+		namespace:    namespace,
+		revision:     revision,
+		metricClient: metricClient,
+		reporterCtx:  reporterCtx,
+
+		deciderSpec: deciderSpec,
+		podCounter:  podCounter,
+
+		delayWindow: delayWindow,
+
+		panicTime:    pt,
+		maxPanicPods: int32(curC), //nolint:gosec // k8s replica count is bounded by int32
+	}
+}
+
+// Update reconfigures the UniScaler according to the DeciderSpec.
+func (a *autoscaler) Update(deciderSpec *DeciderSpec) {
+	a.specMux.Lock()
+	defer a.specMux.Unlock()
+	a.deciderSpec = deciderSpec
 }

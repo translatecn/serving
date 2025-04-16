@@ -28,10 +28,10 @@ import (
 	ksvcreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/service"
 
 	"k8s.io/client-go/tools/cache"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/configmap"
+	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/over_logging"
 )
 
 // NewController initializes the controller and is called by the generated code
@@ -40,7 +40,7 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	serviceInformer := kserviceinformer.Get(ctx)
 	routeInformer := routeinformer.Get(ctx)
 	configurationInformer := configurationinformer.Get(ctx)
@@ -55,6 +55,7 @@ func NewController(
 		revisionInformer.Lister(),
 		routeInformer.Lister(),
 	)
+	_ = c.ReconcileKind
 	opts := func(*controller.Impl) controller.Options {
 		return controller.Options{ConfigStore: configStore}
 	}
@@ -62,12 +63,14 @@ func NewController(
 
 	serviceInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
-	handleControllerOf := cache.FilteringResourceEventHandler{
+	configurationInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.FilterController(&v1.Service{}),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-	}
-	configurationInformer.Informer().AddEventHandler(handleControllerOf)
-	routeInformer.Informer().AddEventHandler(handleControllerOf)
+	})
+	routeInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.FilterController(&v1.Service{}),
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+	})
 
 	return impl
 }

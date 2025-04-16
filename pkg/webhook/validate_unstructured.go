@@ -23,11 +23,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"knative.dev/pkg/apis"
-	"knative.dev/pkg/logging"
+	"knative.dev/serving/pkg/apis"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/over_logging"
 )
 
 // DryRunMode represents possible values of the config.DryRunFeatureKey annotation
@@ -85,7 +85,7 @@ func validateRevisionTemplate(ctx context.Context, uns *unstructured.Unstructure
 		return fmt.Errorf("could not traverse nested spec.template field: %w", err)
 	}
 	if !found {
-		logger := logging.FromContext(ctx)
+		logger := over_logging.FromContext(ctx)
 		logger.Warn("no spec.template found for unstructured")
 		return nil
 	}

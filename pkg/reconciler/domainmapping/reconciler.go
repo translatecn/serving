@@ -31,25 +31,25 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	netapi "knative.dev/networking/pkg/apis/networking"
-	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
-	netclientset "knative.dev/networking/pkg/client/clientset/versioned"
-	networkinglisters "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
-	netcfg "knative.dev/networking/pkg/config"
-	"knative.dev/pkg/apis"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/network"
-	"knative.dev/pkg/reconciler"
-	"knative.dev/pkg/resolver"
+	netapi "knative.dev/serving/networking/pkg/apis/networking"
+	netv1alpha1 "knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
+	netclientset "knative.dev/serving/networking/pkg/client/clientset/versioned"
+	networkinglisters "knative.dev/serving/networking/pkg/client/listers/networking/v1alpha1"
+	netcfg "knative.dev/serving/networking/pkg/config"
+	"knative.dev/serving/pkg/apis"
+	duckv1 "knative.dev/serving/pkg/apis/duck/v1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	domainmappingreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1beta1/domainmapping"
+	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/network"
 	servingnetworking "knative.dev/serving/pkg/networking"
+	"knative.dev/serving/pkg/over_logging"
+	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/domainmapping/config"
 	"knative.dev/serving/pkg/reconciler/domainmapping/resources"
 	routeresources "knative.dev/serving/pkg/reconciler/route/resources"
+	"knative.dev/serving/pkg/resolver"
 )
 
 // Reconciler implements controller.Reconciler for DomainMapping resources.
@@ -82,7 +82,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1beta1.DomainMappin
 	ctx, cancel := context.WithTimeout(ctx, reconciler.DefaultTimeout)
 	defer cancel()
 
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	logger.Debugf("Reconciling DomainMapping %s/%s", dm.Namespace, dm.Name)
 
 	// Defensively assume the ingress is not configured until we manage to
@@ -178,7 +178,7 @@ func externalDomainTLSEnabled(ctx context.Context, dm *v1beta1.DomainMapping) bo
 	annotationValue := netapi.GetDisableExternalDomainTLS(dm.Annotations)
 	disabledByAnnotation, err := strconv.ParseBool(annotationValue)
 	if annotationValue != "" && err != nil {
-		logger := logging.FromContext(ctx)
+		logger := over_logging.FromContext(ctx)
 		// Validation should've caught an invalid value here.
 		// If we have one anyway, assume not disabled and log a warning.
 		logger.Warnf("DM.Annotations[%s] = %q is invalid",

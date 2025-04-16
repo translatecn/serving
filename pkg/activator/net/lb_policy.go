@@ -31,12 +31,6 @@ import (
 // and pointers therein are immutable.
 type lbPolicy func(ctx context.Context, targets []*podTracker) (func(), *podTracker)
 
-// randomLBPolicy is a load balancer policy that picks a random target.
-// This approximates the LB policy done by K8s Service (IPTables based).
-func randomLBPolicy(_ context.Context, targets []*podTracker) (func(), *podTracker) {
-	return noop, targets[rand.Intn(len(targets))] //nolint:gosec
-}
-
 // randomChoice2Policy implements the Power of 2 choices LB algorithm
 func randomChoice2Policy(_ context.Context, targets []*podTracker) (func(), *podTracker) {
 	// Avoid random if possible.

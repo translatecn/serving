@@ -80,9 +80,3 @@ func (eac *scopedEndpointCounter) NotReadyCount() (int, error) {
 // over time.
 // lister is used to retrieve endpoints for counting with the
 // scope of namespace/serviceName.
-func NewScopedEndpointsCounter(lister corev1listers.EndpointsLister, namespace, serviceName string) EndpointsCounter {
-	return &scopedEndpointCounter{
-		endpointsLister: lister.Endpoints(namespace),
-		serviceName:     serviceName,
-	}
-}

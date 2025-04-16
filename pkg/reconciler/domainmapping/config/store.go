@@ -19,10 +19,10 @@ package config
 import (
 	"context"
 
-	network "knative.dev/networking/pkg"
-	netcfg "knative.dev/networking/pkg/config"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/logging"
+	network "knative.dev/serving/networking/pkg"
+	netcfg "knative.dev/serving/networking/pkg/config"
+	"knative.dev/serving/pkg/configmap"
+	"knative.dev/serving/pkg/over_logging"
 )
 
 type cfgKey struct{}
@@ -65,7 +65,7 @@ func NewStore(ctx context.Context, onAfterStore ...func(name string, value inter
 	return &Store{
 		UntypedStore: configmap.NewUntypedStore(
 			"domainmapping",
-			logging.FromContext(ctx),
+			over_logging.FromContext(ctx),
 			configmap.Constructors{
 				netcfg.ConfigMapName: network.NewConfigFromConfigMap,
 			},

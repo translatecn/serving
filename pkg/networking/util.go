@@ -5,10 +5,10 @@ import (
 	"errors"
 	"strings"
 
-	"knative.dev/networking/pkg/apis/networking"
-	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
-	netcfg "knative.dev/networking/pkg/config"
-	"knative.dev/pkg/logging"
+	"knative.dev/serving/networking/pkg/apis/networking"
+	netv1alpha1 "knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
+	netcfg "knative.dev/serving/networking/pkg/config"
+	"knative.dev/serving/pkg/over_logging"
 )
 
 // GetHTTPOption get http-protocol from resource annotations if not, get it from configmap config-network
@@ -27,7 +27,7 @@ func GetHTTPOption(ctx context.Context, networkConfig *netcfg.Config, annotation
 	}
 
 	// Get logger from context
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 
 	// Get HTTPOption via config-network.
 	switch httpProtocol := networkConfig.HTTPProtocol; httpProtocol {

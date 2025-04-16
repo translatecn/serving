@@ -19,11 +19,11 @@ package gc
 import (
 	"context"
 
-	pkgreconciler "knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
+	pkgreconciler "knative.dev/serving/pkg/reconciler"
 )
 
 // reconciler implements controller.Reconciler for garbage collected resources.

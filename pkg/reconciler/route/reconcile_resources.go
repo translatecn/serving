@@ -34,12 +34,12 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"knative.dev/networking/pkg/apis/networking"
-	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
+	"knative.dev/serving/networking/pkg/apis/networking"
+	netv1alpha1 "knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/over_logging"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
 	"knative.dev/serving/pkg/reconciler/route/resources/names"
@@ -148,7 +148,7 @@ func (c *Reconciler) deleteOrphanedServices(ctx context.Context, r *v1.Route, ac
 }
 
 func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1.Route, targets map[string]traffic.RevisionTargets) ([]resources.ServicePair, error) {
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	recorder := controller.GetEventRecorder(ctx)
 	ns := route.Namespace
 	services := make([]resources.ServicePair, 0, len(targets))
@@ -215,7 +215,7 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 }
 
 func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Route, pairs []resources.ServicePair, ingress *netv1alpha1.Ingress) error {
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	ns := route.Namespace
 
 	eg, egCtx := errgroup.WithContext(ctx)
@@ -312,12 +312,12 @@ func deserializeRollout(ctx context.Context, ro string) *traffic.Rollout {
 	// annotation or there's etcd corruption. Just log, rollouts
 	// are not mission critical.
 	if err := json.Unmarshal([]byte(ro), r); err != nil {
-		logging.FromContext(ctx).Warnw("Error deserializing Rollout: "+ro,
+		over_logging.FromContext(ctx).Warnw("Error deserializing Rollout: "+ro,
 			zap.Error(err))
 		return nil
 	}
 	if !r.Validate() {
-		logging.FromContext(ctx).Warnw("Deserializing Rollout is invalid: " + ro)
+		over_logging.FromContext(ctx).Warnw("Deserializing Rollout is invalid: " + ro)
 		return nil
 	}
 	return r
@@ -341,7 +341,7 @@ func (c *Reconciler) reconcileRollout(
 		return curRO
 	}
 	// Get the current rollout state as described by the traffic.
-	logger := logging.FromContext(ctx).Desugar().With(
+	logger := over_logging.FromContext(ctx).Desugar().With(
 		zap.Int("durationSecs", rd))
 	logger.Debug("Rollout is enabled. Stepping from previous state.")
 	// Get the previous rollout state from the annotation.

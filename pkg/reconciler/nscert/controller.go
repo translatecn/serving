@@ -21,23 +21,23 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"knative.dev/networking/pkg/client/injection/client"
-	kcertinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate"
-	nsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/namespace"
-	namespacereconciler "knative.dev/pkg/client/injection/kube/reconciler/core/v1/namespace"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
+	"knative.dev/serving/networking/pkg/client/injection/client"
+	kcertinformer "knative.dev/serving/networking/pkg/client/injection/informers/networking/v1alpha1/certificate"
+	nsinformer "knative.dev/serving/pkg/client/injection/kube/informers/core/v1/namespace"
+	namespacereconciler "knative.dev/serving/pkg/client/injection/kube/reconciler/core/v1/namespace"
+	"knative.dev/serving/pkg/configmap"
+	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/over_logging"
 	routecfg "knative.dev/serving/pkg/reconciler/route/config"
 
-	netcfg "knative.dev/networking/pkg/config"
+	netcfg "knative.dev/serving/networking/pkg/config"
 	"knative.dev/serving/pkg/reconciler/nscert/config"
 )
 
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events.
 func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	nsInformer := nsinformer.Get(ctx)
 	knCertificateInformer := kcertinformer.Get(ctx)
 
@@ -46,6 +46,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		knCertificateLister: knCertificateInformer.Lister(),
 	}
 
+	_ = c.ReconcileKind
 	impl := namespacereconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
 		nsInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 

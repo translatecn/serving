@@ -19,8 +19,8 @@ package config
 import (
 	"context"
 
-	"knative.dev/pkg/configmap"
 	apisconfig "knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/configmap"
 )
 
 type cfgKey struct{}
@@ -32,33 +32,9 @@ type Config struct {
 }
 
 // FromContext extracts a Config from the provided context.
-func FromContext(ctx context.Context) *Config {
-	x, ok := ctx.Value(cfgKey{}).(*Config)
-	if ok {
-		return x
-	}
-	return nil
-}
 
 // FromContextOrDefaults is like FromContext, but when no Config is attached it
 // returns a Config populated with the defaults for each of the Config fields.
-func FromContextOrDefaults(ctx context.Context) *Config {
-	cfg := FromContext(ctx)
-
-	if cfg == nil {
-		cfg = &Config{}
-	}
-
-	if cfg.Defaults == nil {
-		cfg.Defaults, _ = apisconfig.NewDefaultsConfigFromMap(nil)
-	}
-
-	if cfg.Features == nil {
-		cfg.Features, _ = apisconfig.NewFeaturesConfigFromMap(nil)
-	}
-
-	return cfg
-}
 
 // ToContext attaches the provided Config to the provided context, returning the
 // new context with the Config attached.

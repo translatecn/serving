@@ -17,25 +17,17 @@ limitations under the License.
 package resources
 
 import (
-	pkgnet "knative.dev/networking/pkg/apis/networking"
-	"knative.dev/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/pkg/kmeta"
+	pkgnet "knative.dev/serving/networking/pkg/apis/networking"
+	"knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/kmeta"
 	"knative.dev/serving/pkg/networking"
-	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
+	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/over_names"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
-
-// targetPort chooses the target (pod) port for the public and private service.
-func targetPort(sks *v1alpha1.ServerlessService) intstr.IntOrString {
-	if sks.Spec.ProtocolType == pkgnet.ProtocolH2C {
-		return intstr.FromInt(networking.BackendHTTP2Port)
-	}
-	return intstr.FromInt(networking.BackendHTTPPort)
-}
 
 // MakePublicService constructs a K8s Service that is not backed a selector
 // and will be manually reconciled by the SKS controller.
@@ -104,37 +96,12 @@ func FilterSubsetPorts(sks *v1alpha1.ServerlessService, subsets []corev1.Endpoin
 	return filterSubsetPorts(targetPort, subsets)
 }
 
-// filterSubsetPorts internal implementation that takes in port.
-// Those are not arbitrary endpoints, but the endpoints we construct ourselves,
-// thus we know that at least one of the ports will always match.
-func filterSubsetPorts(targetPort int32, subsets []corev1.EndpointSubset) []corev1.EndpointSubset {
-	if len(subsets) == 0 {
-		return nil
-	}
-	ret := make([]corev1.EndpointSubset, len(subsets))
-	for i, sss := range subsets {
-		sst := sss
-		sst.Ports = nil
-		// Find the port we care about and remove all others.
-		for j, p := range sss.Ports {
-			switch p.Port {
-			case networking.BackendHTTPSPort:
-				fallthrough
-			case targetPort:
-				sst.Ports = append(sst.Ports, sss.Ports[j])
-			}
-		}
-		ret[i] = sst
-	}
-	return ret
-}
-
 // MakePrivateService constructs a K8s service, that is backed by the pod selector
 // matching pods created by the revision.
 func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.PrivateService(sks.Name),
+			Name:      over_names.PrivateService(sks.Name),
 			Namespace: sks.Namespace,
 			Labels: kmeta.UnionMaps(sks.GetLabels(), map[string]string{
 				// Add our own special key.
@@ -192,4 +159,37 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 			Selector: selector,
 		},
 	}
+}
+
+// targetPort chooses the target (pod) port for the public and private service.
+func targetPort(sks *v1alpha1.ServerlessService) intstr.IntOrString {
+	if sks.Spec.ProtocolType == pkgnet.ProtocolH2C {
+		return intstr.FromInt(networking.BackendHTTP2Port)
+	}
+	return intstr.FromInt(networking.BackendHTTPPort)
+}
+
+// filterSubsetPorts internal implementation that takes in port.
+// Those are not arbitrary endpoints, but the endpoints we construct ourselves,
+// thus we know that at least one of the ports will always match.
+func filterSubsetPorts(targetPort int32, subsets []corev1.EndpointSubset) []corev1.EndpointSubset {
+	if len(subsets) == 0 {
+		return nil
+	}
+	ret := make([]corev1.EndpointSubset, len(subsets))
+	for i, sss := range subsets {
+		sst := sss
+		sst.Ports = nil
+		// Find the port we care about and remove all others.
+		for j, p := range sss.Ports {
+			switch p.Port {
+			case networking.BackendHTTPSPort:
+				fallthrough
+			case targetPort:
+				sst.Ports = append(sst.Ports, sss.Ports[j])
+			}
+		}
+		ret[i] = sst
+	}
+	return ret
 }

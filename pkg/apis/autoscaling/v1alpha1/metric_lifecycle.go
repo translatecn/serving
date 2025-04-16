@@ -18,7 +18,7 @@ package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/apis"
 	"knative.dev/serving/pkg/apis/autoscaling"
 )
 

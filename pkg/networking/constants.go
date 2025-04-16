@@ -16,7 +16,7 @@ limitations under the License.
 
 package networking
 
-import "knative.dev/networking/pkg/apis/networking"
+import "knative.dev/serving/networking/pkg/apis/networking"
 
 // The ports we setup on our services.
 const (

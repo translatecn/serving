@@ -21,12 +21,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	netapi "knative.dev/networking/pkg/apis/networking"
-	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
-	netheader "knative.dev/networking/pkg/http/header"
-	"knative.dev/pkg/kmeta"
+	netapi "knative.dev/serving/networking/pkg/apis/networking"
+	netv1alpha1 "knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
+	netheader "knative.dev/serving/networking/pkg/http/header"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/kmeta"
 	routeresources "knative.dev/serving/pkg/reconciler/route/resources"
 )
 

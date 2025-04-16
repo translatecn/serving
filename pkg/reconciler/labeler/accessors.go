@@ -27,13 +27,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/clock"
-	"knative.dev/pkg/kmeta"
+	"knative.dev/serving/pkg/kmeta"
 
-	"knative.dev/pkg/tracker"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
+	"knative.dev/serving/pkg/tracker"
 )
 
 // accessor defines an abstraction for manipulating labeled entity

@@ -19,9 +19,9 @@ package labeler
 import (
 	"context"
 
-	pkgreconciler "knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
+	pkgreconciler "knative.dev/serving/pkg/reconciler"
 )
 
 // Reconciler implements controller.Reconciler for Route resources.

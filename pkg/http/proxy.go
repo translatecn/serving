@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 
-	netheader "knative.dev/networking/pkg/http/header"
+	netheader "knative.dev/serving/networking/pkg/http/header"
 )
 
 // NoHostOverride signifies that no host overriding should be done and that the host

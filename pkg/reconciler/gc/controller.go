@@ -20,15 +20,15 @@ import (
 	"context"
 
 	"k8s.io/client-go/tools/cache"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
+	"knative.dev/serving/pkg/configmap"
+	"knative.dev/serving/pkg/controller"
 	gcconfig "knative.dev/serving/pkg/gc"
+	"knative.dev/serving/pkg/over_logging"
 	configns "knative.dev/serving/pkg/reconciler/gc/config"
 )
 
@@ -39,7 +39,7 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	configurationInformer := configurationinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
 
@@ -67,7 +67,7 @@ func NewController(
 			impl.GlobalResync(revisionInformer.Informer())
 		})
 
-		configStore := configns.NewStore(logging.WithLogger(ctx, logger.Named("config-store")), resync)
+		configStore := configns.NewStore(over_logging.WithLogger(ctx, logger.Named("config-store")), resync)
 		configStore.WatchConfigs(cmw)
 
 		return controller.Options{

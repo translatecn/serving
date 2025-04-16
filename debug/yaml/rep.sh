@@ -1,0 +1,9 @@
+skopeo copy --all --insecure-policy docker://gcr.io/knative-releases/knative.dev/serving/cmd/activator:v1.17.0            docker://registry.cn-hangzhou.aliyuncs.com/acejilam/knative-serving-activator:v1.17.0
+skopeo copy --all --insecure-policy docker://gcr.io/knative-releases/knative.dev/serving/cmd/autoscaler:v1.17.0           docker://registry.cn-hangzhou.aliyuncs.com/acejilam/knative-serving-autoscaler:v1.17.0
+skopeo copy --all --insecure-policy docker://gcr.io/knative-releases/knative.dev/serving/cmd/controller:v1.17.0           docker://registry.cn-hangzhou.aliyuncs.com/acejilam/knative-serving-controller:v1.17.0
+skopeo copy --all --insecure-policy docker://gcr.io/knative-releases/knative.dev/serving/cmd/webhook:v1.17.0              docker://registry.cn-hangzhou.aliyuncs.com/acejilam/knative-serving-webhook:v1.17.0
+skopeo copy --all --insecure-policy docker://gcr.io/knative-releases/knative.dev/net-istio/cmd/controller:v1.17.0         docker://registry.cn-hangzhou.aliyuncs.com/acejilam/net-istio-controller:v1.17.0
+skopeo copy --all --insecure-policy docker://gcr.io/knative-releases/knative.dev/net-istio/cmd/webhook:v1.17.0            docker://registry.cn-hangzhou.aliyuncs.com/acejilam/net-istio-webhook:v1.17.0
+skopeo copy --all --insecure-policy docker://gcr.io/knative-releases/knative.dev/serving/cmd/queue:v1.17.0                docker://registry.cn-hangzhou.aliyuncs.com/acejilam/knative-serving-queue:v1.17.0
+skopeo copy --all --insecure-policy docker://gcr.io/knative-releases/knative.dev/net-kourier/cmd/kourier:v1.17.0          docker://registry.cn-hangzhou.aliyuncs.com/acejilam/net-kourier-kourier:v1.17.0
+skopeo copy --all --insecure-policy docker://docker.io/envoyproxy/envoy:v1.31-latest                                      docker://registry.cn-hangzhou.aliyuncs.com/acejilam/envoyproxy-envoy:v1.31-latest

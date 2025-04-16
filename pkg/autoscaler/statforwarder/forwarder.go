@@ -23,11 +23,11 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"knative.dev/pkg/hash"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/logging/logkey"
-	"knative.dev/pkg/network"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
+	"knative.dev/serving/pkg/hash"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/over_logging"
+	"knative.dev/serving/pkg/over_logging/logkey"
 )
 
 const (
@@ -77,36 +77,49 @@ type Forwarder struct {
 	stopCh chan struct{}
 }
 
-// New creates a new Forwarder.
-// This must be configured with a mechanism for setting up its "processors",
-// such as LeaseBasedProcessor or StatefulSetBasedProcessor, which correlates
-// with the mechanism of leader election being used.
-func New(ctx context.Context, bs *hash.BucketSet) *Forwarder {
-	bkts := bs.Buckets()
-	f := &Forwarder{
-		logger:     logging.FromContext(ctx),
-		bs:         bs,
-		processors: make(map[string]bucketProcessor, len(bkts)),
-		statCh:     make(chan stat, 1000),
-		stopCh:     make(chan struct{}),
-	}
-
-	f.processingWg.Add(1)
-	go f.process()
-
-	return f
-}
-
-func (f *Forwarder) getProcessor(bkt string) bucketProcessor {
-	f.processorsLock.RLock()
-	defer f.processorsLock.RUnlock()
-	return f.processors[bkt]
-}
-
 func (f *Forwarder) setProcessor(bkt string, p bucketProcessor) {
 	f.processorsLock.Lock()
 	defer f.processorsLock.Unlock()
 	f.processors[bkt] = p
+}
+
+func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat) {
+	if s.retry > maxProcessingRetry {
+		logger.Warn("Exceeding max retries. Dropping the stat.")
+	}
+
+	s.retry++
+	f.retryWg.Add(1)
+	go func() {
+		defer f.retryWg.Done()
+		// TODO(yanweiguo): Use RateLimitingInterface and NewItemFastSlowRateLimiter.
+		time.Sleep(retryProcessingInterval)
+		logger.Debug("Enqueuing stat for retry.")
+		f.statCh <- s
+	}()
+}
+
+// Cancel is the function to call when terminating a Forwarder.
+func (f *Forwarder) Cancel() {
+	// Tell process go-runtine to stop.
+	close(f.stopCh)
+
+	f.processorsLock.RLock()
+	defer f.processorsLock.RUnlock()
+	for _, p := range f.processors {
+		if p != nil {
+			p.shutdown()
+		}
+	}
+
+	f.processingWg.Wait()
+	close(f.statCh)
+}
+
+// IsBucketOwner returns true if this Autoscaler pod is the owner of the given bucket.
+func (f *Forwarder) IsBucketOwner(bkt string) bool {
+	_, owned := f.getProcessor(bkt).(*localProcessor)
+	return owned
 }
 
 // Process enqueues the given Stat for processing asynchronously.
@@ -147,41 +160,27 @@ func (f *Forwarder) process() {
 	}
 }
 
-func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat) {
-	if s.retry > maxProcessingRetry {
-		logger.Warn("Exceeding max retries. Dropping the stat.")
+// New creates a new Forwarder.
+// This must be configured with a mechanism for setting up its "processors",
+// such as LeaseBasedProcessor or StatefulSetBasedProcessor, which correlates
+// with the mechanism of leader election being used.
+func New(ctx context.Context, bs *hash.BucketSet) *Forwarder {
+	bkts := bs.Buckets()
+	f := &Forwarder{
+		logger:     over_logging.FromContext(ctx),
+		bs:         bs,
+		processors: make(map[string]bucketProcessor, len(bkts)),
+		statCh:     make(chan stat, 1000),
+		stopCh:     make(chan struct{}),
 	}
 
-	s.retry++
-	f.retryWg.Add(1)
-	go func() {
-		defer f.retryWg.Done()
-		// TODO(yanweiguo): Use RateLimitingInterface and NewItemFastSlowRateLimiter.
-		time.Sleep(retryProcessingInterval)
-		logger.Debug("Enqueuing stat for retry.")
-		f.statCh <- s
-	}()
+	f.processingWg.Add(1)
+	go f.process()
+
+	return f
 }
-
-// Cancel is the function to call when terminating a Forwarder.
-func (f *Forwarder) Cancel() {
-	// Tell process go-runtine to stop.
-	close(f.stopCh)
-
+func (f *Forwarder) getProcessor(bkt string) bucketProcessor {
 	f.processorsLock.RLock()
 	defer f.processorsLock.RUnlock()
-	for _, p := range f.processors {
-		if p != nil {
-			p.shutdown()
-		}
-	}
-
-	f.processingWg.Wait()
-	close(f.statCh)
-}
-
-// IsBucketOwner returns true if this Autoscaler pod is the owner of the given bucket.
-func (f *Forwarder) IsBucketOwner(bkt string) bool {
-	_, owned := f.getProcessor(bkt).(*localProcessor)
-	return owned
+	return f.processors[bkt]
 }

@@ -22,7 +22,7 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/pkg/metrics/metricskey"
+	"knative.dev/serving/pkg/metrics/metricskey"
 
 	"go.opencensus.io/resource"
 	"go.opencensus.io/tag"
@@ -49,20 +49,6 @@ func valueOrUnknown(v string) string {
 		return v
 	}
 	return metricskey.ValueUnknown
-}
-
-// RevisionContext generates a new base metric reporting context containing
-// the respective revision specific tags.
-func RevisionContext(ns, svc, cfg, rev string) context.Context {
-	key := types.NamespacedName{Namespace: ns, Name: rev}
-	if ctx, ok := contextCache.Get(key); ok {
-		return ctx.(context.Context)
-	}
-
-	ctx := augmentWithRevision(context.Background(), ns, svc, cfg, rev)
-	contextCache.Add(key, ctx)
-
-	return ctx
 }
 
 type podCtx struct {
@@ -151,4 +137,18 @@ func AugmentWithResponseAndRouteTag(baseCtx context.Context, responseCode int, r
 func responseCodeClass(responseCode int) string {
 	// Get the hundreds digit of the response code and concatenate "xx".
 	return strconv.Itoa(responseCode/100) + "xx"
+}
+
+// RevisionContext generates a new base metric reporting context containing
+// the respective revision specific tags.
+func RevisionContext(ns, svc, cfg, rev string) context.Context {
+	key := types.NamespacedName{Namespace: ns, Name: rev}
+	if ctx, ok := contextCache.Get(key); ok {
+		return ctx.(context.Context)
+	}
+
+	ctx := augmentWithRevision(context.Background(), ns, svc, cfg, rev)
+	contextCache.Add(key, ctx)
+
+	return ctx
 }

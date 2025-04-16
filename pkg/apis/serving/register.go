@@ -17,16 +17,12 @@ limitations under the License.
 package serving
 
 import (
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"knative.dev/pkg/kmap"
+	"knative.dev/serving/pkg/over_kmap"
 )
 
 const (
 	// GroupName is the group name for knative labels and annotations
 	GroupName = "serving.knative.dev"
-
-	// GroupNamePrefix is the prefix for label key and annotation key
-	GroupNamePrefix = GroupName + "/"
 
 	// ConfigurationLabelKey is the label key attached to a Revision indicating by
 	// which Configuration it is created.
@@ -147,59 +143,33 @@ const (
 )
 
 var (
-	// ServicesResource represents a Knative Service
-	ServicesResource = schema.GroupResource{
-		Group:    GroupName,
-		Resource: "services",
-	}
-
-	// ConfigurationsResource represents a Knative Configuration
-	ConfigurationsResource = schema.GroupResource{
-		Group:    GroupName,
-		Resource: "configurations",
-	}
-
-	// RevisionsResource represents a Knative Revision
-	RevisionsResource = schema.GroupResource{
-		Group:    GroupName,
-		Resource: "revisions",
-	}
-
-	// RoutesResource represents a Knative Route
-	RoutesResource = schema.GroupResource{
-		Group:    GroupName,
-		Resource: "routes",
-	}
-)
-
-var (
-	RolloutDurationAnnotation = kmap.KeyPriority{
+	RolloutDurationAnnotation = over_kmap.KeyPriority{
 		RolloutDurationKey,
 		GroupName + "/rolloutDuration",
 	}
-	QueueSidecarResourcePercentageAnnotation = kmap.KeyPriority{
+	QueueSidecarResourcePercentageAnnotation = over_kmap.KeyPriority{
 		QueueSidecarResourcePercentageAnnotationKey,
 		"queue.sidecar." + GroupName + "/resourcePercentage",
 	}
-	QueueSidecarCPUResourceRequestAnnotation = kmap.KeyPriority{
+	QueueSidecarCPUResourceRequestAnnotation = over_kmap.KeyPriority{
 		QueueSidecarCPUResourceRequestAnnotationKey,
 	}
-	QueueSidecarCPUResourceLimitAnnotation = kmap.KeyPriority{
+	QueueSidecarCPUResourceLimitAnnotation = over_kmap.KeyPriority{
 		QueueSidecarCPUResourceLimitAnnotationKey,
 	}
-	QueueSidecarMemoryResourceRequestAnnotation = kmap.KeyPriority{
+	QueueSidecarMemoryResourceRequestAnnotation = over_kmap.KeyPriority{
 		QueueSidecarMemoryResourceRequestAnnotationKey,
 	}
-	QueueSidecarMemoryResourceLimitAnnotation = kmap.KeyPriority{
+	QueueSidecarMemoryResourceLimitAnnotation = over_kmap.KeyPriority{
 		QueueSidecarMemoryResourceLimitAnnotationKey,
 	}
-	QueueSidecarEphemeralStorageResourceRequestAnnotation = kmap.KeyPriority{
+	QueueSidecarEphemeralStorageResourceRequestAnnotation = over_kmap.KeyPriority{
 		QueueSidecarEphemeralStorageResourceRequestAnnotationKey,
 	}
-	QueueSidecarEphemeralStorageResourceLimitAnnotation = kmap.KeyPriority{
+	QueueSidecarEphemeralStorageResourceLimitAnnotation = over_kmap.KeyPriority{
 		QueueSidecarEphemeralStorageResourceLimitAnnotationKey,
 	}
-	ProgressDeadlineAnnotation = kmap.KeyPriority{
+	ProgressDeadlineAnnotation = over_kmap.KeyPriority{
 		ProgressDeadlineAnnotationKey,
 	}
 )

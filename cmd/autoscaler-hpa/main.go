@@ -21,7 +21,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/autoscaling/hpa"
 
 	// This defines the shared main for injected controllers.
-	"knative.dev/pkg/injection/sharedmain"
+	"knative.dev/serving/pkg/injection/sharedmain"
 )
 
 func main() {

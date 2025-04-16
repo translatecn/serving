@@ -23,8 +23,8 @@ import (
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
 	metricreconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/metric"
 
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
+	"knative.dev/serving/pkg/configmap"
+	"knative.dev/serving/pkg/controller"
 )
 
 // NewController initializes the controller and is called by the generated code.

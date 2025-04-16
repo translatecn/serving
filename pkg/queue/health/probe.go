@@ -37,9 +37,9 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	corev1 "k8s.io/api/core/v1"
-	netheader "knative.dev/networking/pkg/http/header"
-	pkgnet "knative.dev/pkg/network"
-	"knative.dev/pkg/ptr"
+	netheader "knative.dev/serving/networking/pkg/http/header"
+	pkgnet "knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/over_ptr"
 )
 
 // HTTPProbeConfigOptions holds the HTTP probe config options
@@ -266,7 +266,7 @@ func GRPCProbe(config GRPCProbeConfigOptions) error {
 	client := grpchealth.NewHealthClient(conn)
 
 	resp, err := client.Check(metadata.NewOutgoingContext(ctx, make(metadata.MD)), &grpchealth.HealthCheckRequest{
-		Service: ptr.StringValue(config.Service),
+		Service: over_ptr.StringValue(config.Service),
 	})
 	if err != nil {
 		stat, ok := status.FromError(err)

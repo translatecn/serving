@@ -19,25 +19,25 @@ package route
 import (
 	"context"
 
-	netclient "knative.dev/networking/pkg/client/injection/client"
-	certificateinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate"
-	ingressinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
-	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
+	netclient "knative.dev/serving/networking/pkg/client/injection/client"
+	certificateinformer "knative.dev/serving/networking/pkg/client/injection/informers/networking/v1alpha1/certificate"
+	ingressinformer "knative.dev/serving/networking/pkg/client/injection/informers/networking/v1alpha1/ingress"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route"
+	kubeclient "knative.dev/serving/pkg/client/injection/kube/client"
+	endpointsinformer "knative.dev/serving/pkg/client/injection/kube/informers/core/v1/endpoints"
+	serviceinformer "knative.dev/serving/pkg/client/injection/kube/informers/core/v1/service"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
 
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/clock"
-	netcfg "knative.dev/networking/pkg/config"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
+	netcfg "knative.dev/serving/networking/pkg/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/configmap"
+	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/over_logging"
 	"knative.dev/serving/pkg/reconciler/route/config"
 )
 
@@ -58,7 +58,7 @@ func newController(
 	clock clock.Clock,
 	opts ...reconcilerOption,
 ) *controller.Impl {
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	serviceInformer := serviceinformer.Get(ctx)
 	endpointsInformer := endpointsinformer.Get(ctx)
 	routeInformer := routeinformer.Get(ctx)
@@ -79,6 +79,7 @@ func newController(
 		certificateLister:   certificateInformer.Lister(),
 		clock:               clock,
 	}
+	_ = c.ReconcileKind
 	impl := routereconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
 		configsToResync := []interface{}{
 			&netcfg.Config{},
@@ -87,7 +88,7 @@ func newController(
 		resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 			impl.GlobalResync(routeInformer.Informer())
 		})
-		configStore := config.NewStore(logging.WithLogger(ctx, logger.Named("config-store")), resync)
+		configStore := config.NewStore(over_logging.WithLogger(ctx, logger.Named("config-store")), resync)
 		configStore.WatchConfigs(cmw)
 		return controller.Options{ConfigStore: configStore}
 	})
@@ -95,13 +96,18 @@ func newController(
 
 	routeInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
-	handleControllerOf := cache.FilteringResourceEventHandler{
+	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.FilterController(&v1.Route{}),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-	}
-	serviceInformer.Informer().AddEventHandler(handleControllerOf)
-	certificateInformer.Informer().AddEventHandler(handleControllerOf)
-	ingressInformer.Informer().AddEventHandler(handleControllerOf)
+	})
+	certificateInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.FilterController(&v1.Route{}),
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+	})
+	ingressInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.FilterController(&v1.Route{}),
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+	})
 
 	c.tracker = impl.Tracker
 

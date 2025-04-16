@@ -23,9 +23,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"knative.dev/pkg/apis"
-	"knative.dev/pkg/network"
+	"knative.dev/serving/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/network"
 )
 
 // Validate makes sure that DomainMapping is properly configured.

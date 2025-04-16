@@ -20,24 +20,24 @@ import (
 	"context"
 
 	"k8s.io/client-go/tools/cache"
-	netclient "knative.dev/networking/pkg/client/injection/client"
-	certificateinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate"
-	domainclaiminformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/clusterdomainclaim"
-	ingressinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress"
-	netcfg "knative.dev/networking/pkg/config"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/resolver"
+	netclient "knative.dev/serving/networking/pkg/client/injection/client"
+	certificateinformer "knative.dev/serving/networking/pkg/client/injection/informers/networking/v1alpha1/certificate"
+	domainclaiminformer "knative.dev/serving/networking/pkg/client/injection/informers/networking/v1alpha1/clusterdomainclaim"
+	ingressinformer "knative.dev/serving/networking/pkg/client/injection/informers/networking/v1alpha1/ingress"
+	netcfg "knative.dev/serving/networking/pkg/config"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/client/injection/informers/serving/v1beta1/domainmapping"
 	kindreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1beta1/domainmapping"
+	"knative.dev/serving/pkg/configmap"
+	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/over_logging"
 	"knative.dev/serving/pkg/reconciler/domainmapping/config"
+	"knative.dev/serving/pkg/resolver"
 )
 
 // NewController creates a new DomainMapping controller.
 func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	certificateInformer := certificateinformer.Get(ctx)
 	domainmappingInformer := domainmapping.Get(ctx)
 	ingressInformer := ingressinformer.Get(ctx)
@@ -50,6 +50,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		netclient:         netclient.Get(ctx),
 	}
 
+	_ = r.ReconcileKind
 	impl := kindreconciler.NewImpl(ctx, r, func(impl *controller.Impl) controller.Options {
 		configsToResync := []interface{}{
 			&netcfg.Config{},
@@ -57,19 +58,21 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 			impl.GlobalResync(domainmappingInformer.Informer())
 		})
-		configStore := config.NewStore(logging.WithLogger(ctx, logger.Named("config-store")), resync)
+		configStore := config.NewStore(over_logging.WithLogger(ctx, logger.Named("config-store")), resync)
 		configStore.WatchConfigs(cmw)
 		return controller.Options{ConfigStore: configStore}
 	})
 
 	domainmappingInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
-	handleControllerOf := cache.FilteringResourceEventHandler{
+	certificateInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.FilterController(&v1beta1.DomainMapping{}),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-	}
-	certificateInformer.Informer().AddEventHandler(handleControllerOf)
-	ingressInformer.Informer().AddEventHandler(handleControllerOf)
+	})
+	ingressInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.FilterController(&v1beta1.DomainMapping{}),
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+	})
 
 	r.resolver = resolver.NewURIResolverFromTracker(ctx, impl.Tracker)
 

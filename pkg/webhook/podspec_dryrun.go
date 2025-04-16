@@ -28,10 +28,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"knative.dev/pkg/apis"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/logging"
+	"knative.dev/serving/pkg/apis"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	kubeclient "knative.dev/serving/pkg/client/injection/kube/client"
+	"knative.dev/serving/pkg/over_logging"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 )
 
@@ -72,7 +72,7 @@ func validatePodSpec(ctx context.Context, ps v1.RevisionSpec, namespace string, 
 
 // dryRunPodSpec makes a dry-run call to k8s to validate the podspec
 func dryRunPodSpec(ctx context.Context, pod *corev1.Pod, mode DryRunMode) error {
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	client := kubeclient.Get(ctx)
 
 	options := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}

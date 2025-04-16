@@ -19,9 +19,9 @@ package config
 import (
 	"context"
 
-	"knative.dev/pkg/configmap"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
+	"knative.dev/serving/pkg/configmap"
 )
 
 type cfgKey struct{}

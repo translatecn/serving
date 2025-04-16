@@ -23,12 +23,12 @@ import (
 	"strings"
 	"time"
 
-	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/kmeta"
 	"knative.dev/serving/pkg/networking"
+	"knative.dev/serving/pkg/over_ptr"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
@@ -192,7 +192,7 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 	sort.Strings(audiences)
 	for _, aud := range audiences {
 		// add token for audience <aud> under filename <aud>
-		addToken(tokenVolume, aud, aud, ptr.Int64(3600))
+		addToken(tokenVolume, aud, aud, over_ptr.Int64(3600))
 	}
 
 	if len(tokenVolume.VolumeSource.Projected.Sources) > 0 {
@@ -348,7 +348,6 @@ func buildUserPortEnv(userPort string) corev1.EnvVar {
 	}
 }
 
-// MakeDeployment constructs a K8s Deployment resource from a revision.
 func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, error) {
 	podSpec, err := makePodSpec(rev, cfg)
 	if err != nil {
@@ -386,10 +385,10 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas:                ptr.Int32(replicaCount),
+			Replicas:                over_ptr.Int32(replicaCount),
 			Selector:                makeSelector(rev),
-			ProgressDeadlineSeconds: ptr.Int32(progressDeadline),
-			RevisionHistoryLimit:    ptr.Int32(0),
+			ProgressDeadlineSeconds: over_ptr.Int32(progressDeadline),
+			RevisionHistoryLimit:    over_ptr.Int32(0),
 			Strategy: appsv1.DeploymentStrategy{
 				Type: appsv1.RollingUpdateDeploymentStrategyType,
 				RollingUpdate: &appsv1.RollingUpdateDeployment{

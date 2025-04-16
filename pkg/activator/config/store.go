@@ -20,9 +20,9 @@ import (
 	"context"
 	"sync/atomic"
 
-	netcfg "knative.dev/networking/pkg/config"
-	"knative.dev/pkg/configmap"
-	tracingconfig "knative.dev/pkg/tracing/config"
+	netcfg "knative.dev/serving/networking/pkg/config"
+	"knative.dev/serving/pkg/configmap"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
 )
 
 type cfgKey struct{}

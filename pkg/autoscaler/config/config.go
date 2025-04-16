@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"time"
 
-	cm "knative.dev/pkg/configmap"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
+	cm "knative.dev/serving/pkg/configmap"
 
 	corev1 "k8s.io/api/core/v1"
 )

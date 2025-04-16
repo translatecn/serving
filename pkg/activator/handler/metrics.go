@@ -17,8 +17,8 @@ limitations under the License.
 package handler
 
 import (
-	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/metrics"
+	pkgmetrics "knative.dev/serving/pkg/metrics"
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"

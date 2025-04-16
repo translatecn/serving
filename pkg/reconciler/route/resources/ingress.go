@@ -28,16 +28,16 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 
-	"knative.dev/networking/pkg/apis/networking"
-	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
-	netheader "knative.dev/networking/pkg/http/header"
-	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/logging"
+	"knative.dev/serving/networking/pkg/apis/networking"
+	netv1alpha1 "knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
+	netheader "knative.dev/serving/networking/pkg/http/header"
 	"knative.dev/serving/pkg/activator"
 	apicfg "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/kmeta"
 	servingnetworking "knative.dev/serving/pkg/networking"
+	"knative.dev/serving/pkg/over_logging"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
@@ -105,7 +105,7 @@ func serializeRollout(ctx context.Context, r *traffic.Rollout) string {
 	sr, err := json.Marshal(r)
 	if err != nil {
 		// This must never happen in the normal course of things.
-		logging.FromContext(ctx).Warnw("Error serializing Rollout: "+spew.Sprint(r),
+		over_logging.FromContext(ctx).Warnw("Error serializing Rollout: "+spew.Sprint(r),
 			zap.Error(err))
 		return ""
 	}

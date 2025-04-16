@@ -39,15 +39,15 @@ import (
 	certmanagerclientset "github.com/cert-manager/cert-manager/pkg/client/clientset/versioned"
 	acmelisters "github.com/cert-manager/cert-manager/pkg/client/listers/acme/v1"
 	certmanagerlisters "github.com/cert-manager/cert-manager/pkg/client/listers/certmanager/v1"
-	"knative.dev/networking/pkg/apis/networking/v1alpha1"
-	certreconciler "knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/certificate"
-	"knative.dev/pkg/apis"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
-	pkgreconciler "knative.dev/pkg/reconciler"
-	"knative.dev/pkg/tracker"
+	"knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
+	certreconciler "knative.dev/serving/networking/pkg/client/injection/reconciler/networking/v1alpha1/certificate"
+	"knative.dev/serving/pkg/apis"
+	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/over_logging"
+	pkgreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/certificate/config"
 	"knative.dev/serving/pkg/reconciler/certificate/resources"
+	"knative.dev/serving/pkg/tracker"
 )
 
 const (
@@ -93,7 +93,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, knCert *v1alpha1.Certifi
 }
 
 func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate) error {
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 
 	knCert.SetDefaults(ctx)
 	knCert.Status.InitializeConditions()
@@ -191,7 +191,7 @@ func (c *Reconciler) reconcileCMCertificate(ctx context.Context, knCert *v1alpha
 }
 
 func (c *Reconciler) setHTTP01Challenges(ctx context.Context, knCert *v1alpha1.Certificate, cmCert *cmv1.Certificate) error {
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	if isHTTP, err := c.isHTTPChallenge(cmCert); err != nil {
 		return err
 	} else if !isHTTP {

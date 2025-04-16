@@ -19,12 +19,12 @@ package config
 import (
 	"context"
 
-	network "knative.dev/networking/pkg"
-	netcfg "knative.dev/networking/pkg/config"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/logging"
+	network "knative.dev/serving/networking/pkg"
+	netcfg "knative.dev/serving/networking/pkg/config"
 	cfgmap "knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/configmap"
 	"knative.dev/serving/pkg/gc"
+	"knative.dev/serving/pkg/over_logging"
 )
 
 type cfgKey struct{}
@@ -80,7 +80,7 @@ type Store struct {
 //
 // See also: configmap.NewUntypedStore().
 func NewStore(ctx context.Context, onAfterStore ...func(name string, value interface{})) *Store {
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 
 	store := &Store{
 		UntypedStore: configmap.NewUntypedStore(

@@ -1,0 +1,74 @@
+/*
+Copyright 2019 The Knative Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package ingress
+
+import (
+	"strings"
+
+	"k8s.io/apimachinery/pkg/util/sets"
+	"knative.dev/serving/pkg/network"
+)
+
+// ComputeHash computes a hash of the Ingress Spec, Namespace and Name
+
+// InsertProbe adds a AppendHeader rule so that any request going through a Gateway is tagged with
+// the version of the Ingress currently deployed on the Gateway.
+
+// HostsPerVisibility takes an Ingress and a map from visibility levels to a set of string keys,
+// it then returns a map from that key space to the hosts under that visibility.
+
+// ExpandedHosts sets up hosts for the short-names for cluster DNS names.
+func ExpandedHosts(hosts sets.Set[string]) sets.Set[string] {
+	allowedSuffixes := []string{
+		"",
+		"." + network.GetClusterDomainName(),
+		".svc." + network.GetClusterDomainName(),
+	}
+	// Optimistically pre-alloc.
+	expanded := make(sets.Set[string], len(hosts)*len(allowedSuffixes))
+	for _, h := range sets.List(hosts) {
+		for _, suffix := range allowedSuffixes {
+			if th := strings.TrimSuffix(h, suffix); suffix == "" || len(th) < len(h) {
+				if isValidTopLevelDomain(th) {
+					expanded.Insert(th)
+				}
+			}
+		}
+	}
+	return expanded
+}
+
+// Validate that the Top Level Domain of a given hostname is valid.
+// Current checks:
+//   - not all digits
+//   - len < 64
+//
+// Example: '1234' is an invalid TLD
+func isValidTopLevelDomain(domain string) bool {
+	parts := strings.Split(domain, ".")
+	tld := parts[len(parts)-1]
+	if len(tld) > 63 {
+		return false
+	}
+	for _, c := range []byte(tld) {
+		if c == '-' || c > '9' {
+			return true
+		}
+	}
+	// Every char was a digit.
+	return false
+}

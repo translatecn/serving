@@ -19,9 +19,9 @@ package v1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"knative.dev/pkg/apis"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"knative.dev/pkg/kmeta"
+	"knative.dev/serving/pkg/apis"
+	duckv1 "knative.dev/serving/pkg/apis/duck/v1"
+	"knative.dev/serving/pkg/kmeta"
 )
 
 // +genclient
@@ -138,17 +138,6 @@ const (
 )
 
 // IsRouteCondition returns true if the ConditionType is a route condition type
-func IsRouteCondition(t apis.ConditionType) bool {
-	switch t {
-	case
-		RouteConditionReady,
-		RouteConditionAllTrafficAssigned,
-		RouteConditionIngressReady,
-		RouteConditionCertificateProvisioned:
-		return true
-	}
-	return false
-}
 
 // RouteStatusFields holds the fields of Route's status that
 // are not generally shared.  This is defined separately and inlined so that

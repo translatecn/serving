@@ -30,21 +30,19 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
-	cachingclientset "knative.dev/caching/pkg/client/clientset/versioned"
-	networkingclientset "knative.dev/networking/pkg/client/clientset/versioned"
-	"knative.dev/pkg/tracker"
+	cachingclientset "knative.dev/serving/caching/pkg/client/clientset/versioned"
+	networkingclientset "knative.dev/serving/networking/pkg/client/clientset/versioned"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
+	"knative.dev/serving/pkg/tracker"
 
-	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
+	cachinglisters "knative.dev/serving/caching/pkg/client/listers/caching/v1alpha1"
+	networkinglisters "knative.dev/serving/networking/pkg/client/listers/networking/v1alpha1"
 
-	cachinglisters "knative.dev/caching/pkg/client/listers/caching/v1alpha1"
-	networkinglisters "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
-
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
-	pkgreconciler "knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/over_logging"
+	pkgreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 )
 
@@ -71,54 +69,6 @@ type Reconciler struct {
 	resolver resolver
 }
 
-// Check that our Reconciler implements the necessary interfaces.
-var (
-	_ revisionreconciler.Interface      = (*Reconciler)(nil)
-	_ pkgreconciler.OnDeletionInterface = (*Reconciler)(nil)
-)
-
-func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (bool, error) {
-	totalNumOfContainers := len(rev.Spec.Containers) + len(rev.Spec.InitContainers)
-
-	// The image digest has already been resolved.
-	// No need to check for init containers feature flag here because rev.Spec has been validated already
-	if len(rev.Status.ContainerStatuses)+len(rev.Status.InitContainerStatuses) == totalNumOfContainers {
-		c.resolver.Clear(types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name})
-		return true, nil
-	}
-
-	imagePullSecrets := make([]string, 0, len(rev.Spec.ImagePullSecrets))
-	for _, s := range rev.Spec.ImagePullSecrets {
-		imagePullSecrets = append(imagePullSecrets, s.Name)
-	}
-	cfgs := config.FromContext(ctx)
-	opt := k8schain.Options{
-		Namespace:          rev.Namespace,
-		ServiceAccountName: rev.Spec.ServiceAccountName,
-		ImagePullSecrets:   imagePullSecrets,
-	}
-
-	logger := logging.FromContext(ctx)
-	initContainerStatuses, statuses, err := c.resolver.Resolve(logger, rev, opt, cfgs.Deployment.RegistriesSkippingTagResolving, cfgs.Deployment.DigestResolutionTimeout)
-	if err != nil {
-		// Clear the resolver so we can retry the digest resolution rather than
-		// being stuck with this error.
-		c.resolver.Clear(types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name})
-		rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing, err.Error())
-		return true, err
-	}
-
-	if len(statuses) > 0 || len(initContainerStatuses) > 0 {
-		rev.Status.ContainerStatuses = statuses
-		rev.Status.InitContainerStatuses = initContainerStatuses
-		return true, nil
-	}
-
-	// No digest yet, wait for re-enqueue when resolution is done.
-	return false, nil
-}
-
-// ReconcileKind implements Interface.ReconcileKind.
 func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgreconciler.Event {
 	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
 	defer cancel()
@@ -140,7 +90,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 	// being enabled.
 	// Some things, like PA reachability, etc are computed based on various labels/annotations
 	// of revision. So it is useful to provide this information for debugging.
-	logger := logging.FromContext(ctx).Desugar()
+	logger := over_logging.FromContext(ctx).Desugar()
 	if logger.Core().Enabled(zapcore.DebugLevel) {
 		logger.Debug("Revision meta: " + spew.Sdump(rev.ObjectMeta))
 	}
@@ -198,4 +148,45 @@ func (c *Reconciler) GetNetworkingClient() networkingclientset.Interface {
 
 func (c *Reconciler) GetCertificateLister() networkinglisters.CertificateLister {
 	return c.certificateLister
+}
+
+func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (bool, error) {
+	totalNumOfContainers := len(rev.Spec.Containers) + len(rev.Spec.InitContainers)
+
+	// The image digest has already been resolved.
+	// No need to check for init containers feature flag here because rev.Spec has been validated already
+	if len(rev.Status.ContainerStatuses)+len(rev.Status.InitContainerStatuses) == totalNumOfContainers {
+		c.resolver.Clear(types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name})
+		return true, nil
+	}
+
+	imagePullSecrets := make([]string, 0, len(rev.Spec.ImagePullSecrets))
+	for _, s := range rev.Spec.ImagePullSecrets {
+		imagePullSecrets = append(imagePullSecrets, s.Name)
+	}
+	cfgs := config.FromContext(ctx)
+	opt := k8schain.Options{
+		Namespace:          rev.Namespace,
+		ServiceAccountName: rev.Spec.ServiceAccountName,
+		ImagePullSecrets:   imagePullSecrets,
+	}
+
+	logger := over_logging.FromContext(ctx)
+	initContainerStatuses, statuses, err := c.resolver.Resolve(logger, rev, opt, cfgs.Deployment.RegistriesSkippingTagResolving, cfgs.Deployment.DigestResolutionTimeout)
+	if err != nil {
+		// Clear the resolver so we can retry the digest resolution rather than
+		// being stuck with this error.
+		c.resolver.Clear(types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name})
+		rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing, err.Error())
+		return true, err
+	}
+
+	if len(statuses) > 0 || len(initContainerStatuses) > 0 {
+		rev.Status.ContainerStatuses = statuses
+		rev.Status.InitContainerStatuses = initContainerStatuses
+		return true, nil
+	}
+
+	// No digest yet, wait for re-enqueue when resolution is done.
+	return false, nil
 }

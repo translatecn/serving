@@ -18,17 +18,17 @@ package v1alpha1
 
 import (
 	"fmt"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"strconv"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"knative.dev/pkg/apis"
-	"knative.dev/pkg/kmap"
+	"knative.dev/serving/pkg/apis"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
+	"knative.dev/serving/pkg/over_kmap"
 )
 
 var podCondSet = apis.NewLivingConditionSet(
@@ -65,7 +65,7 @@ func (pa *PodAutoscaler) Metric() string {
 	return defaultMetric(pa.Class())
 }
 
-func (pa *PodAutoscaler) annotationInt32(k kmap.KeyPriority) (int32, bool) {
+func (pa *PodAutoscaler) annotationInt32(k over_kmap.KeyPriority) (int32, bool) {
 	if _, s, ok := k.Get(pa.Annotations); ok {
 		i, err := strconv.ParseInt(s, 10, 32)
 		return int32(i), err == nil
@@ -73,7 +73,7 @@ func (pa *PodAutoscaler) annotationInt32(k kmap.KeyPriority) (int32, bool) {
 	return 0, false
 }
 
-func (pa *PodAutoscaler) annotationFloat64(k kmap.KeyPriority) (float64, bool) {
+func (pa *PodAutoscaler) annotationFloat64(k over_kmap.KeyPriority) (float64, bool) {
 	if _, s, ok := k.Get(pa.Annotations); ok {
 		f, err := strconv.ParseFloat(s, 64)
 		return f, err == nil
@@ -81,36 +81,10 @@ func (pa *PodAutoscaler) annotationFloat64(k kmap.KeyPriority) (float64, bool) {
 	return 0.0, false
 }
 
-// ScaleBounds returns scale bounds annotations values as a tuple:
-// `(min, max int32)`. The value of 0 for any of min or max means the bound is
-// not set.
-// Note: min will be ignored if the PA is not reachable
-func (pa *PodAutoscaler) ScaleBounds(asConfig *autoscalerconfig.Config) (int32, int32) {
-	var min int32
-	if pa.Spec.Reachability != ReachabilityUnreachable {
-		min = asConfig.MinScale
-		if paMin, ok := pa.annotationInt32(autoscaling.MinScaleAnnotation); ok {
-			min = paMin
-		}
-	}
-
-	max := asConfig.MaxScale
-	if paMax, ok := pa.annotationInt32(autoscaling.MaxScaleAnnotation); ok {
-		max = paMax
-	}
-
-	return min, max
-}
-
 // ActivationScale returns the min-non-zero-replicas annotation value or falise
 // if not present or invalid.
 func (pa *PodAutoscaler) ActivationScale() (int32, bool) {
 	return pa.annotationInt32(autoscaling.ActivationScale)
-}
-
-// Target returns the target annotation value or false if not present, or invalid.
-func (pa *PodAutoscaler) Target() (float64, bool) {
-	return pa.annotationFloat64(autoscaling.TargetAnnotation)
 }
 
 // TargetUtilization returns the target utilization percentage as a fraction, if
@@ -128,7 +102,7 @@ func (pa *PodAutoscaler) TargetBC() (float64, bool) {
 	return pa.annotationFloat64(autoscaling.TargetBurstCapacityAnnotation)
 }
 
-func (pa *PodAutoscaler) annotationDuration(k kmap.KeyPriority) (time.Duration, bool) {
+func (pa *PodAutoscaler) annotationDuration(k over_kmap.KeyPriority) (time.Duration, bool) {
 	if _, s, ok := k.Get(pa.Annotations); ok {
 		d, err := time.ParseDuration(s)
 		return d, err == nil
@@ -165,12 +139,6 @@ func (pa *PodAutoscaler) PanicWindowPercentage() (percentage float64, ok bool) {
 func (pa *PodAutoscaler) PanicThresholdPercentage() (percentage float64, ok bool) {
 	// The value is validated in the webhook.
 	return pa.annotationFloat64(autoscaling.PanicThresholdPercentageAnnotation)
-}
-
-// ProgressDeadline returns the progress deadline annotation value, or false if not present.
-func (pa *PodAutoscaler) ProgressDeadline() (time.Duration, bool) {
-	// the value is validated in the webhook
-	return pa.annotationDuration(serving.ProgressDeadlineAnnotation)
 }
 
 // InitialScale returns the initial scale on the revision if present, or false if not present.
@@ -274,12 +242,6 @@ func (pas *PodAutoscalerStatus) ActiveFor(now time.Time) time.Duration {
 	return pas.inStatusFor(corev1.ConditionTrue, now)
 }
 
-// CanFailActivation checks whether the pod autoscaler has been activating
-// for at least the specified idle period.
-func (pas *PodAutoscalerStatus) CanFailActivation(now time.Time, idlePeriod time.Duration) bool {
-	return pas.inStatusFor(corev1.ConditionUnknown, now) > idlePeriod
-}
-
 // inStatusFor returns the duration that the PodAutoscalerStatus's Active
 // condition has stayed in the specified status.
 // inStatusFor will return -1 if condition is not initialized or current
@@ -306,4 +268,42 @@ func (pas *PodAutoscalerStatus) GetActualScale() int32 {
 		return *pas.ActualScale
 	}
 	return -1
+}
+
+// Target returns the target annotation value or false if not present, or invalid.
+func (pa *PodAutoscaler) Target() (float64, bool) {
+	return pa.annotationFloat64(autoscaling.TargetAnnotation)
+}
+
+// ScaleBounds returns scale bounds annotations values as a tuple:
+// `(min, max int32)`. The value of 0 for any of min or max means the bound is
+// not set.
+// Note: min will be ignored if the PA is not reachable
+func (pa *PodAutoscaler) ScaleBounds(asConfig *autoscalerconfig.Config) (int32, int32) {
+	var min int32
+	if pa.Spec.Reachability != ReachabilityUnreachable {
+		min = asConfig.MinScale
+		if paMin, ok := pa.annotationInt32(autoscaling.MinScaleAnnotation); ok {
+			min = paMin
+		}
+	}
+
+	max := asConfig.MaxScale
+	if paMax, ok := pa.annotationInt32(autoscaling.MaxScaleAnnotation); ok {
+		max = paMax
+	}
+
+	return min, max
+}
+
+// ProgressDeadline returns the progress deadline annotation value, or false if not present.
+func (pa *PodAutoscaler) ProgressDeadline() (time.Duration, bool) {
+	// the value is validated in the webhook
+	return pa.annotationDuration(serving.ProgressDeadlineAnnotation)
+}
+
+// CanFailActivation checks whether the pod autoscaler has been activating
+// for at least the specified idle period.
+func (pas *PodAutoscalerStatus) CanFailActivation(now time.Time, idlePeriod time.Duration) bool {
+	return pas.inStatusFor(corev1.ConditionUnknown, now) > idlePeriod
 }

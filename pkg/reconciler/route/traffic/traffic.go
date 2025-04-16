@@ -23,13 +23,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 
-	net "knative.dev/networking/pkg/apis/networking"
-	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/pkg/apis"
-	"knative.dev/pkg/ptr"
+	net "knative.dev/serving/networking/pkg/apis/networking"
+	netv1alpha1 "knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
+	"knative.dev/serving/pkg/over_ptr"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
@@ -137,7 +137,7 @@ func (cfg *Config) targetToStatus(ctx context.Context, r *v1.Route, tt *Revision
 		result := v1.TrafficTarget{
 			Tag:            tt.Tag,
 			RevisionName:   rr.RevisionName,
-			Percent:        ptr.Int64(int64(rr.Percent)),
+			Percent:        over_ptr.Int64(int64(rr.Percent)),
 			LatestRevision: tt.LatestRevision,
 		}
 
@@ -405,7 +405,7 @@ func mergeIfNecessary(rts RevisionTargets, rt RevisionTarget) RevisionTargets {
 	for i := range rts {
 		if rts[i].Tag == rt.Tag && rts[i].RevisionName == rt.RevisionName &&
 			*rt.LatestRevision == *rts[i].LatestRevision {
-			rts[i].Percent = ptr.Int64(*rts[i].Percent + *rt.Percent)
+			rts[i].Percent = over_ptr.Int64(*rts[i].Percent + *rt.Percent)
 			return rts
 		}
 	}
@@ -458,7 +458,7 @@ func consolidate(targets RevisionTargets) RevisionTargets {
 			names = append(names, name)
 			continue
 		}
-		cur.TrafficTarget.Percent = ptr.Int64(
+		cur.TrafficTarget.Percent = over_ptr.Int64(
 			*cur.TrafficTarget.Percent + *tt.TrafficTarget.Percent)
 		byName[name] = cur
 	}
@@ -467,7 +467,7 @@ func consolidate(targets RevisionTargets) RevisionTargets {
 		consolidated[i] = byName[name]
 	}
 	if len(consolidated) == 1 {
-		consolidated[0].TrafficTarget.Percent = ptr.Int64(100)
+		consolidated[0].TrafficTarget.Percent = over_ptr.Int64(100)
 	}
 	return consolidated
 }

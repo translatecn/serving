@@ -19,11 +19,10 @@ package bucket
 import (
 	"errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"knative.dev/serving/pkg/hash"
 	"os"
 	"strings"
-
-	"k8s.io/apimachinery/pkg/util/sets"
-	"knative.dev/pkg/hash"
 )
 
 const prefix = "autoscaler-bucket"
@@ -40,16 +39,6 @@ func IsBucketHost(host string) bool {
 // and `total` bucket count.
 func AutoscalerBucketName(ordinal, total uint32) string {
 	return strings.ToLower(fmt.Sprintf("%s-%02d-of-%02d", prefix, ordinal, total))
-}
-
-// AutoscalerBucketSet returns a hash.BucketSet consisting of Autoscaler
-// buckets with the given `total` count.
-func AutoscalerBucketSet(total uint32) *hash.BucketSet {
-	names := make(sets.Set[string], total)
-	for i := range total {
-		names.Insert(AutoscalerBucketName(i, total))
-	}
-	return hash.NewBucketSet(names)
 }
 
 // PodIP returns the IP address of the current pod, or an error
@@ -93,4 +82,12 @@ func ExtractPodNameAndIP(id string) (string, string, error) {
 		return "", "", errors.New("Failed to extract pod name and IP from " + id)
 	}
 	return arr[0], arr[1], nil
+}
+
+func AutoscalerBucketSet(total uint32) *hash.BucketSet {
+	names := make(sets.Set[string], total)
+	for i := range total {
+		names.Insert(AutoscalerBucketName(i, total))
+	}
+	return hash.NewBucketSet(names)
 }

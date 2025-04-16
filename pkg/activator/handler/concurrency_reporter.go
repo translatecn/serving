@@ -18,6 +18,8 @@ package handler
 
 import (
 	"context"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
+	"knative.dev/serving/pkg/over_logging"
 	"math"
 	"net/http"
 	"sync"
@@ -26,16 +28,14 @@ import (
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
-	netstats "knative.dev/networking/pkg/http/stats"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/logging/logkey"
-	pkgmetrics "knative.dev/pkg/metrics"
+	netstats "knative.dev/serving/networking/pkg/http/stats"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
-	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
 	"knative.dev/serving/pkg/metrics"
+	pkgmetrics "knative.dev/serving/pkg/metrics"
+	"knative.dev/serving/pkg/over_logging/logkey"
 )
 
 const reportInterval = time.Second
@@ -64,30 +64,6 @@ type ConcurrencyReporter struct {
 	mux sync.RWMutex
 	// This map holds the concurrency and request count accounting across revisions.
 	stats map[types.NamespacedName]*revisionStats
-}
-
-// NewConcurrencyReporter creates a ConcurrencyReporter which listens to incoming
-// ReqEvents on reqCh and ticks on reportCh and reports stats on statCh.
-func NewConcurrencyReporter(ctx context.Context, podName string, statCh chan []asmetrics.StatMessage) *ConcurrencyReporter {
-	return &ConcurrencyReporter{
-		logger:  logging.FromContext(ctx),
-		podName: podName,
-		statCh:  statCh,
-		rl:      revisioninformer.Get(ctx).Lister(),
-
-		stats: make(map[types.NamespacedName]*revisionStats),
-	}
-}
-
-// handleRequestIn handles an event of a request coming into the system. Returns the stats
-// the outgoing event should be recorded to.
-func (cr *ConcurrencyReporter) handleRequestIn(event netstats.ReqEvent) *revisionStats {
-	stat, msg := cr.getOrCreateStat(event)
-	if msg != nil {
-		cr.statCh <- []asmetrics.StatMessage{*msg}
-	}
-	stat.stats.HandleEvent(event)
-	return stat
 }
 
 // handleRequestOut handles an event of a request being done. Takes the stats returned by
@@ -145,26 +121,6 @@ func (cr *ConcurrencyReporter) getOrCreateStat(event netstats.ReqEvent) (*revisi
 	}
 }
 
-// report cuts a report from all collected statistics and sends the respective messages
-// via the statsCh and reports the concurrency metrics to prometheus.
-func (cr *ConcurrencyReporter) report(now time.Time) []asmetrics.StatMessage {
-	msgs, toDelete := cr.computeReport(now)
-
-	if len(toDelete) > 0 {
-		cr.mux.Lock()
-		defer cr.mux.Unlock()
-		for _, key := range toDelete {
-			// Avoid deleting the stat if a request raced fetching it while we've been
-			// busy reporting.
-			if cr.stats[key].refs.Load() == 0 {
-				delete(cr.stats, key)
-			}
-		}
-	}
-
-	return msgs
-}
-
 func (cr *ConcurrencyReporter) computeReport(now time.Time) (msgs []asmetrics.StatMessage, toDelete []types.NamespacedName) {
 	cr.mux.RLock()
 	defer cr.mux.RUnlock()
@@ -217,9 +173,55 @@ func (cr *ConcurrencyReporter) reportToMetricsBackend(key types.NamespacedName, 
 
 // Run runs until stopCh is closed and processes events on all incoming channels.
 func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
-	ticker := time.NewTicker(reportInterval)
+	ticker := time.NewTicker(reportInterval) // 1s
 	defer ticker.Stop()
 	cr.run(stopCh, ticker.C)
+}
+
+// Handler returns a handler that records requests coming in/being finished in the stats
+// machinery.
+func (cr *ConcurrencyReporter) Handler(next http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		revisionKey := RevIDFrom(r.Context())
+		stat := cr.handleRequestIn(netstats.ReqEvent{Key: revisionKey, Type: netstats.ReqIn, Time: time.Now()})
+		defer func() {
+			cr.handleRequestOut(stat, netstats.ReqEvent{Key: revisionKey, Type: netstats.ReqOut, Time: time.Now()})
+		}()
+
+		next.ServeHTTP(w, r)
+	}
+}
+
+// NewConcurrencyReporter creates a ConcurrencyReporter which listens to incoming
+// ReqEvents on reqCh and ticks on reportCh and reports stats on statCh.
+func NewConcurrencyReporter(ctx context.Context, podName string, statCh chan []asmetrics.StatMessage) *ConcurrencyReporter {
+	return &ConcurrencyReporter{
+		logger:  over_logging.FromContext(ctx),
+		podName: podName,
+		statCh:  statCh,
+		rl:      revisioninformer.Get(ctx).Lister(),
+		stats:   make(map[types.NamespacedName]*revisionStats),
+	}
+}
+
+// report cuts a report from all collected statistics and sends the respective messages
+// via the statsCh and reports the concurrency metrics to prometheus.
+func (cr *ConcurrencyReporter) report(now time.Time) []asmetrics.StatMessage {
+	msgs, toDelete := cr.computeReport(now)
+
+	if len(toDelete) > 0 {
+		cr.mux.Lock()
+		defer cr.mux.Unlock()
+		for _, key := range toDelete {
+			// Avoid deleting the stat if a request raced fetching it while we've been
+			// busy reporting.
+			if cr.stats[key].refs.Load() == 0 {
+				delete(cr.stats, key)
+			}
+		}
+	}
+
+	return msgs
 }
 
 func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.Time) {
@@ -239,17 +241,12 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 	}
 }
 
-// Handler returns a handler that records requests coming in/being finished in the stats
-// machinery.
-func (cr *ConcurrencyReporter) Handler(next http.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		revisionKey := RevIDFrom(r.Context())
-
-		stat := cr.handleRequestIn(netstats.ReqEvent{Key: revisionKey, Type: netstats.ReqIn, Time: time.Now()})
-		defer func() {
-			cr.handleRequestOut(stat, netstats.ReqEvent{Key: revisionKey, Type: netstats.ReqOut, Time: time.Now()})
-		}()
-
-		next.ServeHTTP(w, r)
+// handleRequestIn 处理系统收到的请求事件。返回应记录出去的事件的相关统计信息。
+func (cr *ConcurrencyReporter) handleRequestIn(event netstats.ReqEvent) *revisionStats {
+	stat, msg := cr.getOrCreateStat(event)
+	if msg != nil {
+		cr.statCh <- []asmetrics.StatMessage{*msg}
 	}
+	stat.stats.HandleEvent(event)
+	return stat
 }

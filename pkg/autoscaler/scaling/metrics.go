@@ -17,7 +17,7 @@ limitations under the License.
 package scaling
 
 import (
-	pkgmetrics "knative.dev/pkg/metrics"
+	pkgmetrics "knative.dev/serving/pkg/metrics"
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"

@@ -29,19 +29,19 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 
-	netheader "knative.dev/networking/pkg/http/header"
-	netproxy "knative.dev/networking/pkg/http/proxy"
-	"knative.dev/pkg/logging/logkey"
-	pkghandler "knative.dev/pkg/network/handlers"
-	tracingconfig "knative.dev/pkg/tracing/config"
-	"knative.dev/pkg/tracing/propagation/tracecontextb3"
+	netheader "knative.dev/serving/networking/pkg/http/header"
+	netproxy "knative.dev/serving/networking/pkg/http/proxy"
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	apiconfig "knative.dev/serving/pkg/apis/config"
 	pkghttp "knative.dev/serving/pkg/http"
+	pkghandler "knative.dev/serving/pkg/network/handlers"
 	"knative.dev/serving/pkg/networking"
+	"knative.dev/serving/pkg/over_logging/logkey"
 	"knative.dev/serving/pkg/queue"
-	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
+	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/over_names"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
+	"knative.dev/serving/pkg/tracing/propagation/tracecontextb3"
 )
 
 // Throttler is the interface that Handler calls to Try to proxy the user request.
@@ -113,6 +113,27 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// useSecurePort replaces the default port with HTTPS port (8112).
+// TODO: endpointsToDests() should support HTTPS instead of this overwrite but it needs metadata request to be encrypted.
+// This code should be removed when https://github.com/knative/serving/issues/12821 was solved.
+func useSecurePort(target string, port int) string {
+	target = strings.Split(target, ":")[0]
+	return target + ":" + strconv.Itoa(port)
+}
+
+func WrapActivatorHandlerWithFullDuplex(h http.Handler, logger *zap.SugaredLogger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		revEnableHTTP1FullDuplex := strings.EqualFold(RevAnnotation(r.Context(), apiconfig.AllowHTTPFullDuplexFeatureKey), "Enabled")
+		if revEnableHTTP1FullDuplex {
+			rc := http.NewResponseController(w)
+			if err := rc.EnableFullDuplex(); err != nil {
+				logger.Errorw("Unable to enable full duplex", zap.Error(err))
+			}
+		}
+		h.ServeHTTP(w, r)
+	}
+}
+
 func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.ResponseWriter,
 	r *http.Request, target string, tracingEnabled bool, usePassthroughLb bool, isClusterIP bool,
 ) {
@@ -122,7 +143,7 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 	// Set up the reverse proxy.
 	hostOverride := pkghttp.NoHostOverride
 	if usePassthroughLb {
-		hostOverride = names.PrivateService(revID.Name) + "." + revID.Namespace
+		hostOverride = over_names.PrivateService(revID.Name) + "." + revID.Namespace
 	}
 
 	var proxy *httputil.ReverseProxy
@@ -147,25 +168,4 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 	}
 
 	proxy.ServeHTTP(w, r)
-}
-
-// useSecurePort replaces the default port with HTTPS port (8112).
-// TODO: endpointsToDests() should support HTTPS instead of this overwrite but it needs metadata request to be encrypted.
-// This code should be removed when https://github.com/knative/serving/issues/12821 was solved.
-func useSecurePort(target string, port int) string {
-	target = strings.Split(target, ":")[0]
-	return target + ":" + strconv.Itoa(port)
-}
-
-func WrapActivatorHandlerWithFullDuplex(h http.Handler, logger *zap.SugaredLogger) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		revEnableHTTP1FullDuplex := strings.EqualFold(RevAnnotation(r.Context(), apiconfig.AllowHTTPFullDuplexFeatureKey), "Enabled")
-		if revEnableHTTP1FullDuplex {
-			rc := http.NewResponseController(w)
-			if err := rc.EnableFullDuplex(); err != nil {
-				logger.Errorw("Unable to enable full duplex", zap.Error(err))
-			}
-		}
-		h.ServeHTTP(w, r)
-	})
 }

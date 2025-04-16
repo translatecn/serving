@@ -35,16 +35,16 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	corev1 "k8s.io/api/core/v1"
-	network "knative.dev/networking/pkg"
-	netapi "knative.dev/networking/pkg/apis/networking"
-	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
-	netclient "knative.dev/networking/pkg/client/clientset/versioned"
-	netcfg "knative.dev/networking/pkg/config"
-	netprobe "knative.dev/networking/pkg/http/probe"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/signals"
-	"knative.dev/pkg/system"
+	network "knative.dev/serving/networking/pkg"
+	netapi "knative.dev/serving/networking/pkg/apis/networking"
+	netv1alpha1 "knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
+	netclient "knative.dev/serving/networking/pkg/client/clientset/versioned"
+	netcfg "knative.dev/serving/networking/pkg/config"
+	netprobe "knative.dev/serving/networking/pkg/http/over_probe"
+	"knative.dev/serving/pkg/over_logging"
 	routecfg "knative.dev/serving/pkg/reconciler/route/config"
+	"knative.dev/serving/pkg/signals"
+	"knative.dev/serving/pkg/system"
 )
 
 var (
@@ -174,7 +174,7 @@ func buildMagicDNSName(ip, magicDNS string) string {
 func main() {
 	flag.Parse()
 	ctx := signals.NewContext()
-	logger := logging.FromContext(ctx).Named(appName)
+	logger := over_logging.FromContext(ctx).Named(appName)
 	defer logger.Sync()
 
 	kubeClient, client, err := clientsFromFlags()

@@ -17,10 +17,10 @@ limitations under the License.
 package resources
 
 import (
-	networkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/pkg/kmeta"
+	networkingv1alpha1 "knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/kmeta"
 	routeresources "knative.dev/serving/pkg/reconciler/route/resources"
 )
 

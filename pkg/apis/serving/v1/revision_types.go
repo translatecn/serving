@@ -19,9 +19,9 @@ package v1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/apis"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"knative.dev/pkg/kmeta"
+	"knative.dev/serving/pkg/apis"
+	duckv1 "knative.dev/serving/pkg/apis/duck/v1"
+	"knative.dev/serving/pkg/kmeta"
 )
 
 // +genclient
@@ -119,17 +119,6 @@ const (
 )
 
 // IsRevisionCondition returns true if the ConditionType is a revision condition type
-func IsRevisionCondition(t apis.ConditionType) bool {
-	switch t {
-	case
-		RevisionConditionReady,
-		RevisionConditionResourcesAvailable,
-		RevisionConditionContainerHealthy,
-		RevisionConditionActive:
-		return true
-	}
-	return false
-}
 
 // RevisionStatus communicates the observed state of the Revision (from the controller).
 type RevisionStatus struct {

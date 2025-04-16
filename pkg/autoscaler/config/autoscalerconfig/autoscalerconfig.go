@@ -35,7 +35,7 @@ type Config struct {
 	// RPSTargetDefault is the default target value for requests per second.
 	RPSTargetDefault float64
 	// NB: most of our computations are in floats, so this is float to avoid casting.
-	TargetBurstCapacity float64
+	TargetBurstCapacity float64 // 211
 
 	// ActivatorCapacity is the number of the concurrent requests an activator
 	// task can accept. This is used in activator subsetting algorithm, to determine

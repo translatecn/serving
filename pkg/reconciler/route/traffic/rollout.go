@@ -28,7 +28,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"knative.dev/pkg/logging"
+	"knative.dev/serving/pkg/over_logging"
 )
 
 // Rollout encapsulates the current rollout state of the system.
@@ -158,7 +158,7 @@ func (cur *Rollout) Validate() bool {
 // but have not observed step time yet, will have it set, to
 // max(1, nowTS-cfg.StartTime).
 func (cur *Rollout) ObserveReady(ctx context.Context, nowTS int64, durationSecs float64) {
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	for i := range cur.Configurations {
 		c := cur.Configurations[i]
 		if c.StepParams.StepDuration == 0 && c.StepParams.StartTime > 0 {
@@ -181,7 +181,7 @@ func (cur *Rollout) ObserveReady(ctx context.Context, nowTS int64, durationSecs 
 // Second return value is the Unix timestamp in ns of the closest
 // rollout action to take or 0, if no rollout is currently scheduled.
 func (cur *Rollout) Step(ctx context.Context, prev *Rollout, nowTS int64) (*Rollout, int64) {
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	if prev == nil || len(prev.Configurations) == 0 {
 		logger.Debug("No previous Rollout to Step")
 		return cur, 0

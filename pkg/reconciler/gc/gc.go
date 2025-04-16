@@ -25,13 +25,13 @@ import (
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"knative.dev/pkg/logging"
-	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
 	"knative.dev/serving/pkg/gc"
+	"knative.dev/serving/pkg/over_logging"
+	pkgreconciler "knative.dev/serving/pkg/reconciler"
 	configns "knative.dev/serving/pkg/reconciler/gc/config"
 )
 
@@ -43,7 +43,7 @@ func collect(
 	config *v1.Configuration,
 ) pkgreconciler.Event {
 	cfg := configns.FromContext(ctx).RevisionGC
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 
 	min, max := int(cfg.MinNonActiveRevisions), int(cfg.MaxNonActiveRevisions)
 	if max == gc.Disabled && cfg.RetainSinceCreateTime == gc.Disabled && cfg.RetainSinceLastActiveTime == gc.Disabled {

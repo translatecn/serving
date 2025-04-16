@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"k8s.io/utils/clock"
-	"knative.dev/pkg/websocket"
+	"knative.dev/serving/pkg/websocket"
 )
 
 // TimeoutFunc returns the timeout duration to be used by the timeout handler.

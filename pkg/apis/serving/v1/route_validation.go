@@ -21,7 +21,7 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/util/validation"
-	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
 )
 

@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"time"
 
-	pkgnet "knative.dev/pkg/network"
+	pkgnet "knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
 )

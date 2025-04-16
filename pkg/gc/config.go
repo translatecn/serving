@@ -26,7 +26,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	cm "knative.dev/pkg/configmap"
+	cm "knative.dev/serving/pkg/configmap"
 )
 
 const (

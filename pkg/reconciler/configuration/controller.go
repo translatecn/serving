@@ -21,14 +21,14 @@ import (
 
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/clock"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
+	"knative.dev/serving/pkg/configmap"
+	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/over_logging"
 	"knative.dev/serving/pkg/reconciler/configuration/config"
 )
 
@@ -37,7 +37,7 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
-	logger := logging.FromContext(ctx)
+	logger := over_logging.FromContext(ctx)
 	configurationInformer := configurationinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
 
@@ -49,6 +49,7 @@ func NewController(
 		revisionLister: revisionInformer.Lister(),
 		clock:          &clock.RealClock{},
 	}
+	_ = c.ReconcileKind
 	impl := configreconciler.NewImpl(ctx, c, func(*controller.Impl) controller.Options {
 		return controller.Options{ConfigStore: configStore}
 	})

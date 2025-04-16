@@ -21,12 +21,12 @@ package podscalable
 import (
 	context "context"
 
-	duck "knative.dev/pkg/apis/duck"
-	controller "knative.dev/pkg/controller"
-	injection "knative.dev/pkg/injection"
-	dynamicclient "knative.dev/pkg/injection/clients/dynamicclient"
-	logging "knative.dev/pkg/logging"
 	v1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	duck "knative.dev/serving/pkg/apis/duck"
+	controller "knative.dev/serving/pkg/controller"
+	injection "knative.dev/serving/pkg/injection"
+	dynamicclient "knative.dev/serving/pkg/injection/clients/dynamicclient"
+	logging "knative.dev/serving/pkg/over_logging"
 )
 
 func init() {
@@ -54,7 +54,7 @@ func Get(ctx context.Context) duck.InformerFactory {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
 		logging.FromContext(ctx).Panic(
-			"Unable to fetch knative.dev/pkg/apis/duck.InformerFactory from context.")
+			"Unable to fetch knative.dev/serving/pkg/apis/duck.InformerFactory from context.")
 	}
 	return untyped.(duck.InformerFactory)
 }

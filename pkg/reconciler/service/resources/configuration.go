@@ -23,10 +23,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"knative.dev/pkg/kmap"
-	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/kmeta"
+	"knative.dev/serving/pkg/over_kmap"
 	"knative.dev/serving/pkg/reconciler/labeler"
 	"knative.dev/serving/pkg/reconciler/service/resources/names"
 )
@@ -44,7 +44,7 @@ func MakeConfigurationFromExisting(service *v1.Service, existing *v1.Configurati
 	}
 
 	exclude := append([]string{corev1.LastAppliedConfigAnnotation}, serving.RolloutDurationAnnotation...)
-	anns := kmap.ExcludeKeyList(service.GetAnnotations(), exclude)
+	anns := over_kmap.ExcludeKeyList(service.GetAnnotations(), exclude)
 
 	routeName := names.Route(service)
 	set := labeler.GetListAnnValue(existing.Annotations, serving.RoutesAnnotationKey)
