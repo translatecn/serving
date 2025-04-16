@@ -85,7 +85,7 @@ func (g *reconcilerControllerGenerator) GenerateType(c *generator.Context, t *ty
 			Name:    "NewContext",
 		}),
 		"loggingFromContext": c.Universe.Function(types.Name{
-			Package: "knative.dev/serving/pkg/logging",
+			Package: "knative.dev/serving/pkg/over_logging",
 			Name:    "FromContext",
 		}),
 		"ptrString": c.Universe.Function(types.Name{
@@ -173,11 +173,11 @@ func (g *reconcilerControllerGenerator) GenerateType(c *generator.Context, t *ty
 			Name:    "Sprintf",
 		}),
 		"logkeyControllerType": c.Universe.Constant(types.Name{
-			Package: "knative.dev/serving/pkg/logging/logkey",
+			Package: "knative.dev/serving/pkg/over_logging/logkey",
 			Name:    "ControllerType",
 		}),
 		"logkeyControllerKind": c.Universe.Constant(types.Name{
-			Package: "knative.dev/serving/pkg/logging/logkey",
+			Package: "knative.dev/serving/pkg/over_logging/logkey",
 			Name:    "Kind",
 		}),
 		"zapString": c.Universe.Function(types.Name{

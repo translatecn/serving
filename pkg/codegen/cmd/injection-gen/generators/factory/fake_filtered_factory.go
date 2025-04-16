@@ -86,7 +86,7 @@ func (g *fakeFilteredFactoryGenerator) GenerateType(c *generator.Context, t *typ
 			Name:    "Context",
 		}),
 		"loggingFromContext": c.Universe.Function(types.Name{
-			Package: "knative.dev/serving/pkg/logging",
+			Package: "knative.dev/serving/pkg/over_logging",
 			Name:    "FromContext",
 		}),
 		"metav1ListOptions": c.Universe.Type(types.Name{

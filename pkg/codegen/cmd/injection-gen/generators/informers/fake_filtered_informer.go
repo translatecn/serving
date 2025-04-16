@@ -95,7 +95,7 @@ func (g *fakeFilteredInformerGenerator) GenerateType(c *generator.Context, t *ty
 			Name:    "Fake.RegisterFilteredInformers",
 		}),
 		"loggingFromContext": c.Universe.Function(types.Name{
-			Package: "knative.dev/serving/pkg/logging",
+			Package: "knative.dev/serving/pkg/over_logging",
 			Name:    "FromContext",
 		}),
 		"contextContext": c.Universe.Type(types.Name{

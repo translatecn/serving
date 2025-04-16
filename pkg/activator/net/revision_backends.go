@@ -54,7 +54,7 @@ import (
 	"knative.dev/serving/pkg/over_logging/logkey"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/reconciler"
-	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/over_names"
+	"knative.dev/serving/pkg/reconciler/over_serverlessservice/resources/over_names"
 )
 
 // revisionDestsUpdate contains the state of healthy l4 dests for talking to a revision and is the

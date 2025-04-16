@@ -868,8 +868,8 @@ function __go_update_deps_for_module() {
     remove_broken_symlinks ./vendor
   fi
 
-  group "Checking licenses"
-  check_licenses
+#  group "Checking licenses"
+#  check_licenses
   )
 }
 

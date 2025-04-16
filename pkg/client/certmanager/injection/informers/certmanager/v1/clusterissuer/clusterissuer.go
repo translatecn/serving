@@ -24,7 +24,7 @@ import (
 	v1 "github.com/cert-manager/cert-manager/pkg/client/informers/externalversions/certmanager/v1"
 	factory "knative.dev/serving/pkg/client/certmanager/injection/informers/factory"
 	controller "knative.dev/serving/pkg/controller"
-	logging "knative.dev/serving/pkg/over_logging"
+	overlogging "knative.dev/serving/pkg/over_logging"
 )
 
 // Key is used for associating the Informer inside the context.Context.
@@ -40,7 +40,7 @@ func WithInformer(ctx context.Context) (context.Context, controller.Informer) {
 func Get(ctx context.Context) v1.ClusterIssuerInformer {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
-		logging.FromContext(ctx).Panic(
+		overlogging.FromContext(ctx).Panic(
 			"Unable to fetch github.com/cert-manager/cert-manager/pkg/client/informers/externalversions/certmanager/v1.ClusterIssuerInformer from context.")
 	}
 	return untyped.(v1.ClusterIssuerInformer)

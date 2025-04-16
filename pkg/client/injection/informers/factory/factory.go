@@ -25,7 +25,7 @@ import (
 	client "knative.dev/serving/pkg/client/injection/client"
 	controller "knative.dev/serving/pkg/controller"
 	injection "knative.dev/serving/pkg/injection"
-	logging "knative.dev/serving/pkg/over_logging"
+	overlogging "knative.dev/serving/pkg/over_logging"
 )
 
 func init() {
@@ -49,7 +49,7 @@ func withInformerFactory(ctx context.Context) context.Context {
 func Get(ctx context.Context) externalversions.SharedInformerFactory {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
-		logging.FromContext(ctx).Panic(
+		overlogging.FromContext(ctx).Panic(
 			"Unable to fetch knative.dev/serving/pkg/client/informers/externalversions.SharedInformerFactory from context.")
 	}
 	return untyped.(externalversions.SharedInformerFactory)

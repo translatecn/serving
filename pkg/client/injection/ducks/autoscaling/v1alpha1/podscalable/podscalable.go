@@ -26,7 +26,7 @@ import (
 	controller "knative.dev/serving/pkg/controller"
 	injection "knative.dev/serving/pkg/injection"
 	dynamicclient "knative.dev/serving/pkg/injection/clients/dynamicclient"
-	logging "knative.dev/serving/pkg/over_logging"
+	overlogging "knative.dev/serving/pkg/over_logging"
 )
 
 func init() {
@@ -53,7 +53,7 @@ func WithDuck(ctx context.Context) context.Context {
 func Get(ctx context.Context) duck.InformerFactory {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
-		logging.FromContext(ctx).Panic(
+		overlogging.FromContext(ctx).Panic(
 			"Unable to fetch knative.dev/serving/pkg/apis/duck.InformerFactory from context.")
 	}
 	return untyped.(duck.InformerFactory)

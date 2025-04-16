@@ -119,8 +119,12 @@ func (g *reconcilerReconcilerGenerator) GenerateType(c *generator.Context, t *ty
 		"recordEventRecorder": c.Universe.Type(types.Name{Name: "EventRecorder", Package: "k8s.io/client-go/tools/record"}),
 		// methods
 		"loggingFromContext": c.Universe.Function(types.Name{
-			Package: "knative.dev/serving/pkg/logging",
+			Package: "knative.dev/serving/pkg/over_logging",
 			Name:    "FromContext",
+		}),
+		"diffWrite": c.Universe.Function(types.Name{
+			Package: "knative.dev/serving/debug/diff",
+			Name:    "Write",
 		}),
 		"cacheSplitMetaNamespaceKey": c.Universe.Function(types.Name{
 			Package: "k8s.io/client-go/tools/cache",
@@ -171,7 +175,7 @@ func (g *reconcilerReconcilerGenerator) GenerateType(c *generator.Context, t *ty
 			Name:    "Context",
 		}),
 		"kmpSafeDiff": c.Universe.Function(types.Name{
-			Package: "knative.dev/serving/pkg/kmp",
+			Package: "knative.dev/serving/pkg/over_kmp",
 			Name:    "SafeDiff",
 		}),
 		"fmtErrorf":           c.Universe.Package("fmt").Function("Errorf"),
@@ -524,6 +528,7 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 		// the elected leader is expected to write modifications.
 		logger.Warn("Saw status changes when we aren't the leader!")
 	default:
+        {{ .diffWrite|raw }}("ServerlessServices",original, resource)
 		if err = r.updateStatus(ctx, logger, original, resource); err != nil {
 			logger.Warnw("Failed to update resource status", zap.Error(err))
 			r.Recorder.Eventf(resource, {{.corev1EventTypeWarning|raw}}, "UpdateFailed",

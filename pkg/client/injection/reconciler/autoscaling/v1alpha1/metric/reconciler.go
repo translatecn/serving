@@ -33,12 +33,13 @@ import (
 	types "k8s.io/apimachinery/pkg/types"
 	sets "k8s.io/apimachinery/pkg/util/sets"
 	record "k8s.io/client-go/tools/record"
+	diff "knative.dev/serving/debug/diff"
 	v1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	versioned "knative.dev/serving/pkg/client/clientset/versioned"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
 	controller "knative.dev/serving/pkg/controller"
-	kmp "knative.dev/serving/pkg/over_kmp"
-	logging "knative.dev/serving/pkg/over_logging"
+	overkmp "knative.dev/serving/pkg/over_kmp"
+	overlogging "knative.dev/serving/pkg/over_logging"
 	reconciler "knative.dev/serving/pkg/reconciler"
 )
 
@@ -168,7 +169,7 @@ func NewReconciler(ctx context.Context, logger *zap.SugaredLogger, client versio
 
 // Reconcile implements controller.Reconciler
 func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
-	logger := logging.FromContext(ctx)
+	logger := overlogging.FromContext(ctx)
 
 	// Initialize the reconciler state. This will convert the namespace/name
 	// string into a distinct namespace and name, determine if this instance of
@@ -273,6 +274,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 		// the elected leader is expected to write modifications.
 		logger.Warn("Saw status changes when we aren't the leader!")
 	default:
+		diff.Write("ServerlessServices", original, resource)
 		if err = r.updateStatus(ctx, logger, original, resource); err != nil {
 			logger.Warnw("Failed to update resource status", zap.Error(err))
 			r.Recorder.Eventf(resource, v1.EventTypeWarning, "UpdateFailed",
@@ -329,7 +331,7 @@ func (r *reconcilerImpl) updateStatus(ctx context.Context, logger *zap.SugaredLo
 		}
 
 		if logger.Desugar().Core().Enabled(zapcore.DebugLevel) {
-			if diff, err := kmp.SafeDiff(existing.Status, desired.Status); err == nil && diff != "" {
+			if diff, err := overkmp.SafeDiff(existing.Status, desired.Status); err == nil && diff != "" {
 				logger.Debug("Updating status with: ", diff)
 			}
 		}

@@ -25,7 +25,7 @@ import (
 	filtered "knative.dev/serving/pkg/client/certmanager/injection/informers/factory/filtered"
 	controller "knative.dev/serving/pkg/controller"
 	injection "knative.dev/serving/pkg/injection"
-	logging "knative.dev/serving/pkg/over_logging"
+	overlogging "knative.dev/serving/pkg/over_logging"
 )
 
 func init() {
@@ -40,7 +40,7 @@ type Key struct {
 func withInformer(ctx context.Context) (context.Context, []controller.Informer) {
 	untyped := ctx.Value(filtered.LabelKey{})
 	if untyped == nil {
-		logging.FromContext(ctx).Panic(
+		overlogging.FromContext(ctx).Panic(
 			"Unable to fetch labelkey from context.")
 	}
 	labelSelectors := untyped.([]string)
@@ -58,7 +58,7 @@ func withInformer(ctx context.Context) (context.Context, []controller.Informer) 
 func Get(ctx context.Context, selector string) v1.IssuerInformer {
 	untyped := ctx.Value(Key{Selector: selector})
 	if untyped == nil {
-		logging.FromContext(ctx).Panicf(
+		overlogging.FromContext(ctx).Panicf(
 			"Unable to fetch github.com/cert-manager/cert-manager/pkg/client/informers/externalversions/certmanager/v1.IssuerInformer with selector %s from context.", selector)
 	}
 	return untyped.(v1.IssuerInformer)

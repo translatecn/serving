@@ -39,7 +39,7 @@ import (
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/over_logging/logkey"
 	"knative.dev/serving/pkg/queue"
-	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/over_names"
+	"knative.dev/serving/pkg/reconciler/over_serverlessservice/resources/over_names"
 	tracingconfig "knative.dev/serving/pkg/tracing/config"
 	"knative.dev/serving/pkg/tracing/propagation/tracecontextb3"
 )
