@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package revision
+package over_revision
 
 import (
 	"context"
@@ -43,7 +43,7 @@ import (
 	"knative.dev/serving/pkg/controller"
 	"knative.dev/serving/pkg/over_logging"
 	pkgreconciler "knative.dev/serving/pkg/reconciler"
-	"knative.dev/serving/pkg/reconciler/revision/config"
+	"knative.dev/serving/pkg/reconciler/over_revision/config"
 )
 
 type resolver interface {
@@ -76,7 +76,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 	readyBeforeReconcile := rev.IsReady()
 	c.updateRevisionLoggingURL(ctx, rev)
 
-	reconciled, err := c.reconcileDigest(ctx, rev)
+	reconciled, err := c.reconcileDigest(ctx, rev) // ✅
 	if err != nil {
 		return err
 	}
@@ -96,15 +96,15 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 	}
 
 	// Deploy Knative Certificate for queue-proxy when system-internal-tls is enabled.
-	if config.FromContext(ctx).Network.SystemInternalTLSEnabled() {
+	if over_config.FromContext(ctx).Network.SystemInternalTLSEnabled() {
 		if err := c.reconcileQueueProxyCertificate(ctx, rev); err != nil {
 			return err
 		}
 	}
 
 	for _, phase := range []func(context.Context, *v1.Revision) error{
-		c.reconcileDeployment,
-		c.reconcileImageCache,
+		c.reconcileDeployment, // ✅
+		c.reconcileImageCache, // ✅
 		c.reconcilePA,
 	} {
 		if err := phase(ctx, rev); err != nil {
@@ -114,26 +114,12 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 	readyAfterReconcile := rev.Status.GetCondition(v1.RevisionConditionReady).IsTrue()
 	if !readyBeforeReconcile && readyAfterReconcile {
 		logger.Info("Revision became ready")
-		controller.GetEventRecorder(ctx).Event(
-			rev, corev1.EventTypeNormal, "RevisionReady",
-			"Revision becomes ready upon all resources being ready")
+		controller.GetEventRecorder(ctx).Event(rev, corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon all resources being ready")
 	} else if readyBeforeReconcile && !readyAfterReconcile {
 		logger.Info("Revision stopped being ready")
 	}
 
 	return nil
-}
-
-func (c *Reconciler) updateRevisionLoggingURL(ctx context.Context, rev *v1.Revision) {
-	config := config.FromContext(ctx)
-	if config.Observability.LoggingURLTemplate == "" {
-		rev.Status.LogURL = ""
-		return
-	}
-
-	rev.Status.LogURL = strings.ReplaceAll(
-		config.Observability.LoggingURLTemplate,
-		"${REVISION_UID}", string(rev.UID))
 }
 
 // ObserveDeletion implements OnDeletionInterface.ObserveDeletion.
@@ -150,6 +136,16 @@ func (c *Reconciler) GetCertificateLister() networkinglisters.CertificateLister 
 	return c.certificateLister
 }
 
+func (c *Reconciler) updateRevisionLoggingURL(ctx context.Context, rev *v1.Revision) {
+	config := over_config.FromContext(ctx)
+	if config.Observability.LoggingURLTemplate == "" {
+		rev.Status.LogURL = ""
+		return
+	}
+
+	rev.Status.LogURL = strings.ReplaceAll(config.Observability.LoggingURLTemplate, "${REVISION_UID}", string(rev.UID))
+}
+
 func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (bool, error) {
 	totalNumOfContainers := len(rev.Spec.Containers) + len(rev.Spec.InitContainers)
 
@@ -164,7 +160,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (boo
 	for _, s := range rev.Spec.ImagePullSecrets {
 		imagePullSecrets = append(imagePullSecrets, s.Name)
 	}
-	cfgs := config.FromContext(ctx)
+	cfgs := over_config.FromContext(ctx)
 	opt := k8schain.Options{
 		Namespace:          rev.Namespace,
 		ServiceAccountName: rev.Spec.ServiceAccountName,
@@ -172,7 +168,10 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (boo
 	}
 
 	logger := over_logging.FromContext(ctx)
-	initContainerStatuses, statuses, err := c.resolver.Resolve(logger, rev, opt, cfgs.Deployment.RegistriesSkippingTagResolving, cfgs.Deployment.DigestResolutionTimeout)
+	initContainerStatuses, statuses, err := c.resolver.Resolve(logger, rev, opt,
+		cfgs.Deployment.RegistriesSkippingTagResolving,
+		cfgs.Deployment.DigestResolutionTimeout,
+	)
 	if err != nil {
 		// Clear the resolver so we can retry the digest resolution rather than
 		// being stuck with this error.

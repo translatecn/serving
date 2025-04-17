@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package revision
+package over_revision
 
 import (
 	"context"
@@ -48,7 +48,7 @@ import (
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/over_logging"
-	"knative.dev/serving/pkg/reconciler/revision/config"
+	"knative.dev/serving/pkg/reconciler/over_revision/config"
 )
 
 const digestResolutionWorkers = 100
@@ -65,7 +65,6 @@ type reconcilerOption func(*Reconciler)
 func newControllerWithOptions(
 	ctx context.Context,
 	cmw configmap.Watcher,
-	opts ...reconcilerOption,
 ) *controller.Impl {
 	logger := over_logging.FromContext(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
@@ -101,7 +100,7 @@ func newControllerWithOptions(
 			impl.GlobalResync(revisionInformer.Informer())
 		})
 
-		configStore := config.NewStore(logger.Named("config-store"), resync)
+		configStore := over_config.NewStore(logger.Named("config-store"), resync)
 		configStore.WatchConfigs(cmw)
 		return controller.Options{ConfigStore: configStore}
 	})
@@ -117,13 +116,17 @@ func newControllerWithOptions(
 
 	userAgent := fmt.Sprintf("knative/%s (serving)", changeset.Get())
 
-	digestResolveQueue := workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.NewTypedMaxOfRateLimiter(
-		newItemExponentialFailureRateLimiter(1*time.Second, 1000*time.Second),
-		// 10 qps, 100 bucket size.  This is only for retry speed and its only the overall factor (not per item)
-		&workqueue.TypedBucketRateLimiter[any]{Limiter: rate.NewLimiter(rate.Limit(10), 100)},
-	), workqueue.TypedRateLimitingQueueConfig[any]{Name: "digests"})
+	digestResolveQueue := workqueue.NewTypedRateLimitingQueueWithConfig(
+		workqueue.NewTypedMaxOfRateLimiter(
+			newItemExponentialFailureRateLimiter(1*time.Second, 1000*time.Second),
+			// 10 qps, 100 bucket size.  This is only for retry speed and its only the overall factor (not per item)
+			&workqueue.TypedBucketRateLimiter[any]{Limiter: rate.NewLimiter(rate.Limit(10), 100)},
+		),
+		workqueue.TypedRateLimitingQueueConfig[any]{Name: "digests"},
+	)
 
-	resolver := newBackgroundResolver(logger, &digestResolver{client: kubeclient.Get(ctx), transport: transport, userAgent: userAgent}, digestResolveQueue, impl.EnqueueKey)
+	resolver := newBackgroundResolver(logger, &digestResolver{client: kubeclient.Get(ctx),
+		transport: transport, userAgent: userAgent}, digestResolveQueue, impl.EnqueueKey)
 	resolver.Start(ctx.Done(), digestResolutionWorkers)
 	c.resolver = resolver
 
@@ -152,8 +155,5 @@ func newControllerWithOptions(
 	// properties into our own status and should work completely in the absence of
 	// a functioning Image controller.
 
-	for _, opt := range opts {
-		opt(c)
-	}
 	return impl
 }

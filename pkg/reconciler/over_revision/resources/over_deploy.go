@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resources
+package over_resources
 
 import (
 	"fmt"
@@ -30,8 +30,8 @@ import (
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/over_ptr"
 	"knative.dev/serving/pkg/queue"
-	"knative.dev/serving/pkg/reconciler/revision/config"
-	"knative.dev/serving/pkg/reconciler/revision/resources/names"
+	"knative.dev/serving/pkg/reconciler/over_revision/config"
+	"knative.dev/serving/pkg/reconciler/over_revision/resources/names"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -112,20 +112,6 @@ var (
 	}
 )
 
-func addToken(tokenVolume *corev1.Volume, filename string, audience string, expiry *int64) {
-	if filename == "" || audience == "" {
-		return
-	}
-	volumeProjection := &corev1.VolumeProjection{
-		ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
-			ExpirationSeconds: expiry,
-			Path:              filename,
-			Audience:          audience,
-		},
-	}
-	tokenVolume.VolumeSource.Projected.Sources = append(tokenVolume.VolumeSource.Projected.Sources, *volumeProjection)
-}
-
 func certVolume(secret string) corev1.Volume {
 	return corev1.Volume{
 		Name: certVolumeName,
@@ -163,76 +149,6 @@ func makePreferSpreadRevisionOverNodes(revisionLabelValue string) *corev1.PodAnt
 			},
 		}},
 	}
-}
-
-func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) {
-	queueContainer, err := makeQueueContainer(rev, cfg)
-	tokenVolume := varTokenVolume.DeepCopy()
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create queue-proxy container: %w", err)
-	}
-
-	var extraVolumes []corev1.Volume
-
-	podInfoFeature, podInfoExists := rev.Annotations[apiconfig.QueueProxyPodInfoFeatureKey]
-
-	if cfg.Features.QueueProxyMountPodInfo == apiconfig.Enabled ||
-		(cfg.Features.QueueProxyMountPodInfo == apiconfig.Allowed &&
-			podInfoExists &&
-			strings.EqualFold(podInfoFeature, string(apiconfig.Enabled))) {
-		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, varPodInfoVolumeMount)
-		extraVolumes = append(extraVolumes, varPodInfoVolume)
-	}
-
-	audiences := make([]string, 0, len(cfg.Deployment.QueueSidecarTokenAudiences))
-	for k := range cfg.Deployment.QueueSidecarTokenAudiences {
-		audiences = append(audiences, k)
-	}
-	sort.Strings(audiences)
-	for _, aud := range audiences {
-		// add token for audience <aud> under filename <aud>
-		addToken(tokenVolume, aud, aud, over_ptr.Int64(3600))
-	}
-
-	if len(tokenVolume.VolumeSource.Projected.Sources) > 0 {
-		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, varTokenVolumeMount)
-		extraVolumes = append(extraVolumes, *tokenVolume)
-	}
-
-	if cfg.Network.SystemInternalTLSEnabled() {
-		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, varCertVolumeMount)
-		extraVolumes = append(extraVolumes, certVolume(networking.ServingCertName))
-	}
-
-	podSpec := BuildPodSpec(rev, append(BuildUserContainers(rev), *queueContainer), cfg)
-	podSpec.Volumes = append(podSpec.Volumes, extraVolumes...)
-
-	if val := cfg.Deployment.PodRuntimeClassName(rev.ObjectMeta.Labels); podSpec.RuntimeClassName == nil {
-		podSpec.RuntimeClassName = val
-	}
-	if cfg.Observability.EnableVarLogCollection {
-		podSpec.Volumes = append(podSpec.Volumes, varLogVolume)
-
-		for i, container := range podSpec.Containers {
-			if container.Name == QueueContainerName {
-				continue
-			}
-
-			varLogMount := varLogVolumeMount.DeepCopy()
-			varLogMount.SubPathExpr += container.Name
-			container.VolumeMounts = append(container.VolumeMounts, *varLogMount)
-			container.Env = append(container.Env, buildVarLogSubpathEnvs()...)
-
-			podSpec.Containers[i] = container
-		}
-	}
-
-	if cfg.Deployment.DefaultAffinityType == deploymentconfig.PreferSpreadRevisionOverNodes && rev.Spec.Affinity == nil {
-		podSpec.Affinity = &corev1.Affinity{PodAntiAffinity: makePreferSpreadRevisionOverNodes(rev.Name)}
-	}
-
-	return podSpec, nil
 }
 
 // BuildUserContainers makes an array of containers from the Revision template.
@@ -296,7 +212,7 @@ func makeServingContainer(servingContainer corev1.Container, rev *v1.Revision) c
 
 // BuildPodSpec creates a PodSpec from the given revision and containers.
 // cfg can be passed as nil if not within revision reconciliation context.
-func BuildPodSpec(rev *v1.Revision, containers []corev1.Container, cfg *config.Config) *corev1.PodSpec {
+func BuildPodSpec(rev *v1.Revision, containers []corev1.Container, cfg *over_config.Config) *corev1.PodSpec {
 	pod := rev.Spec.PodSpec.DeepCopy()
 	pod.Containers = containers
 	pod.TerminationGracePeriodSeconds = rev.Spec.TimeoutSeconds
@@ -304,16 +220,6 @@ func BuildPodSpec(rev *v1.Revision, containers []corev1.Container, cfg *config.C
 		pod.EnableServiceLinks = cfg.Defaults.EnableServiceLinks
 	}
 	return pod
-}
-
-func getUserPort(rev *v1.Revision) int32 {
-	ports := rev.Spec.GetContainer().Ports
-
-	if len(ports) > 0 && ports[0].ContainerPort != 0 {
-		return ports[0].ContainerPort
-	}
-
-	return v1.DefaultUserPort
 }
 
 func buildContainerPorts(userPort int32) []corev1.ContainerPort {
@@ -348,7 +254,7 @@ func buildUserPortEnv(userPort string) corev1.EnvVar {
 	}
 }
 
-func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, error) {
+func MakeDeployment(rev *v1.Revision, cfg *over_config.Config) (*appsv1.Deployment, error) { // ✅
 	podSpec, err := makePodSpec(rev, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create PodSpec: %w", err)
@@ -404,4 +310,95 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 			},
 		},
 	}, nil
+}
+
+func getUserPort(rev *v1.Revision) int32 {
+	ports := rev.Spec.GetContainer().Ports
+
+	if len(ports) > 0 && ports[0].ContainerPort != 0 {
+		return ports[0].ContainerPort
+	}
+
+	return v1.DefaultUserPort
+}
+func addToken(tokenVolume *corev1.Volume, filename string, audience string, expiry *int64) {
+	if filename == "" || audience == "" {
+		return
+	}
+	volumeProjection := &corev1.VolumeProjection{
+		ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+			ExpirationSeconds: expiry,
+			Path:              filename,
+			Audience:          audience,
+		},
+	}
+	tokenVolume.VolumeSource.Projected.Sources = append(tokenVolume.VolumeSource.Projected.Sources, *volumeProjection)
+}
+
+func makePodSpec(rev *v1.Revision, cfg *over_config.Config) (*corev1.PodSpec, error) {
+	queueContainer, err := makeQueueContainer(rev, cfg) // ✅
+	tokenVolume := varTokenVolume.DeepCopy()
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create queue-proxy container: %w", err)
+	}
+
+	var extraVolumes []corev1.Volume
+
+	podInfoFeature, podInfoExists := rev.Annotations[apiconfig.QueueProxyPodInfoFeatureKey]
+
+	if cfg.Features.QueueProxyMountPodInfo == apiconfig.Enabled ||
+		(cfg.Features.QueueProxyMountPodInfo == apiconfig.Allowed && podInfoExists && strings.EqualFold(podInfoFeature, string(apiconfig.Enabled))) {
+		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, varPodInfoVolumeMount)
+		extraVolumes = append(extraVolumes, varPodInfoVolume)
+	}
+
+	audiences := make([]string, 0, len(cfg.Deployment.QueueSidecarTokenAudiences))
+	for k := range cfg.Deployment.QueueSidecarTokenAudiences {
+		audiences = append(audiences, k)
+	}
+	sort.Strings(audiences)
+	for _, aud := range audiences {
+		// add token for audience <aud> under filename <aud>
+		addToken(tokenVolume, aud, aud, over_ptr.Int64(3600))
+	}
+
+	if len(tokenVolume.VolumeSource.Projected.Sources) > 0 {
+		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, varTokenVolumeMount)
+		extraVolumes = append(extraVolumes, *tokenVolume)
+	}
+
+	if cfg.Network.SystemInternalTLSEnabled() {
+		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, varCertVolumeMount)
+		extraVolumes = append(extraVolumes, certVolume(networking.ServingCertName))
+	}
+
+	podSpec := BuildPodSpec(rev, append(BuildUserContainers(rev), *queueContainer), cfg)
+	podSpec.Volumes = append(podSpec.Volumes, extraVolumes...)
+
+	if val := cfg.Deployment.PodRuntimeClassName(rev.ObjectMeta.Labels); podSpec.RuntimeClassName == nil {
+		podSpec.RuntimeClassName = val
+	}
+	if cfg.Observability.EnableVarLogCollection {
+		podSpec.Volumes = append(podSpec.Volumes, varLogVolume)
+
+		for i, container := range podSpec.Containers {
+			if container.Name == QueueContainerName {
+				continue
+			}
+
+			varLogMount := varLogVolumeMount.DeepCopy()
+			varLogMount.SubPathExpr += container.Name
+			container.VolumeMounts = append(container.VolumeMounts, *varLogMount)
+			container.Env = append(container.Env, buildVarLogSubpathEnvs()...)
+
+			podSpec.Containers[i] = container
+		}
+	}
+
+	if cfg.Deployment.DefaultAffinityType == deploymentconfig.PreferSpreadRevisionOverNodes && rev.Spec.Affinity == nil {
+		podSpec.Affinity = &corev1.Affinity{PodAntiAffinity: makePreferSpreadRevisionOverNodes(rev.Name)}
+	}
+
+	return podSpec, nil
 }

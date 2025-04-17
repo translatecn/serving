@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package revision
+package over_revision
 
 import (
 	"context"
@@ -78,20 +78,6 @@ type workItem struct {
 	image string
 }
 
-func newBackgroundResolver(logger *zap.SugaredLogger, resolver imageResolver, queue workqueue.TypedRateLimitingInterface[any], enqueue func(types.NamespacedName)) *backgroundResolver {
-	r := &backgroundResolver{
-		logger: logger,
-
-		resolver: resolver,
-		enqueue:  enqueue,
-
-		results: make(map[types.NamespacedName]*resolveResult),
-		queue:   queue,
-	}
-
-	return r
-}
-
 // Start starts the worker threads and runs maxInFlight workers until the stop
 // channel is closed. It returns a done channel which will be closed when all
 // workers have exited.
@@ -136,8 +122,6 @@ func (r *backgroundResolver) Start(stop <-chan struct{}, maxInFlight int) (done 
 	return done
 }
 
-// addWorkItems adds a digest resolve item to the queue for each container in the revision.
-// This is expected to be called with the mutex locked.
 func (r *backgroundResolver) addWorkItems(rev *v1.Revision, name types.NamespacedName, opt k8schain.Options, registriesToSkip sets.Set[string], timeout time.Duration) {
 	totalNumOfContainers := len(rev.Spec.Containers) + len(rev.Spec.InitContainers)
 	r.results[name] = &resolveResult{
@@ -220,15 +204,6 @@ func (r *backgroundResolver) processWorkItem(item workItem) {
 	}
 }
 
-// Clear removes any cached results for the revision. This should be called
-// once the revision's ContainerStatus has been set.
-func (r *backgroundResolver) Clear(name types.NamespacedName) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	delete(r.results, name)
-}
-
 // Forget removes the revision from the rate limiter and removes any cached
 // results for the revision. It should be called when the revision is deleted
 // or marked permanently failed.
@@ -252,13 +227,6 @@ func (r *resolveResult) ready() bool {
 	return len(r.imagesToBeResolved) == len(r.imagesResolved) || r.err != nil
 }
 
-// Resolve is intended to be called from a reconciler to resolve a revision. If
-// the resolver already has the digest in cache it is returned immediately, if
-// it does not and no resolution is already in flight a resolution is triggered
-// in the background.
-// If this method returns `nil, nil` this implies a resolve was triggered or is
-// already in progress, so the reconciler should exit and wait for the revision
-// to be re-enqueued when the result is ready.
 func (r *backgroundResolver) Resolve(logger *zap.SugaredLogger, rev *v1.Revision, opt k8schain.Options, registriesToSkip sets.Set[string], timeout time.Duration) (initContainerStatuses []v1.ContainerStatus, statuses []v1.ContainerStatus, error error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -306,4 +274,24 @@ func (r *backgroundResolver) Resolve(logger *zap.SugaredLogger, rev *v1.Revision
 
 	logger.Debugf("Resolve returned %d resolved images for revision", len(statuses)+len(initContainerStatuses))
 	return initContainerStatuses, statuses, nil
+}
+
+func newBackgroundResolver(logger *zap.SugaredLogger, resolver imageResolver, queue workqueue.TypedRateLimitingInterface[any], enqueue func(types.NamespacedName)) *backgroundResolver {
+	r := &backgroundResolver{
+		logger:   logger,
+		resolver: resolver,
+		enqueue:  enqueue,
+		results:  make(map[types.NamespacedName]*resolveResult),
+		queue:    queue,
+	}
+
+	return r
+}
+
+// Clear removes any cached results for the revision. This should be called
+// once the revision's ContainerStatus has been set.
+func (r *backgroundResolver) Clear(name types.NamespacedName) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.results, name)
 }

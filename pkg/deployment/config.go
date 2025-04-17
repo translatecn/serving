@@ -116,24 +116,6 @@ func defaultConfig() *Config {
 	return cfg
 }
 
-func (d Config) PodRuntimeClassName(lbs map[string]string) *string {
-	runtimeClassName := ""
-	specificity := -1
-	for k, v := range d.RuntimeClassNames {
-		if !v.Matches(lbs) || v.specificity() < specificity {
-			continue
-		}
-		if v.specificity() > specificity || strings.Compare(k, runtimeClassName) < 0 {
-			runtimeClassName = k
-			specificity = v.specificity()
-		}
-	}
-	if runtimeClassName == "" {
-		return nil
-	}
-	return over_ptr.String(runtimeClassName)
-}
-
 type RuntimeClassNameLabelSelector struct {
 	Selector map[string]string `json:"selector,omitempty"`
 }
@@ -301,4 +283,22 @@ type Config struct {
 
 	// RuntimeClassNames specifies which runtime the Pod will use
 	RuntimeClassNames map[string]RuntimeClassNameLabelSelector
+}
+
+func (d Config) PodRuntimeClassName(lbs map[string]string) *string {
+	runtimeClassName := ""
+	specificity := -1
+	for k, v := range d.RuntimeClassNames {
+		if !v.Matches(lbs) || v.specificity() < specificity {
+			continue
+		}
+		if v.specificity() > specificity || strings.Compare(k, runtimeClassName) < 0 {
+			runtimeClassName = k
+			specificity = v.specificity()
+		}
+	}
+	if runtimeClassName == "" {
+		return nil
+	}
+	return over_ptr.String(runtimeClassName)
 }

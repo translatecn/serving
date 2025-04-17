@@ -14,12 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resources
-
-const (
-	// QueueContainerName is the name of the queue proxy side car
-	QueueContainerName = "queue-proxy"
-
-	// AppLabelKey is the label defining the application's name.
-	AppLabelKey = "app"
-)
+// Package resources holds simple functions for synthesizing child resources
+// from a Revision resource and any relevant Revision controller configuration.
+package over_resources

@@ -14,14 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resources
+package over_resources
 
 import (
 	"fmt"
-	"math"
-	"strconv"
-	"strings"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,8 +35,11 @@ import (
 	"knative.dev/serving/pkg/over_ptr"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/readiness"
-	"knative.dev/serving/pkg/reconciler/revision/config"
+	"knative.dev/serving/pkg/reconciler/over_revision/config"
 	"knative.dev/serving/pkg/system"
+	"math"
+	"strconv"
+	"strings"
 )
 
 const (
@@ -186,30 +185,6 @@ func createQueueResources(cfg *deployment.Config, annotations map[string]string,
 	return resources
 }
 
-func computeResourceRequirements(resourceQuantity *resource.Quantity, fraction float64, boundary resourceBoundary) (bool, resource.Quantity) {
-	if resourceQuantity.IsZero() {
-		return false, resource.Quantity{}
-	}
-
-	// In case the resourceQuantity MilliValue overflows int64 we use MaxInt64
-	// https://github.com/kubernetes/apimachinery/blob/master/pkg/api/resource/quantity.go
-	scaledValue := resourceQuantity.Value()
-	scaledMilliValue := int64(math.MaxInt64 - 1)
-	if scaledValue < (math.MaxInt64 / 1000) {
-		scaledMilliValue = resourceQuantity.MilliValue()
-	}
-
-	// float64(math.MaxInt64) > math.MaxInt64, to avoid overflow
-	percentageValue := float64(scaledMilliValue) * fraction
-	newValue := int64(math.MaxInt64)
-	if percentageValue < math.MaxInt64 {
-		newValue = int64(percentageValue)
-	}
-
-	newquantity := boundary.applyBoundary(*resource.NewMilliQuantity(newValue, resource.BinarySI))
-	return true, newquantity
-}
-
 func resourceFromAnnotation(m map[string]string, key over_kmap.KeyPriority) (resource.Quantity, bool) {
 	_, v, _ := key.Get(m)
 	q, err := resource.ParseQuantity(v)
@@ -222,8 +197,39 @@ func fractionFromPercentage(m map[string]string, key over_kmap.KeyPriority) (flo
 	return value / 100, err == nil
 }
 
+func applyReadinessProbeDefaults(p *corev1.Probe, port int32) {
+	switch {
+	case p == nil:
+		return
+	case p.HTTPGet != nil:
+		p.HTTPGet.Host = localAddress
+		p.HTTPGet.Port = intstr.FromInt32(port)
+
+		if p.HTTPGet.Scheme == "" {
+			p.HTTPGet.Scheme = corev1.URISchemeHTTP
+		}
+	case p.TCPSocket != nil:
+		p.TCPSocket.Host = localAddress
+		p.TCPSocket.Port = intstr.FromInt32(port)
+	case p.Exec != nil:
+		// User-defined ExecProbe will still be run on user/sidecar-container.
+		// Use TCP probe in queue-proxy.
+		p.TCPSocket = &corev1.TCPSocketAction{
+			Host: localAddress,
+			Port: intstr.FromInt32(port),
+		}
+		p.Exec = nil
+	case p.GRPC != nil:
+		p.GRPC.Port = port
+	}
+
+	if p.PeriodSeconds > 0 && p.TimeoutSeconds < 1 {
+		p.TimeoutSeconds = 1
+	}
+}
+
 // makeQueueContainer creates the container spec for the queue sidecar.
-func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container, error) {
+func makeQueueContainer(rev *v1.Revision, cfg *over_config.Config) (*corev1.Container, error) {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
@@ -239,11 +245,11 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 
 	ts := int64(0)
 	if rev.Spec.TimeoutSeconds != nil {
-		ts = *rev.Spec.TimeoutSeconds
+		ts = *rev.Spec.TimeoutSeconds // 300
 	}
 	responseStartTimeout := int64(0)
 	if rev.Spec.ResponseStartTimeoutSeconds != nil {
-		responseStartTimeout = *rev.Spec.ResponseStartTimeoutSeconds
+		responseStartTimeout = *rev.Spec.ResponseStartTimeoutSeconds // 0
 	}
 	idleTimeout := int64(0)
 	if rev.Spec.IdleTimeoutSeconds != nil {
@@ -468,34 +474,26 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 
 	return c, nil
 }
-
-func applyReadinessProbeDefaults(p *corev1.Probe, port int32) {
-	switch {
-	case p == nil:
-		return
-	case p.HTTPGet != nil:
-		p.HTTPGet.Host = localAddress
-		p.HTTPGet.Port = intstr.FromInt32(port)
-
-		if p.HTTPGet.Scheme == "" {
-			p.HTTPGet.Scheme = corev1.URISchemeHTTP
-		}
-	case p.TCPSocket != nil:
-		p.TCPSocket.Host = localAddress
-		p.TCPSocket.Port = intstr.FromInt32(port)
-	case p.Exec != nil:
-		// User-defined ExecProbe will still be run on user/sidecar-container.
-		// Use TCP probe in queue-proxy.
-		p.TCPSocket = &corev1.TCPSocketAction{
-			Host: localAddress,
-			Port: intstr.FromInt32(port),
-		}
-		p.Exec = nil
-	case p.GRPC != nil:
-		p.GRPC.Port = port
+func computeResourceRequirements(resourceQuantity *resource.Quantity, fraction float64, boundary resourceBoundary) (bool, resource.Quantity) {
+	if resourceQuantity.IsZero() {
+		return false, resource.Quantity{}
 	}
 
-	if p.PeriodSeconds > 0 && p.TimeoutSeconds < 1 {
-		p.TimeoutSeconds = 1
+	// In case the resourceQuantity MilliValue overflows int64 we use MaxInt64
+	// https://github.com/kubernetes/apimachinery/blob/master/pkg/api/resource/quantity.go
+	scaledValue := resourceQuantity.Value()
+	scaledMilliValue := int64(math.MaxInt64 - 1)
+	if scaledValue < (math.MaxInt64 / 1000) {
+		scaledMilliValue = resourceQuantity.MilliValue()
 	}
+
+	// float64(math.MaxInt64) > math.MaxInt64, to avoid overflow
+	percentageValue := float64(scaledMilliValue) * fraction
+	newValue := int64(math.MaxInt64)
+	if percentageValue < math.MaxInt64 {
+		newValue = int64(percentageValue)
+	}
+
+	newquantity := boundary.applyBoundary(*resource.NewMilliQuantity(newValue, resource.BinarySI))
+	return true, newquantity
 }

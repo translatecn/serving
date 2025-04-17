@@ -67,14 +67,6 @@ func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Revision")
 }
 
-// IsReady returns true if the Status condition RevisionConditionReady
-// is true and the latest spec has been observed.
-func (r *Revision) IsReady() bool {
-	rs := r.Status
-	return rs.ObservedGeneration == r.Generation &&
-		rs.GetCondition(RevisionConditionReady).IsTrue()
-}
-
 // IsFailed returns true if the resource has observed the latest generation
 // and ready is false.
 func (r *Revision) IsFailed() bool {
@@ -227,8 +219,7 @@ func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *autoscalingv1alpha1.PodA
 		// unavailable here, and have no way of recovering later.
 		// If the ResourcesAvailable is already false, don't override the message.
 		if !ps.IsScaleTargetInitialized() && !resUnavailable && ps.ServiceName != "" {
-			rs.MarkResourcesAvailableFalse(ReasonProgressDeadlineExceeded,
-				"Initial scale was never achieved")
+			rs.MarkResourcesAvailableFalse(ReasonProgressDeadlineExceeded, "Initial scale was never achieved")
 		}
 		rs.MarkActiveFalse(cond.Reason, cond.Message)
 	case corev1.ConditionTrue:
@@ -257,4 +248,9 @@ func RevisionContainerExitingMessage(message string) string {
 // cannot be pulled correctly.
 func RevisionContainerMissingMessage(image string, message string) string {
 	return fmt.Sprintf("Unable to fetch image %q: %s", image, message)
+}
+
+func (r *Revision) IsReady() bool {
+	rs := r.Status
+	return rs.ObservedGeneration == r.Generation && rs.GetCondition(RevisionConditionReady).IsTrue()
 }

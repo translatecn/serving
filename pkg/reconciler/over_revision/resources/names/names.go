@@ -14,6 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package config holds the typed objects that define the schemas for
-// assorted ConfigMap objects on which the Revision controller depends.
-package config
+package names
+
+import "knative.dev/serving/pkg/kmeta"
+
+func Deployment(rev kmeta.Accessor) string {
+	return kmeta.ChildName(rev.GetName(), "-deployment")
+}
+
+// ImageCache returns the precomputed name for the image cache.
+func ImageCache(rev kmeta.Accessor) string {
+	return kmeta.ChildName(rev.GetName(), "-cache")
+}
+
+// PA returns the PA name for the revision.
+func PA(rev kmeta.Accessor) string {
+	return rev.GetName()
+}

@@ -14,12 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package revision
+package over_revision
 
 import (
 	"context"
 	"fmt"
 	"k8s.io/apimachinery/pkg/api/equality"
+	diff2 "knative.dev/serving/debug/diff"
 	"knative.dev/serving/pkg/kmeta"
 	"knative.dev/serving/pkg/over_kmp"
 	"knative.dev/serving/pkg/over_logging"
@@ -30,23 +31,12 @@ import (
 	caching "knative.dev/serving/caching/pkg/apis/caching/v1alpha1"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/reconciler/revision/config"
-	"knative.dev/serving/pkg/reconciler/revision/resources"
+	"knative.dev/serving/pkg/reconciler/over_revision/config"
+	"knative.dev/serving/pkg/reconciler/over_revision/resources"
 )
 
-func (c *Reconciler) createDeployment(ctx context.Context, rev *v1.Revision) (*appsv1.Deployment, error) {
-	cfgs := config.FromContext(ctx)
-
-	deployment, err := resources.MakeDeployment(rev, cfgs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to make deployment: %w", err)
-	}
-
-	return c.kubeclient.AppsV1().Deployments(deployment.Namespace).Create(ctx, deployment, metav1.CreateOptions{})
-}
-
 func (c *Reconciler) createImageCache(ctx context.Context, rev *v1.Revision, containerName, imageDigest string) (*caching.Image, error) {
-	image := resources.MakeImageCache(rev, containerName, imageDigest)
+	image := over_resources.MakeImageCache(rev, containerName, imageDigest)
 	return c.cachingclient.CachingV1alpha1().Images(image.Namespace).Create(ctx, image, metav1.CreateOptions{})
 }
 
@@ -55,15 +45,15 @@ func (c *Reconciler) createPA(
 	rev *v1.Revision,
 	deployment *appsv1.Deployment,
 ) (*autoscalingv1alpha1.PodAutoscaler, error) {
-	pa := resources.MakePA(rev, deployment)
+	pa := over_resources.MakePA(rev, deployment)
 	return c.client.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Create(ctx, pa, metav1.CreateOptions{})
 }
 
 func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revision, have *appsv1.Deployment) (*appsv1.Deployment, error) {
 	logger := over_logging.FromContext(ctx)
-	cfgs := config.FromContext(ctx)
+	cfgs := over_config.FromContext(ctx)
 
-	deployment, err := resources.MakeDeployment(rev, cfgs)
+	deployment, err := over_resources.MakeDeployment(rev, cfgs) // ✅
 	if err != nil {
 		return nil, fmt.Errorf("failed to update deployment: %w", err)
 	}
@@ -86,7 +76,7 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revis
 
 	// Carry over new labels.
 	desiredDeployment.Labels = kmeta.UnionMaps(deployment.Labels, desiredDeployment.Labels)
-
+	diff2.Write("Deployment", have, desiredDeployment)
 	d, err := c.kubeclient.AppsV1().Deployments(deployment.Namespace).Update(ctx, desiredDeployment, metav1.UpdateOptions{})
 	if err != nil {
 		return nil, err
@@ -105,4 +95,14 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revis
 	// If what comes back has a different spec, then signal the change.
 	logger.Info("Reconciled deployment diff (-desired, +observed): ", diff)
 	return d, nil
+}
+
+func (c *Reconciler) createDeployment(ctx context.Context, rev *v1.Revision) (*appsv1.Deployment, error) {
+	cfgs := over_config.FromContext(ctx)
+	deployment, err := over_resources.MakeDeployment(rev, cfgs) // ✅
+	if err != nil {
+		return nil, fmt.Errorf("failed to make deployment: %w", err)
+	}
+
+	return c.kubeclient.AppsV1().Deployments(deployment.Namespace).Create(ctx, deployment, metav1.CreateOptions{})
 }

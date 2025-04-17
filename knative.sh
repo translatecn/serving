@@ -1,5 +1,5 @@
-#mkdir -p tmp
-#cd tmp
+#mkdir -p out
+#cd out
 #curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.25.0 TARGET_ARCH=arm64 sh -
 #cd istio-1.25.0
 #export PATH=$PWD/bin:$PATH
@@ -59,9 +59,6 @@ cd helloworld-go
 #docker build -t registry.cn-hangzhou.aliyuncs.com/ls-2018/knative:helloworld-go .
 #docker push registry.cn-hangzhou.aliyuncs.com/ls-2018/knative:helloworld-go
 #sed -i 's@docker.io/{username}/helloworld-go@registry.cn-hangzhou.aliyuncs.com/ls-2018/knative:helloworld-go@g' service.yaml
-kubectl apply -f service.yaml
 kubectl apply -f pod.yaml
 #cd -
 # k exec -it title -c title -- curl -H 'Host: helloworld-go.default.127.0.0.1.sslip.io' kourier.kourier-system
-
-#

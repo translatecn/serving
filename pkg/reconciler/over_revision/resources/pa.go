@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resources
+package over_resources
 
 import (
 	appsv1 "k8s.io/api/apps/v1"
@@ -25,7 +25,7 @@ import (
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/kmeta"
-	"knative.dev/serving/pkg/reconciler/revision/resources/names"
+	"knative.dev/serving/pkg/reconciler/over_revision/resources/names"
 )
 
 // MakePA makes a Knative Pod Autoscaler resource from a revision.

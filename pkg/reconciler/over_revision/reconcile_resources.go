@@ -14,13 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package revision
+package over_revision
 
 import (
 	"context"
 	"fmt"
-
 	"go.uber.org/zap"
+	diff2 "knative.dev/serving/debug/diff"
+	"knative.dev/serving/pkg/kmeta"
+	"knative.dev/serving/pkg/over_logging/logkey"
+
 	networkingaccessor "knative.dev/serving/pkg/reconciler/accessor/networking"
 	"knative.dev/serving/pkg/tracker"
 
@@ -33,15 +36,133 @@ import (
 	networkingApi "knative.dev/serving/networking/pkg/apis/networking"
 	"knative.dev/serving/networking/pkg/certificates"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/kmeta"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/over_kmp"
 	"knative.dev/serving/pkg/over_logging"
-	"knative.dev/serving/pkg/over_logging/logkey"
-	"knative.dev/serving/pkg/reconciler/revision/config"
-	"knative.dev/serving/pkg/reconciler/revision/resources"
-	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
+	"knative.dev/serving/pkg/reconciler/over_revision/config"
+	"knative.dev/serving/pkg/reconciler/over_revision/resources"
+	resourcenames "knative.dev/serving/pkg/reconciler/over_revision/resources/names"
 )
+
+func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
+	ns := rev.Namespace
+
+	deploymentName := resourcenames.Deployment(rev)
+	deployment, err := c.deploymentLister.Deployments(ns).Get(deploymentName)
+	if err != nil {
+		return err
+	}
+
+	paName := resourcenames.PA(rev)
+	logger := over_logging.FromContext(ctx)
+	logger.Info("Reconciling PA: ", paName)
+
+	pa, err := c.podAutoscalerLister.PodAutoscalers(ns).Get(paName)
+	if apierrs.IsNotFound(err) {
+		// PA does not exist. Create it.
+		pa, err = c.createPA(ctx, rev, deployment)
+		if err != nil {
+			return fmt.Errorf("failed to create PA %q: %w", paName, err)
+		}
+		logger.Info("Created PA: ", paName)
+	} else if err != nil {
+		return fmt.Errorf("failed to get PA %q: %w", paName, err)
+	} else if !metav1.IsControlledBy(pa, rev) {
+		// Surface an error in the revision's status, and return an error.
+		rev.Status.MarkResourcesAvailableFalse(v1.ReasonNotOwned, v1.ResourceNotOwnedMessage("PodAutoscaler", paName))
+		return fmt.Errorf("revision: %q does not own PodAutoscaler: %q", rev.Name, paName)
+	}
+
+	// Perhaps tha PA spec changed underneath ourselves?
+	// We no longer require immutability, so need to reconcile PA each time.
+	tmpl := over_resources.MakePA(rev, deployment)
+	logger.Debugf("Desired PASpec: %#v", tmpl.Spec)
+	if !equality.Semantic.DeepEqual(tmpl.Spec, pa.Spec) {
+		diff, _ := over_kmp.SafeDiff(tmpl.Spec, pa.Spec) // Can't realistically fail on PASpec.
+		logger.Infof("PA %s needs reconciliation, diff(-want,+got):\n%s", pa.Name, diff)
+
+		want := pa.DeepCopy()
+		want.Spec = tmpl.Spec
+		diff2.Write("PodAutoscaler", tmpl, want)
+		if pa, err = c.client.AutoscalingV1alpha1().PodAutoscalers(ns).Update(ctx, want, metav1.UpdateOptions{}); err != nil {
+			return fmt.Errorf("failed to update PA %q: %w", paName, err)
+		}
+	}
+
+	logger.Debugf("Observed PA Status=%#v", pa.Status)
+	rev.Status.PropagateAutoscalerStatus(&pa.Status)
+	return nil
+}
+
+func hasDeploymentTimedOut(deployment *appsv1.Deployment) bool {
+	// as per https://kubernetes.io/docs/concepts/workloads/controllers/deployment
+	for _, cond := range deployment.Status.Conditions {
+		// Look for a condition with status False
+		if cond.Status != corev1.ConditionFalse {
+			continue
+		}
+		// with Type Progressing and Reason Timeout
+		if cond.Type == appsv1.DeploymentProgressing && cond.Reason == v1.ReasonProgressDeadlineExceeded {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Reconciler) reconcileQueueProxyCertificate(ctx context.Context, rev *v1.Revision) error {
+	ns := rev.Namespace
+	logger := over_logging.FromContext(ctx)
+	logger.Infof("Reconciling queue-proxy Knative Certificate for system-internal-tls: %s/%s", ns, networking.ServingCertName)
+
+	certClass := over_config.FromContext(ctx).Network.DefaultCertificateClass
+	if class := networkingApi.GetCertificateClass(rev.Annotations); class != "" {
+		certClass = class
+	}
+
+	// As all Knative services in the same namespace share one QP-certificate, so the owning resource
+	// is the namespace, not the revision. This results in the first created revision to trigger
+	// the creation of the Certificate, each revision update (potentially) refreshes the certificate and
+	// the deletion of the Certificate is bound to the namespace deletion.
+	owningNs, err := c.kubeclient.CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	desiredCert := over_resources.MakeQueueProxyCertificate(owningNs, certClass)
+	cert, err := networkingaccessor.ReconcileCertificate(ctx, owningNs, desiredCert, c)
+	if err != nil {
+		return fmt.Errorf("failed to reconcile Knative certificate %s/%s: %w", ns, networking.ServingCertName, err)
+	}
+
+	// Verify the secret is created and has been added the certificates
+	secret, err := c.kubeclient.CoreV1().Secrets(ns).Get(ctx, networking.ServingCertName, metav1.GetOptions{})
+	if apierrs.IsNotFound(err) {
+		return fmt.Errorf("secret %s/%s is not ready yet: secret could not be found", ns, networking.ServingCertName)
+	} else if err != nil {
+		return fmt.Errorf("secret %s/%s is not ready yet: %w", ns, networking.ServingCertName, err)
+	}
+
+	if _, ok := secret.Data[certificates.CertName]; !ok {
+		return fmt.Errorf("certificate in secret %s/%s is not ready yet: public cert not found", ns, networking.ServingCertName)
+	}
+	if _, ok := secret.Data[certificates.PrivateKeyName]; !ok {
+		return fmt.Errorf("certificate in secret %s/%s is not ready yet: private key not found", ns, networking.ServingCertName)
+	}
+
+	// Tell our trackers to reconcile Revisions when the KnativeCertificate changes
+	gvk := cert.GetGroupVersionKind()
+	apiVersion, kind := gvk.ToAPIVersionAndKind()
+	if err := c.tracker.TrackReference(tracker.Reference{
+		APIVersion: apiVersion,
+		Kind:       kind,
+		Namespace:  cert.GetNamespace(),
+		Name:       cert.GetName(),
+	}, rev); err != nil {
+		return err
+	}
+
+	return nil
+}
 
 func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) error {
 	ns := rev.Namespace
@@ -98,7 +219,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 			}
 
 			for _, status := range pod.Status.ContainerStatuses {
-				if status.Name != resources.QueueContainerName {
+				if status.Name != over_resources.QueueContainerName {
 					if t := status.LastTerminationState.Terminated; t != nil {
 						logger.Infof("marking exiting with: %d/%s", t.ExitCode, t.Message)
 						if t.ExitCode == 0 && t.Message == "" {
@@ -144,124 +265,5 @@ func (c *Reconciler) reconcileImageCache(ctx context.Context, rev *v1.Revision) 
 			return fmt.Errorf("failed to get image cache %q: %w", imageName, err)
 		}
 	}
-	return nil
-}
-
-func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
-	ns := rev.Namespace
-
-	deploymentName := resourcenames.Deployment(rev)
-	deployment, err := c.deploymentLister.Deployments(ns).Get(deploymentName)
-	if err != nil {
-		return err
-	}
-
-	paName := resourcenames.PA(rev)
-	logger := over_logging.FromContext(ctx)
-	logger.Info("Reconciling PA: ", paName)
-
-	pa, err := c.podAutoscalerLister.PodAutoscalers(ns).Get(paName)
-	if apierrs.IsNotFound(err) {
-		// PA does not exist. Create it.
-		pa, err = c.createPA(ctx, rev, deployment)
-		if err != nil {
-			return fmt.Errorf("failed to create PA %q: %w", paName, err)
-		}
-		logger.Info("Created PA: ", paName)
-	} else if err != nil {
-		return fmt.Errorf("failed to get PA %q: %w", paName, err)
-	} else if !metav1.IsControlledBy(pa, rev) {
-		// Surface an error in the revision's status, and return an error.
-		rev.Status.MarkResourcesAvailableFalse(v1.ReasonNotOwned, v1.ResourceNotOwnedMessage("PodAutoscaler", paName))
-		return fmt.Errorf("revision: %q does not own PodAutoscaler: %q", rev.Name, paName)
-	}
-
-	// Perhaps tha PA spec changed underneath ourselves?
-	// We no longer require immutability, so need to reconcile PA each time.
-	tmpl := resources.MakePA(rev, deployment)
-	logger.Debugf("Desired PASpec: %#v", tmpl.Spec)
-	if !equality.Semantic.DeepEqual(tmpl.Spec, pa.Spec) {
-		diff, _ := over_kmp.SafeDiff(tmpl.Spec, pa.Spec) // Can't realistically fail on PASpec.
-		logger.Infof("PA %s needs reconciliation, diff(-want,+got):\n%s", pa.Name, diff)
-
-		want := pa.DeepCopy()
-		want.Spec = tmpl.Spec
-		if pa, err = c.client.AutoscalingV1alpha1().PodAutoscalers(ns).Update(ctx, want, metav1.UpdateOptions{}); err != nil {
-			return fmt.Errorf("failed to update PA %q: %w", paName, err)
-		}
-	}
-
-	logger.Debugf("Observed PA Status=%#v", pa.Status)
-	rev.Status.PropagateAutoscalerStatus(&pa.Status)
-	return nil
-}
-
-func hasDeploymentTimedOut(deployment *appsv1.Deployment) bool {
-	// as per https://kubernetes.io/docs/concepts/workloads/controllers/deployment
-	for _, cond := range deployment.Status.Conditions {
-		// Look for a condition with status False
-		if cond.Status != corev1.ConditionFalse {
-			continue
-		}
-		// with Type Progressing and Reason Timeout
-		if cond.Type == appsv1.DeploymentProgressing && cond.Reason == v1.ReasonProgressDeadlineExceeded {
-			return true
-		}
-	}
-	return false
-}
-
-func (c *Reconciler) reconcileQueueProxyCertificate(ctx context.Context, rev *v1.Revision) error {
-	ns := rev.Namespace
-	logger := over_logging.FromContext(ctx)
-	logger.Infof("Reconciling queue-proxy Knative Certificate for system-internal-tls: %s/%s", ns, networking.ServingCertName)
-
-	certClass := config.FromContext(ctx).Network.DefaultCertificateClass
-	if class := networkingApi.GetCertificateClass(rev.Annotations); class != "" {
-		certClass = class
-	}
-
-	// As all Knative services in the same namespace share one QP-certificate, so the owning resource
-	// is the namespace, not the revision. This results in the first created revision to trigger
-	// the creation of the Certificate, each revision update (potentially) refreshes the certificate and
-	// the deletion of the Certificate is bound to the namespace deletion.
-	owningNs, err := c.kubeclient.CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-
-	desiredCert := resources.MakeQueueProxyCertificate(owningNs, certClass)
-	cert, err := networkingaccessor.ReconcileCertificate(ctx, owningNs, desiredCert, c)
-	if err != nil {
-		return fmt.Errorf("failed to reconcile Knative certificate %s/%s: %w", ns, networking.ServingCertName, err)
-	}
-
-	// Verify the secret is created and has been added the certificates
-	secret, err := c.kubeclient.CoreV1().Secrets(ns).Get(ctx, networking.ServingCertName, metav1.GetOptions{})
-	if apierrs.IsNotFound(err) {
-		return fmt.Errorf("secret %s/%s is not ready yet: secret could not be found", ns, networking.ServingCertName)
-	} else if err != nil {
-		return fmt.Errorf("secret %s/%s is not ready yet: %w", ns, networking.ServingCertName, err)
-	}
-
-	if _, ok := secret.Data[certificates.CertName]; !ok {
-		return fmt.Errorf("certificate in secret %s/%s is not ready yet: public cert not found", ns, networking.ServingCertName)
-	}
-	if _, ok := secret.Data[certificates.PrivateKeyName]; !ok {
-		return fmt.Errorf("certificate in secret %s/%s is not ready yet: private key not found", ns, networking.ServingCertName)
-	}
-
-	// Tell our trackers to reconcile Revisions when the KnativeCertificate changes
-	gvk := cert.GetGroupVersionKind()
-	apiVersion, kind := gvk.ToAPIVersionAndKind()
-	if err := c.tracker.TrackReference(tracker.Reference{
-		APIVersion: apiVersion,
-		Kind:       kind,
-		Namespace:  cert.GetNamespace(),
-		Name:       cert.GetName(),
-	}, rev); err != nil {
-		return err
-	}
-
 	return nil
 }

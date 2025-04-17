@@ -7,4 +7,9 @@ ServerlessServices、Private Endpoint、Public Service、 activator-service -> S
 KServices、Configurations、Route -> KServices
     创建更新 Configurations、KServices、Route
 
+Revision、PodAutoscaler Owner、Deployment Owner、Certificates -> Revision
+    创建更新 Deployment、PodAutoscaler、创建Image
+
+
+
 dynamicClient查询所有deployment : Unstructured, 并转换成  PodScalable

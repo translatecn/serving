@@ -90,7 +90,7 @@ data:
                           routes:
                             - match:
                                 safe_regex:
-                                  regex: '/(certs|stats(/prometheus)?|server_info|clusters|listeners|ready)?'
+                                  regex: '/(certs|stats(/prometheus)?|server_info|config_dump|clusters|listeners|ready)?'
                                 headers:
                                   - name: ':method'
                                     string_match:

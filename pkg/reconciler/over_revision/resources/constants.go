@@ -14,21 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package names
+package over_resources
 
-import "knative.dev/serving/pkg/kmeta"
+const (
+	// QueueContainerName is the name of the queue proxy side car
+	QueueContainerName = "queue-proxy"
 
-// Deployment returns the precomputed name for the revision deployment
-func Deployment(rev kmeta.Accessor) string {
-	return kmeta.ChildName(rev.GetName(), "-deployment")
-}
-
-// ImageCache returns the precomputed name for the image cache.
-func ImageCache(rev kmeta.Accessor) string {
-	return kmeta.ChildName(rev.GetName(), "-cache")
-}
-
-// PA returns the PA name for the revision.
-func PA(rev kmeta.Accessor) string {
-	return rev.GetName()
-}
+	// AppLabelKey is the label defining the application's name.
+	AppLabelKey = "app"
+)
