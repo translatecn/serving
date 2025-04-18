@@ -126,6 +126,10 @@ func (g *reconcilerReconcilerGenerator) GenerateType(c *generator.Context, t *ty
 			Package: "knative.dev/serving/debug/diff",
 			Name:    "Write",
 		}),
+		"reflectTypeOf": c.Universe.Function(types.Name{
+			Package: "reflect",
+			Name:    "TypeOf",
+		}),
 		"cacheSplitMetaNamespaceKey": c.Universe.Function(types.Name{
 			Package: "k8s.io/client-go/tools/cache",
 			Name:    "SplitMetaNamespaceKey",
@@ -528,7 +532,7 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 		// the elected leader is expected to write modifications.
 		logger.Warn("Saw status changes when we aren't the leader!")
 	default:
-        {{ .diffWrite|raw }}("Revision",original, resource)
+        {{ .diffWrite|raw }}({{ .reflectTypeOf|raw }}(original).Elem().String(),original, resource)
 		if err = r.updateStatus(ctx, logger, original, resource); err != nil {
 			logger.Warnw("Failed to update resource status", zap.Error(err))
 			r.Recorder.Eventf(resource, {{.corev1EventTypeWarning|raw}}, "UpdateFailed",

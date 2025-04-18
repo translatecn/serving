@@ -57,7 +57,7 @@ import (
 	"knative.dev/serving/pkg/over_profiling"
 	"knative.dev/serving/pkg/over_version"
 	"knative.dev/serving/pkg/reconciler/autoscaling/over_kpa"
-	"knative.dev/serving/pkg/reconciler/metric"
+	"knative.dev/serving/pkg/reconciler/over_metric"
 	"knative.dev/serving/pkg/resources"
 	"knative.dev/serving/pkg/signals"
 	"knative.dev/serving/pkg/system"
@@ -156,7 +156,7 @@ func main() {
 
 	controllers := []*controller.Impl{
 		over_kpa.NewController(ctx, cmw, multiScaler), // 这里很重要 ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️
-		metric.NewController(ctx, cmw, collector),
+		over_metric.NewController(ctx, cmw, collector),
 	}
 
 	// Start watching the configs.

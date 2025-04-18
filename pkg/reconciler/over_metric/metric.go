@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package metric
+package over_metric
 
 import (
 	"context"
@@ -40,7 +40,7 @@ var (
 )
 
 // ReconcileKind implements Interface.ReconcileKind.
-func (r *reconciler) ReconcileKind(_ context.Context, metric *autoscalingv1alpha1.Metric) pkgreconciler.Event {
+func (r *reconciler) ReconcileKind(_ context.Context, metric *autoscalingv1alpha1.Metric) pkgreconciler.Event { // ✅
 	if err := r.collector.CreateOrUpdate(metric); err != nil {
 		switch {
 		case errors.Is(err, metrics.ErrFailedGetEndpoints):

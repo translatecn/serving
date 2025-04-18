@@ -13,10 +13,10 @@ Revision、PodAutoscaler Owner、Deployment Owner、Certificates -> Revision
 Namespace、Certificates Owner -> Namespace
     删除、创建 Certificates
 
-Namespace、Certificates Owner -> Namespace
-    删除、创建 Certificates
-
 Certificates、 CertManger Certificates Owner、Services -> Certificate
     创建、更新 CertManger Certificates、Certificates
+
+Metric -> Metric
+    // 每个revision 都会定时去统计范围内的所有pod 的请求数
 
 dynamicClient查询所有deployment : Unstructured, 并转换成  PodScalable
