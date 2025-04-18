@@ -55,7 +55,7 @@ kubectl get pods --namespace knative-serving
 
 #git clone https://github.com/knative/docs.git
 #cd docs/code-samples/serving/hello-world/helloworld-go
-cd helloworld-go
+cd debug/helloworld-go
 #docker build -t registry.cn-hangzhou.aliyuncs.com/ls-2018/knative:helloworld-go .
 #docker push registry.cn-hangzhou.aliyuncs.com/ls-2018/knative:helloworld-go
 #sed -i 's@docker.io/{username}/helloworld-go@registry.cn-hangzhou.aliyuncs.com/ls-2018/knative:helloworld-go@g' service.yaml

@@ -102,3 +102,6 @@ group "Update deps post-codegen"
 
 # Make sure our dependencies are up-to-date
 ${REPO_ROOT_DIR}/hack/update-deps.sh
+
+bash ./hack/update-codegen-others.sh
+

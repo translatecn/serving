@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2022 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ import (
 	certificate "knative.dev/serving/networking/pkg/client/injection/informers/networking/v1alpha1/certificate"
 	kubeclient "knative.dev/serving/pkg/client/injection/kube/client"
 	controller "knative.dev/serving/pkg/controller"
-	logging "knative.dev/serving/pkg/over_logging"
+	overlogging "knative.dev/serving/pkg/over_logging"
 	logkey "knative.dev/serving/pkg/over_logging/logkey"
 	reconciler "knative.dev/serving/pkg/reconciler"
 )
@@ -55,7 +55,7 @@ const (
 // the provided Interface and optional Finalizer methods. OptionsFn is used to return
 // controller.ControllerOptions to be used by the internal reconciler.
 func NewImpl(ctx context.Context, r Interface, classValue string, optionsFns ...controller.OptionsFn) *controller.Impl {
-	logger := logging.FromContext(ctx)
+	logger := overlogging.FromContext(ctx)
 
 	// Check the options function input. It should be 0 or 1.
 	if len(optionsFns) > 1 {
@@ -145,7 +145,7 @@ func NewImpl(ctx context.Context, r Interface, classValue string, optionsFns ...
 }
 
 func createRecorder(ctx context.Context, agentName string) record.EventRecorder {
-	logger := logging.FromContext(ctx)
+	logger := overlogging.FromContext(ctx)
 
 	recorder := controller.GetEventRecorder(ctx)
 	if recorder == nil {

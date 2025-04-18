@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
+	"time"
+
+	"gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	cachingv1alpha1 "knative.dev/serving/caching/pkg/apis/caching/v1alpha1"
@@ -12,7 +14,8 @@ import (
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
-	"time"
+
+	"net/http"
 
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
@@ -21,7 +24,6 @@ import (
 	autoscalingv1alpha1client "knative.dev/serving/pkg/client/clientset/versioned/typed/autoscaling/v1alpha1"
 	servingv1client "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
 	servingv1beta1client "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1beta1"
-	"net/http"
 )
 
 func main() {

@@ -18,10 +18,11 @@ package v1alpha1
 
 import (
 	"fmt"
-	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"strconv"
 	"time"
+
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"

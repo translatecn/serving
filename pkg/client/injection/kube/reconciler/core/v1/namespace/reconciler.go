@@ -22,6 +22,9 @@ import (
 	context "context"
 	json "encoding/json"
 	fmt "fmt"
+	"reflect"
+
+	"knative.dev/serving/debug/diff"
 
 	zap "go.uber.org/zap"
 	zapcore "go.uber.org/zap/zapcore"
@@ -264,6 +267,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 		// the elected leader is expected to write modifications.
 		logger.Warn("Saw status changes when we aren't the leader!")
 	default:
+		diff.Write(reflect.TypeOf(original).Elem().String(), original, resource)
 		if err = r.updateStatus(ctx, logger, original, resource); err != nil {
 			logger.Warnw("Failed to update resource status", zap.Error(err))
 			r.Recorder.Eventf(resource, v1.EventTypeWarning, "UpdateFailed",

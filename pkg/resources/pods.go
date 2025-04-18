@@ -17,9 +17,10 @@ limitations under the License.
 package resources
 
 import (
-	"knative.dev/serving/pkg/apis/serving"
 	"sort"
 	"time"
+
+	"knative.dev/serving/pkg/apis/serving"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"

@@ -48,7 +48,7 @@ import (
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/over_logging"
-	"knative.dev/serving/pkg/reconciler/over_revision/config"
+	over_config "knative.dev/serving/pkg/reconciler/over_revision/config"
 )
 
 const digestResolutionWorkers = 100

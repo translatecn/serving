@@ -18,13 +18,14 @@ package handler
 
 import (
 	"context"
-	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
-	"knative.dev/serving/pkg/over_logging"
 	"math"
 	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
+	"knative.dev/serving/pkg/over_logging"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"

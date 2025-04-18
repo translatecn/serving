@@ -20,9 +20,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	diff2 "knative.dev/serving/debug/diff"
 	"regexp"
 	"text/template"
+
+	diff2 "knative.dev/serving/debug/diff"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"

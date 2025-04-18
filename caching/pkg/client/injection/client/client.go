@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2022 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import (
 	rest "k8s.io/client-go/rest"
 	versioned "knative.dev/serving/caching/pkg/client/clientset/versioned"
 	injection "knative.dev/serving/pkg/injection"
-	logging "knative.dev/serving/pkg/over_logging"
+	overlogging "knative.dev/serving/pkg/over_logging"
 )
 
 func init() {
@@ -46,10 +46,10 @@ func Get(ctx context.Context) versioned.Interface {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
 		if injection.GetConfig(ctx) == nil {
-			logging.FromContext(ctx).Panic(
+			overlogging.FromContext(ctx).Panic(
 				"Unable to fetch knative.dev/serving/caching/pkg/client/clientset/versioned.Interface from context. This context is not the application context (which is typically given to constructors via sharedmain).")
 		} else {
-			logging.FromContext(ctx).Panic(
+			overlogging.FromContext(ctx).Panic(
 				"Unable to fetch knative.dev/serving/caching/pkg/client/clientset/versioned.Interface from context.")
 		}
 	}

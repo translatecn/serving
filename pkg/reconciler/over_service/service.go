@@ -19,6 +19,7 @@ package over_service
 import (
 	"context"
 	"fmt"
+
 	"knative.dev/serving/debug/diff"
 	pkgreconciler "knative.dev/serving/pkg/reconciler"
 

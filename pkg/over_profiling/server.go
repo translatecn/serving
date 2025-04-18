@@ -18,13 +18,14 @@ package over_profiling
 
 import (
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
 	"net/http"
 	"net/http/pprof"
 	"os"
 	"strconv"
 	"sync/atomic"
 	"time"
+
+	corev1 "k8s.io/api/core/v1"
 
 	"go.uber.org/zap"
 )

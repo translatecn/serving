@@ -18,11 +18,12 @@ package net
 
 import (
 	"context"
-	netcfg "knative.dev/serving/networking/pkg/config"
 	"net/http"
 	"sort"
 	"sync"
 	"sync/atomic"
+
+	netcfg "knative.dev/serving/networking/pkg/config"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"

@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/configmap"

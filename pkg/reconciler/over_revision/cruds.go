@@ -19,6 +19,7 @@ package over_revision
 import (
 	"context"
 	"fmt"
+
 	"k8s.io/apimachinery/pkg/api/equality"
 	diff2 "knative.dev/serving/debug/diff"
 	"knative.dev/serving/pkg/kmeta"
@@ -31,8 +32,8 @@ import (
 	caching "knative.dev/serving/caching/pkg/apis/caching/v1alpha1"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/reconciler/over_revision/config"
-	"knative.dev/serving/pkg/reconciler/over_revision/resources"
+	over_config "knative.dev/serving/pkg/reconciler/over_revision/config"
+	over_resources "knative.dev/serving/pkg/reconciler/over_revision/resources"
 )
 
 func (c *Reconciler) createImageCache(ctx context.Context, rev *v1.Revision, containerName, imageDigest string) (*caching.Image, error) {

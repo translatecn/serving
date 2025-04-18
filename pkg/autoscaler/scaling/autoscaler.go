@@ -20,10 +20,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"knative.dev/serving/pkg/resources"
 	"math"
 	"sync"
 	"time"
+
+	"knative.dev/serving/pkg/resources"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"

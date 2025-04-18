@@ -19,6 +19,7 @@ package autoscaling
 import (
 	"context"
 	"fmt"
+
 	"knative.dev/serving/debug/diff"
 	nv1alpha1 "knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/over_logging"

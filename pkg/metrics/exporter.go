@@ -19,11 +19,12 @@ package metrics
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"go.opencensus.io/resource"
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	"strings"
 )
 
 var (

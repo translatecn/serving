@@ -18,6 +18,10 @@ package over_resources
 
 import (
 	"fmt"
+	"math"
+	"strconv"
+	"strings"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,11 +39,8 @@ import (
 	"knative.dev/serving/pkg/over_ptr"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/readiness"
-	"knative.dev/serving/pkg/reconciler/over_revision/config"
+	over_config "knative.dev/serving/pkg/reconciler/over_revision/config"
 	"knative.dev/serving/pkg/system"
-	"math"
-	"strconv"
-	"strings"
 )
 
 const (

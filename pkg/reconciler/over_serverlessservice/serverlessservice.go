@@ -19,12 +19,13 @@ package over_serverlessservice
 import (
 	"context"
 	"fmt"
+	"strconv"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
 	"knative.dev/serving/debug/diff"
 	pkgreconciler "knative.dev/serving/pkg/reconciler"
-	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"

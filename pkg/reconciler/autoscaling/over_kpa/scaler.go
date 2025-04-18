@@ -19,13 +19,14 @@ package over_kpa
 import (
 	"context"
 	"fmt"
-	"knative.dev/serving/debug/diff"
-	"knative.dev/serving/pkg/injection/clients/dynamicclient"
-	kparesources "knative.dev/serving/pkg/reconciler/autoscaling/over_kpa/over_resources"
 	"net"
 	"net/http"
 	"strconv"
 	"time"
+
+	"knative.dev/serving/debug/diff"
+	"knative.dev/serving/pkg/injection/clients/dynamicclient"
+	kparesources "knative.dev/serving/pkg/reconciler/autoscaling/over_kpa/over_resources"
 
 	"knative.dev/serving/pkg/apis/duck"
 	"knative.dev/serving/pkg/over_logging"

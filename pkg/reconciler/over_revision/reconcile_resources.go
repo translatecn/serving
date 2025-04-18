@@ -19,6 +19,7 @@ package over_revision
 import (
 	"context"
 	"fmt"
+
 	"go.uber.org/zap"
 	diff2 "knative.dev/serving/debug/diff"
 	"knative.dev/serving/pkg/kmeta"
@@ -39,8 +40,8 @@ import (
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/over_kmp"
 	"knative.dev/serving/pkg/over_logging"
-	"knative.dev/serving/pkg/reconciler/over_revision/config"
-	"knative.dev/serving/pkg/reconciler/over_revision/resources"
+	over_config "knative.dev/serving/pkg/reconciler/over_revision/config"
+	over_resources "knative.dev/serving/pkg/reconciler/over_revision/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/over_revision/resources/names"
 )
 

@@ -30,7 +30,7 @@ import (
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/over_ptr"
 	"knative.dev/serving/pkg/queue"
-	"knative.dev/serving/pkg/reconciler/over_revision/config"
+	over_config "knative.dev/serving/pkg/reconciler/over_revision/config"
 	"knative.dev/serving/pkg/reconciler/over_revision/resources/names"
 
 	appsv1 "k8s.io/api/apps/v1"

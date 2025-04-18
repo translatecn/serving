@@ -33,6 +33,7 @@ import (
 	cachingclientset "knative.dev/serving/caching/pkg/client/clientset/versioned"
 	networkingclientset "knative.dev/serving/networking/pkg/client/clientset/versioned"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
+	over_config "knative.dev/serving/pkg/reconciler/over_revision/config"
 	"knative.dev/serving/pkg/tracker"
 
 	cachinglisters "knative.dev/serving/caching/pkg/client/listers/caching/v1alpha1"
@@ -43,7 +44,6 @@ import (
 	"knative.dev/serving/pkg/controller"
 	"knative.dev/serving/pkg/over_logging"
 	pkgreconciler "knative.dev/serving/pkg/reconciler"
-	"knative.dev/serving/pkg/reconciler/over_revision/config"
 )
 
 type resolver interface {

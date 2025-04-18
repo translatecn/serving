@@ -32,7 +32,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	kubeclient "knative.dev/serving/pkg/client/injection/kube/client"
 	"knative.dev/serving/pkg/over_logging"
-	"knative.dev/serving/pkg/reconciler/over_revision/resources"
+	over_resources "knative.dev/serving/pkg/reconciler/over_revision/resources"
 )
 
 func decodeTemplate(val interface{}) (*v1.RevisionTemplateSpec, error) {

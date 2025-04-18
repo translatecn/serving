@@ -19,10 +19,11 @@ package bucket
 import (
 	"errors"
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/sets"
-	"knative.dev/serving/pkg/hash"
 	"os"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/util/sets"
+	"knative.dev/serving/pkg/hash"
 )
 
 const prefix = "autoscaler-bucket"
