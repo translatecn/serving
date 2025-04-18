@@ -1,0 +1,47 @@
+  &v1alpha1.PodAutoscaler{
+  	TypeMeta:   {},
+  	ObjectMeta: {Name: "stock-service-example-v1", Namespace: "default", UID: "478f244c-8b66-4bde-ac4c-1102e2836952", ResourceVersion: "17869", ...},
+  	Spec:       {ScaleTargetRef: {Kind: "Deployment", Name: "stock-service-example-v1-deployment", APIVersion: "apps/v1"}, Reachability: "Reachable", ProtocolType: "http1"},
+  	Status: v1alpha1.PodAutoscalerStatus{
+  		Status: v1.Status{
+- 			ObservedGeneration: 0,
++ 			ObservedGeneration: 1,
+- 			Conditions:         nil,
++ 			Conditions: v1.Conditions{
++ 				{
++ 					Type:               "Active",
++ 					Status:             "Unknown",
++ 					LastTransitionTime: apis.VolatileTime{Inner: s"2025-04-18 03:08:00.495457465 +0"...},
++ 					Reason:             "Queued",
++ 					Message:            "Requests to the target are being buffered as resources are provi"...,
++ 				},
++ 				{
++ 					Type:               "Ready",
++ 					Status:             "Unknown",
++ 					LastTransitionTime: apis.VolatileTime{Inner: s"2025-04-18 03:08:00.495457465 +0"...},
++ 					Reason:             "Queued",
++ 					Message:            "Requests to the target are being buffered as resources are provi"...,
++ 				},
++ 				{
++ 					Type:               "SKSReady",
++ 					Status:             "Unknown",
++ 					LastTransitionTime: apis.VolatileTime{Inner: s"2025-04-18 03:08:00.495457465 +0"...},
++ 					Reason:             "NotReady",
++ 					Message:            "No Private Service Name",
++ 				},
++ 				{
++ 					Type:               "ScaleTargetInitialized",
++ 					Status:             "Unknown",
++ 					LastTransitionTime: apis.VolatileTime{Inner: s"2025-04-18 03:08:00.495457465 +0"...},
++ 				},
++ 			},
+  			Annotations: nil,
+  		},
+  		ServiceName:        "",
+  		MetricsServiceName: "",
+- 		DesiredScale:       nil,
++ 		DesiredScale:       &-1,
+- 		ActualScale:        nil,
++ 		ActualScale:        &0,
+  	},
+  }

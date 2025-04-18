@@ -45,12 +45,6 @@ var pool = sync.Pool{
 	},
 }
 
-func newHTTPScrapeClient(httpClient *http.Client) *httpScrapeClient {
-	return &httpScrapeClient{
-		httpClient: httpClient,
-	}
-}
-
 func (c *httpScrapeClient) Do(req *http.Request) (Stat, error) {
 	req.Header.Add("Accept", netheader.ProtobufMIMEType)
 	resp, err := c.httpClient.Do(req)
@@ -93,4 +87,9 @@ func statFromProto(body io.Reader) (Stat, error) {
 		return emptyStat, fmt.Errorf("unmarshalling failed: %w", err)
 	}
 	return stat, nil
+}
+func newHTTPScrapeClient(httpClient *http.Client) *httpScrapeClient {
+	return &httpScrapeClient{
+		httpClient: httpClient,
+	}
 }

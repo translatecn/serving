@@ -89,19 +89,6 @@ func computeSmoothingCoeff(nb float64) float64 {
 	)
 }
 
-// NewTimedFloat64Buckets generates a new TimedFloat64Buckets with the given
-// granularity.
-func NewTimedFloat64Buckets(window, granularity time.Duration) *TimedFloat64Buckets {
-	// Number of buckets is `window` divided by `granularity`, rounded up.
-	// e.g. 60s / 2s = 30.
-	nb := math.Ceil(float64(window) / float64(granularity))
-	return &TimedFloat64Buckets{
-		buckets:     make([]float64, int(nb)),
-		granularity: granularity,
-		window:      window,
-	}
-}
-
 // NewWeightedFloat64Buckets generates a new WeightedFloat64Buckets with the given
 // granularity.
 func NewWeightedFloat64Buckets(window, granularity time.Duration) *WeightedFloat64Buckets {
@@ -356,4 +343,17 @@ func (t *TimedFloat64Buckets) ResizeWindow(w time.Duration) {
 	t.window = w
 	t.buckets = newBuckets
 	t.windowTotal = newTotal
+}
+
+// NewTimedFloat64Buckets generates a new TimedFloat64Buckets with the given
+// granularity.
+func NewTimedFloat64Buckets(window, granularity time.Duration) *TimedFloat64Buckets {
+	// Number of buckets is `window` divided by `granularity`, rounded up.
+	// e.g. 60s / 2s = 30.
+	nb := math.Ceil(float64(window) / float64(granularity)) // 间隔
+	return &TimedFloat64Buckets{
+		buckets:     make([]float64, int(nb)),
+		granularity: granularity,
+		window:      window,
+	}
 }

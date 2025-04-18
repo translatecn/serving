@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package nscert
+package over_nscert
 
 import (
 	"context"
@@ -31,7 +31,7 @@ import (
 	routecfg "knative.dev/serving/pkg/reconciler/route/config"
 
 	netcfg "knative.dev/serving/networking/pkg/config"
-	"knative.dev/serving/pkg/reconciler/nscert/config"
+	"knative.dev/serving/pkg/reconciler/over_nscert/config"
 )
 
 // NewController initializes the controller and is called by the generated code

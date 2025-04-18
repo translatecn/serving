@@ -130,7 +130,9 @@ spec:
                 - serviceName
               properties:
                 actualScale:
-                  description: ActualScale 显示了该修订版本的实际副本数量。
+                  description: |-
+                    这两个属性很重要 ✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️
+                    ActualScale 显示了该修订版本的实际副本数量。
                   type: integer
                   format: int32
                 annotations:
@@ -178,7 +180,9 @@ spec:
                         description: Type of condition.
                         type: string
                 desiredScale:
-                  description: DesiredScale 显示了此次修订所需的当前期望副本数量。
+                  description: |-
+                    这两个属性很重要 ✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️
+                    DesiredScale 显示了此次修订所需的当前期望副本数量。
                   type: integer
                   format: int32
                 metricsServiceName:

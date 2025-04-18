@@ -122,9 +122,10 @@ type PodAutoscalerStatus struct {
 	// The service is managed by the PA object.
 	MetricsServiceName string `json:"metricsServiceName"`
 
+	// 这两个属性很重要 ✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️
 	// DesiredScale 显示了此次修订所需的当前期望副本数量。
 	DesiredScale *int32 `json:"desiredScale,omitempty"`
-
+	// 这两个属性很重要 ✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️
 	// ActualScale 显示了该修订版本的实际副本数量。
 	ActualScale *int32 `json:"actualScale,omitempty"`
 }

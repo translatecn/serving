@@ -29,7 +29,7 @@ import (
 	netapi "knative.dev/serving/networking/pkg/config"
 	"knative.dev/serving/pkg/apis"
 	"knative.dev/serving/pkg/kmeta"
-	"knative.dev/serving/pkg/reconciler/certificate/config"
+	"knative.dev/serving/pkg/reconciler/over_certificate/config"
 )
 
 const (

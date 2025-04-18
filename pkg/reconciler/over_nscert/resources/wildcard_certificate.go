@@ -21,7 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/serving/networking/pkg/apis/networking"
 	"knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/reconciler/nscert/resources/names"
+	"knative.dev/serving/pkg/reconciler/over_nscert/resources/names"
 )
 
 // MakeWildcardCertificate creates a Knative certificate

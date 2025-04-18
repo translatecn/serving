@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package certificate
+package over_certificate
 
 import (
 	"context"
@@ -38,7 +38,7 @@ import (
 	"knative.dev/serving/pkg/over_logging"
 	"knative.dev/serving/pkg/over_logging/logkey"
 	pkgreconciler "knative.dev/serving/pkg/reconciler"
-	"knative.dev/serving/pkg/reconciler/certificate/config"
+	"knative.dev/serving/pkg/reconciler/over_certificate/config"
 )
 
 const controllerAgentName = "certificate-controller"
@@ -48,19 +48,13 @@ const controllerAgentName = "certificate-controller"
 // This is a stop gap until the generated reconcilers can do this
 // automatically for you
 func AnnotateLoggerWithName(ctx context.Context, name string) context.Context {
-	logger := over_logging.FromContext(ctx).
-		Named(name).
-		With(zap.String(logkey.ControllerType, name))
-
+	logger := over_logging.FromContext(ctx).Named(name).With(zap.String(logkey.ControllerType, name))
 	return over_logging.WithLogger(ctx, logger)
 }
 
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events.
-func NewController(
-	ctx context.Context,
-	cmw configmap.Watcher,
-) *controller.Impl {
+func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	ctx = AnnotateLoggerWithName(ctx, controllerAgentName)
 	logger := over_logging.FromContext(ctx)
 	knCertificateInformer := kcertinformer.Get(ctx)

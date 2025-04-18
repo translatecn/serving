@@ -100,6 +100,7 @@ type ServerlessServiceSpec struct {
 	// serving imports networking, so just use string.
 	ProtocolType networking.ProtocolType `json:"protocolType"`
 
+	// 这两个属性很重要 ✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️
 	// NumActivators contains number of Activators that this revision should be
 	// assigned.
 	// O means — assign all.

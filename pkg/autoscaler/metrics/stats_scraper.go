@@ -157,44 +157,6 @@ type serviceScraper struct {
 	podsAddressable  bool
 }
 
-// NewStatsScraper creates a new StatsScraper for the Revision which
-// the given Metric is responsible for.
-func NewStatsScraper(metric *autoscalingv1alpha1.Metric, revisionName string, podAccessor resources.PodAccessor,
-	usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode, logger *zap.SugaredLogger,
-) StatsScraper {
-	directClient := newHTTPScrapeClient(client)
-	meshClient := newHTTPScrapeClient(noKeepaliveClient)
-	return newServiceScraperWithClient(metric, revisionName, podAccessor, usePassthroughLb, meshMode, directClient, meshClient, logger)
-}
-
-func newServiceScraperWithClient(
-	metric *autoscalingv1alpha1.Metric,
-	revisionName string,
-	podAccessor resources.PodAccessor,
-	usePassthroughLb bool,
-	meshMode netcfg.MeshCompatibilityMode,
-	directClient, meshClient scrapeClient,
-	logger *zap.SugaredLogger,
-) *serviceScraper {
-	svcName := metric.Labels[serving.ServiceLabelKey]
-	cfgName := metric.Labels[serving.ConfigurationLabelKey]
-
-	ctx := metrics.RevisionContext(metric.ObjectMeta.Namespace, svcName, cfgName, revisionName)
-
-	return &serviceScraper{
-		meshMode:         meshMode,
-		directClient:     directClient,
-		meshClient:       meshClient,
-		host:             metric.Spec.ScrapeTarget + "." + metric.ObjectMeta.Namespace,
-		url:              urlFromTarget(metric.Spec.ScrapeTarget, metric.ObjectMeta.Namespace),
-		podAccessor:      podAccessor,
-		podsAddressable:  true,
-		usePassthroughLb: usePassthroughLb,
-		statsCtx:         ctx,
-		logger:           logger,
-	}
-}
-
 var portAndPath = strconv.Itoa(networking.AutoscalingQueueMetricsPort) + "/metrics"
 
 func urlFromTarget(t, ns string) string {
@@ -471,4 +433,42 @@ func (s *serviceScraper) tryScrape(ctx context.Context, scrapedPods *sync.Map) (
 	}
 
 	return stat, nil
+}
+
+// NewStatsScraper creates a new StatsScraper for the Revision which
+// the given Metric is responsible for.
+func NewStatsScraper(metric *autoscalingv1alpha1.Metric, revisionName string, podAccessor resources.PodAccessor,
+	usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode, logger *zap.SugaredLogger,
+) StatsScraper {
+	directClient := newHTTPScrapeClient(client)
+	meshClient := newHTTPScrapeClient(noKeepaliveClient)
+	return newServiceScraperWithClient(metric, revisionName, podAccessor, usePassthroughLb, meshMode, directClient, meshClient, logger)
+}
+
+func newServiceScraperWithClient(
+	metric *autoscalingv1alpha1.Metric,
+	revisionName string,
+	podAccessor resources.PodAccessor,
+	usePassthroughLb bool,
+	meshMode netcfg.MeshCompatibilityMode,
+	directClient, meshClient scrapeClient,
+	logger *zap.SugaredLogger,
+) *serviceScraper {
+	svcName := metric.Labels[serving.ServiceLabelKey]       // stock-service-example
+	cfgName := metric.Labels[serving.ConfigurationLabelKey] // stock-service-example
+
+	ctx := metrics.RevisionContext(metric.ObjectMeta.Namespace, svcName, cfgName, revisionName)
+
+	return &serviceScraper{
+		meshMode:         meshMode,
+		directClient:     directClient,
+		meshClient:       meshClient,
+		host:             metric.Spec.ScrapeTarget + "." + metric.ObjectMeta.Namespace,
+		url:              urlFromTarget(metric.Spec.ScrapeTarget, metric.ObjectMeta.Namespace),
+		podAccessor:      podAccessor,
+		podsAddressable:  true,
+		usePassthroughLb: usePassthroughLb,
+		statsCtx:         ctx,
+		logger:           logger,
+	}
 }

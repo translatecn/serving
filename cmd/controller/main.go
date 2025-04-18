@@ -33,12 +33,12 @@ import (
 	"knative.dev/serving/pkg/injection/sharedmain"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/reconciler"
-	"knative.dev/serving/pkg/reconciler/certificate"
 	"knative.dev/serving/pkg/reconciler/configuration"
 	"knative.dev/serving/pkg/reconciler/domainmapping"
 	"knative.dev/serving/pkg/reconciler/gc"
 	"knative.dev/serving/pkg/reconciler/labeler"
-	"knative.dev/serving/pkg/reconciler/nscert"
+	"knative.dev/serving/pkg/reconciler/over_certificate"
+	"knative.dev/serving/pkg/reconciler/over_nscert"
 	"knative.dev/serving/pkg/reconciler/over_revision"
 	"knative.dev/serving/pkg/reconciler/over_serverlessservice"
 	"knative.dev/serving/pkg/reconciler/over_service"
@@ -62,7 +62,7 @@ var ctors = []injection.ControllerConstructor{
 	over_serverlessservice.NewController,
 	over_service.NewController,
 	gc.NewController,
-	nscert.NewController,
+	over_nscert.NewController,
 	domainmapping.NewController,
 }
 
@@ -95,7 +95,7 @@ func main() {
 		for _, inf := range []injection.InformerInjector{challenge.WithInformer, v1certificate.WithInformer, certificaterequest.WithInformer, clusterissuer.WithInformer, issuer.WithInformer} {
 			injection.Default.RegisterInformer(inf)
 		}
-		ctors = append(ctors, certificate.NewController)
+		ctors = append(ctors, over_certificate.NewController)
 	}
 
 	sharedmain.MainWithConfig(ctx, "controller", cfg, ctors...)

@@ -26,7 +26,7 @@ import (
 	"knative.dev/serving/pkg/leaderelection"
 	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/over_logging"
-	certconfig "knative.dev/serving/pkg/reconciler/certificate/config"
+	certconfig "knative.dev/serving/pkg/reconciler/over_certificate/config"
 	"knative.dev/serving/pkg/signals"
 	"knative.dev/serving/pkg/webhook"
 	"knative.dev/serving/pkg/webhook/certificates"

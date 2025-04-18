@@ -69,7 +69,7 @@ type Reconciler struct {
 	resolver resolver
 }
 
-func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgreconciler.Event {
+func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgreconciler.Event { // ✅
 	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
 	defer cancel()
 
@@ -105,7 +105,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 	for _, phase := range []func(context.Context, *v1.Revision) error{
 		c.reconcileDeployment, // ✅
 		c.reconcileImageCache, // ✅
-		c.reconcilePA,
+		c.reconcilePA,         // ✅
 	} {
 		if err := phase(ctx, rev); err != nil {
 			return err

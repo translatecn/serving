@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package certificate
+package over_certificate
 
 import (
 	"context"
@@ -45,8 +45,8 @@ import (
 	"knative.dev/serving/pkg/controller"
 	"knative.dev/serving/pkg/over_logging"
 	pkgreconciler "knative.dev/serving/pkg/reconciler"
-	"knative.dev/serving/pkg/reconciler/certificate/config"
-	"knative.dev/serving/pkg/reconciler/certificate/resources"
+	"knative.dev/serving/pkg/reconciler/over_certificate/config"
+	"knative.dev/serving/pkg/reconciler/over_certificate/resources"
 	"knative.dev/serving/pkg/tracker"
 )
 
@@ -80,7 +80,7 @@ type Reconciler struct {
 // Check that our Reconciler implements certreconciler.Interface
 var _ certreconciler.Interface = (*Reconciler)(nil)
 
-func (c *Reconciler) ReconcileKind(ctx context.Context, knCert *v1alpha1.Certificate) pkgreconciler.Event {
+func (c *Reconciler) ReconcileKind(ctx context.Context, knCert *v1alpha1.Certificate) pkgreconciler.Event { // ✅
 	// Reconcile this copy of the Certificate and then write back any status
 	// updates regardless of whether the reconciliation errored out.
 	err := c.reconcile(ctx, knCert)
@@ -154,40 +154,6 @@ func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate
 		return c.setHTTP01Challenges(ctx, knCert, cmCert)
 	}
 	return nil
-}
-
-func (c *Reconciler) reconcileCMCertificate(ctx context.Context, knCert *v1alpha1.Certificate, desired *cmv1.Certificate) (*cmv1.Certificate, error) {
-	recorder := controller.GetEventRecorder(ctx)
-
-	cmCert, err := c.cmCertificateLister.Certificates(desired.Namespace).Get(desired.Name)
-	if apierrs.IsNotFound(err) {
-		cmCert, err = c.certManagerClient.CertmanagerV1().Certificates(desired.Namespace).Create(ctx, desired, metav1.CreateOptions{})
-		if err != nil {
-			recorder.Eventf(knCert, corev1.EventTypeWarning, "CreationFailed",
-				"Failed to create Cert-Manager Certificate %s/%s: %v", desired.Name, desired.Namespace, err)
-			return nil, fmt.Errorf("failed to create Cert-Manager Certificate: %w", err)
-		}
-		recorder.Eventf(knCert, corev1.EventTypeNormal, "Created",
-			"Created Cert-Manager Certificate %s/%s", desired.Namespace, desired.Name)
-	} else if err != nil {
-		return nil, fmt.Errorf("failed to get Cert-Manager Certificate: %w", err)
-	} else if !metav1.IsControlledBy(desired, knCert) {
-		knCert.Status.MarkResourceNotOwned("CertManagerCertificate", desired.Name)
-		return nil, fmt.Errorf("knative Certificate %s in namespace %s does not own CertManager Certificate: %s", knCert.Name, knCert.Namespace, desired.Name)
-	} else if !equality.Semantic.DeepEqual(cmCert.Spec, desired.Spec) {
-		certCopy := cmCert.DeepCopy()
-		certCopy.Spec = desired.Spec
-		updated, err := c.certManagerClient.CertmanagerV1().Certificates(certCopy.Namespace).Update(ctx, certCopy, metav1.UpdateOptions{})
-		if err != nil {
-			recorder.Eventf(knCert, corev1.EventTypeWarning, "UpdateFailed",
-				"Failed to create Cert-Manager Certificate %s/%s: %v", desired.Namespace, desired.Name, err)
-			return nil, fmt.Errorf("failed to update Cert-Manager Certificate: %w", err)
-		}
-		recorder.Eventf(knCert, corev1.EventTypeNormal, "Updated",
-			"Updated Spec for Cert-Manager Certificate %s/%s", desired.Namespace, desired.Name)
-		return updated, nil
-	}
-	return cmCert, nil
 }
 
 func (c *Reconciler) setHTTP01Challenges(ctx context.Context, knCert *v1alpha1.Certificate, cmCert *cmv1.Certificate) error {
@@ -269,4 +235,38 @@ func svcRef(namespace, name string) tracker.Reference {
 		Namespace:  namespace,
 		Name:       name,
 	}
+}
+
+func (c *Reconciler) reconcileCMCertificate(ctx context.Context, knCert *v1alpha1.Certificate, desired *cmv1.Certificate) (*cmv1.Certificate, error) {
+	recorder := controller.GetEventRecorder(ctx)
+
+	cmCert, err := c.cmCertificateLister.Certificates(desired.Namespace).Get(desired.Name)
+	if apierrs.IsNotFound(err) {
+		cmCert, err = c.certManagerClient.CertmanagerV1().Certificates(desired.Namespace).Create(ctx, desired, metav1.CreateOptions{})
+		if err != nil {
+			recorder.Eventf(knCert, corev1.EventTypeWarning, "CreationFailed",
+				"Failed to create Cert-Manager Certificate %s/%s: %v", desired.Name, desired.Namespace, err)
+			return nil, fmt.Errorf("failed to create Cert-Manager Certificate: %w", err)
+		}
+		recorder.Eventf(knCert, corev1.EventTypeNormal, "Created",
+			"Created Cert-Manager Certificate %s/%s", desired.Namespace, desired.Name)
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to get Cert-Manager Certificate: %w", err)
+	} else if !metav1.IsControlledBy(desired, knCert) {
+		knCert.Status.MarkResourceNotOwned("CertManagerCertificate", desired.Name)
+		return nil, fmt.Errorf("knative Certificate %s in namespace %s does not own CertManager Certificate: %s", knCert.Name, knCert.Namespace, desired.Name)
+	} else if !equality.Semantic.DeepEqual(cmCert.Spec, desired.Spec) {
+		certCopy := cmCert.DeepCopy()
+		certCopy.Spec = desired.Spec
+		updated, err := c.certManagerClient.CertmanagerV1().Certificates(certCopy.Namespace).Update(ctx, certCopy, metav1.UpdateOptions{})
+		if err != nil {
+			recorder.Eventf(knCert, corev1.EventTypeWarning, "UpdateFailed",
+				"Failed to create Cert-Manager Certificate %s/%s: %v", desired.Namespace, desired.Name, err)
+			return nil, fmt.Errorf("failed to update Cert-Manager Certificate: %w", err)
+		}
+		recorder.Eventf(knCert, corev1.EventTypeNormal, "Updated",
+			"Updated Spec for Cert-Manager Certificate %s/%s", desired.Namespace, desired.Name)
+		return updated, nil
+	}
+	return cmCert, nil
 }

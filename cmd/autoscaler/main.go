@@ -280,7 +280,8 @@ func statsScraperFactoryFunc(podLister corev1listers.PodLister, usePassthroughLb
 		}
 
 		podAccessor := resources.NewPodAccessor(podLister, metric.Namespace, revisionName)
-		return asmetrics.NewStatsScraper(metric, revisionName, podAccessor, usePassthroughLb, meshMode, logger), nil
+		return asmetrics.NewStatsScraper(metric, revisionName, podAccessor,
+			usePassthroughLb, meshMode, logger), nil
 	}
 }
 

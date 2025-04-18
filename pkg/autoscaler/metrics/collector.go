@@ -99,42 +99,6 @@ var (
 	_ MetricClient = (*MetricCollector)(nil)
 )
 
-// NewMetricCollector creates a new metric collector.
-func NewMetricCollector(statsScraperFactory StatsScraperFactory, logger *zap.SugaredLogger) *MetricCollector {
-	return &MetricCollector{
-		logger:              logger,
-		collections:         make(map[types.NamespacedName]*collection),
-		statsScraperFactory: statsScraperFactory,
-		clock:               clock.RealClock{},
-	}
-}
-
-func (c *MetricCollector) CreateOrUpdate(metric *autoscalingv1alpha1.Metric) error {
-	logger := c.logger.With(zap.String(logkey.Key, types.NamespacedName{
-		Namespace: metric.Namespace,
-		Name:      metric.Name,
-	}.String()))
-	// TODO(#10751): Thread the config in from the reconciler and set usePassthroughLb.
-	scraper, err := c.statsScraperFactory(metric, logger)
-	if err != nil {
-		return err
-	}
-	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
-
-	c.collectionsMutex.Lock()
-	defer c.collectionsMutex.Unlock()
-
-	collection, exists := c.collections[key]
-	if exists {
-		collection.updateScraper(scraper)
-		collection.updateMetric(metric)
-		return collection.lastError()
-	}
-
-	c.collections[key] = newCollection(metric, scraper, c.clock, c.Inform, logger)
-	return nil
-}
-
 // Delete deletes a Metric and halts collection.
 func (c *MetricCollector) Delete(namespace, name string) {
 	c.collectionsMutex.Lock()
@@ -258,78 +222,6 @@ func (c *collection) getScraper() StatsScraper {
 	return c.scraper
 }
 
-// newCollection creates a new collection, which uses the given scraper to
-// collect stats every scrapeTickInterval.
-func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clock clock.WithTicker,
-	callback func(types.NamespacedName), logger *zap.SugaredLogger,
-) *collection {
-	// Pick the constructor to use to build the buckets.
-	// NB: this relies on the fact that aggregation algorithm is set on annotation of revision
-	// and as such is immutable.
-	bucketCtor := func(w time.Duration, g time.Duration) windowAverager {
-		return aggregation.NewTimedFloat64Buckets(w, g)
-	}
-	if metric.AggregationAlgorithm() == autoscaling.MetricAggregationAlgorithmWeightedExponential {
-		bucketCtor = func(w time.Duration, g time.Duration) windowAverager {
-			return aggregation.NewWeightedFloat64Buckets(w, g)
-		}
-	}
-
-	c := &collection{
-		metric: metric,
-		concurrencyBuckets: bucketCtor(
-			metric.Spec.StableWindow, config.BucketSize),
-		concurrencyPanicBuckets: bucketCtor(
-			metric.Spec.PanicWindow, config.BucketSize),
-		rpsBuckets: bucketCtor(
-			metric.Spec.StableWindow, config.BucketSize),
-		rpsPanicBuckets: bucketCtor(
-			metric.Spec.PanicWindow, config.BucketSize),
-		scraper: scraper,
-
-		stopCh: make(chan struct{}),
-	}
-
-	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
-	logger = logger.Named("collector").With(zap.String(logkey.Key, key.String()))
-
-	c.grp.Add(1)
-	go func() {
-		defer c.grp.Done()
-
-		scrapeTicker := clock.NewTicker(scrapeTickInterval)
-		defer scrapeTicker.Stop()
-		for {
-			select {
-			case <-c.stopCh:
-				return
-			case <-scrapeTicker.C():
-				scraper := c.getScraper()
-				if scraper == nil {
-					// Don't scrape empty target service.
-					if c.updateLastError(nil) {
-						callback(key)
-					}
-					continue
-				}
-
-				stat, err := scraper.Scrape(c.currentMetric().Spec.StableWindow)
-				if err != nil {
-					logger.Errorw("Failed to scrape metrics", zap.Error(err))
-				}
-				if c.updateLastError(err) {
-					callback(key)
-				}
-				if stat != emptyStat {
-					c.record(clock.Now(), stat)
-				}
-			}
-		}
-	}()
-
-	return c
-}
-
 // close stops collecting metrics, stops the scraper.
 func (c *collection) close() {
 	close(c.stopCh)
@@ -412,4 +304,106 @@ func (dst *Stat) average(sample, total float64) {
 	dst.AverageProxiedConcurrentRequests = dst.AverageProxiedConcurrentRequests / sample * total
 	dst.RequestCount = dst.RequestCount / sample * total
 	dst.ProxiedRequestCount = dst.ProxiedRequestCount / sample * total
+}
+
+func (c *MetricCollector) CreateOrUpdate(metric *autoscalingv1alpha1.Metric) error {
+	logger := c.logger.With(zap.String(logkey.Key, types.NamespacedName{
+		Namespace: metric.Namespace,
+		Name:      metric.Name,
+	}.String()))
+	// TODO(#10751): Thread the config in from the reconciler and set usePassthroughLb.
+	scraper, err := c.statsScraperFactory(metric, logger) // http://stock-service-example-v1-private.default:9090/metrics
+	if err != nil {
+		return err
+	}
+	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
+
+	c.collectionsMutex.Lock()
+	defer c.collectionsMutex.Unlock()
+
+	collection, exists := c.collections[key]
+	if exists {
+		collection.updateScraper(scraper)
+		collection.updateMetric(metric)
+		return collection.lastError()
+	}
+
+	c.collections[key] = newCollection(metric, scraper, c.clock, c.Inform, logger)
+	return nil
+}
+
+// NewMetricCollector creates a new metric collector.
+func NewMetricCollector(statsScraperFactory StatsScraperFactory, logger *zap.SugaredLogger) *MetricCollector {
+	return &MetricCollector{
+		logger:              logger,
+		collections:         make(map[types.NamespacedName]*collection),
+		statsScraperFactory: statsScraperFactory,
+		clock:               clock.RealClock{},
+	}
+}
+
+// newCollection creates a new collection, which uses the given scraper to
+// collect stats every scrapeTickInterval.
+func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clock clock.WithTicker, callback func(types.NamespacedName), logger *zap.SugaredLogger) *collection {
+	// Pick the constructor to use to build the buckets.
+	// NB: this relies on the fact that aggregation algorithm is set on annotation of revision
+	// and as such is immutable.
+	bucketCtor := func(w time.Duration, g time.Duration) windowAverager {
+		return aggregation.NewTimedFloat64Buckets(w, g)
+	}
+	if metric.AggregationAlgorithm() == autoscaling.MetricAggregationAlgorithmWeightedExponential {
+		bucketCtor = func(w time.Duration, g time.Duration) windowAverager {
+			return aggregation.NewWeightedFloat64Buckets(w, g)
+		}
+	}
+
+	c := &collection{
+		metric:                  metric,
+		concurrencyBuckets:      bucketCtor(metric.Spec.StableWindow, config.BucketSize),
+		concurrencyPanicBuckets: bucketCtor(metric.Spec.PanicWindow, config.BucketSize),
+		rpsBuckets:              bucketCtor(metric.Spec.StableWindow, config.BucketSize),
+		rpsPanicBuckets:         bucketCtor(metric.Spec.PanicWindow, config.BucketSize),
+		scraper:                 scraper,
+
+		stopCh: make(chan struct{}),
+	}
+
+	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
+	logger = logger.Named("collector").With(zap.String(logkey.Key, key.String()))
+
+	c.grp.Add(1)
+	go func() {
+		defer c.grp.Done()
+
+		scrapeTicker := clock.NewTicker(scrapeTickInterval)
+		defer scrapeTicker.Stop()
+		for {
+			select {
+			case <-c.stopCh:
+				return
+			case <-scrapeTicker.C():
+				scraper := c.getScraper()
+				if scraper == nil {
+					// Don't scrape empty target service.
+					if c.updateLastError(nil) {
+						callback(key)
+					}
+					continue
+				}
+
+				stat, err := scraper.Scrape(c.currentMetric().Spec.StableWindow)
+				if err != nil {
+					logger.Errorw("Failed to scrape metrics", zap.Error(err))
+				}
+				if c.updateLastError(err) {
+					callback(key)
+				}
+				if stat != emptyStat {
+					c.record(clock.Now(), stat)
+				}
+			}
+		}
+	}()
+
+	return c
 }
