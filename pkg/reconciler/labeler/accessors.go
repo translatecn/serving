@@ -56,23 +56,6 @@ type revisionAccessor struct {
 // RevisionAccessor implements Accessor
 var _ accessor = (*revisionAccessor)(nil)
 
-// newRevisionAccessor is a factory function to make a new revision accessor.
-func newRevisionAccessor(
-	client clientset.Interface,
-	tracker tracker.Interface,
-	lister listers.RevisionLister,
-	indexer cache.Indexer,
-	clock clock.PassiveClock,
-) *revisionAccessor {
-	return &revisionAccessor{
-		client:  client,
-		tracker: tracker,
-		lister:  lister,
-		indexer: indexer,
-		clock:   clock,
-	}
-}
-
 // makeMetadataPatch makes a metadata map to be patched or nil if no changes are needed.
 func makeMetadataPatch(
 	acc kmeta.Accessor, routeName string, addRoutingState, remove bool, clock clock.PassiveClock,
@@ -191,23 +174,6 @@ type configurationAccessor struct {
 // ConfigurationAccessor implements Accessor
 var _ accessor = (*configurationAccessor)(nil)
 
-// NewConfigurationAccessor is a factory function to make a new configuration Accessor.
-func newConfigurationAccessor(
-	client clientset.Interface,
-	tracker tracker.Interface,
-	lister listers.ConfigurationLister,
-	indexer cache.Indexer,
-	clock clock.PassiveClock,
-) *configurationAccessor {
-	return &configurationAccessor{
-		client:  client,
-		tracker: tracker,
-		lister:  lister,
-		indexer: indexer,
-		clock:   clock,
-	}
-}
-
 // list implements Accessor
 func (c *configurationAccessor) list(ns, routeName string, state v1.RoutingState) ([]kmeta.Accessor, error) {
 	kl := make([]kmeta.Accessor, 0, 1)
@@ -246,4 +212,35 @@ func (c *configurationAccessor) makeMetadataPatch(r *v1.Route, name string, remo
 		return nil, err
 	}
 	return makeMetadataPatch(config, r.Name, false /*addRoutingState*/, remove, c.clock)
+}
+
+func newRevisionAccessor(
+	client clientset.Interface,
+	tracker tracker.Interface,
+	lister listers.RevisionLister,
+	indexer cache.Indexer,
+	clock clock.PassiveClock,
+) *revisionAccessor {
+	return &revisionAccessor{
+		client:  client,
+		tracker: tracker,
+		lister:  lister,
+		indexer: indexer,
+		clock:   clock,
+	}
+}
+func newConfigurationAccessor(
+	client clientset.Interface,
+	tracker tracker.Interface,
+	lister listers.ConfigurationLister,
+	indexer cache.Indexer,
+	clock clock.PassiveClock,
+) *configurationAccessor {
+	return &configurationAccessor{
+		client:  client,
+		tracker: tracker,
+		lister:  lister,
+		indexer: indexer,
+		clock:   clock,
+	}
 }

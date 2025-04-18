@@ -19,4 +19,9 @@ Certificates、 CertManger Certificates Owner、Services -> Certificate
 Metric -> Metric
     // 每个revision 都会定时去统计范围内的所有pod 的请求数
 
+Configurations、Revision Owner -> Revision
+    删除一些不活跃的 Revision
+
+Route、Configurations、Revision -> Route
+
 dynamicClient查询所有deployment : Unstructured, 并转换成  PodScalable

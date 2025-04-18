@@ -35,9 +35,9 @@ import (
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/configuration"
 	"knative.dev/serving/pkg/reconciler/domainmapping"
-	"knative.dev/serving/pkg/reconciler/gc"
 	"knative.dev/serving/pkg/reconciler/labeler"
 	"knative.dev/serving/pkg/reconciler/over_certificate"
+	"knative.dev/serving/pkg/reconciler/over_gc"
 	"knative.dev/serving/pkg/reconciler/over_nscert"
 	"knative.dev/serving/pkg/reconciler/over_revision"
 	"knative.dev/serving/pkg/reconciler/over_serverlessservice"
@@ -61,7 +61,7 @@ var ctors = []injection.ControllerConstructor{
 	route.NewController,
 	over_serverlessservice.NewController,
 	over_service.NewController,
-	gc.NewController,
+	over_gc.NewController,
 	over_nscert.NewController,
 	domainmapping.NewController,
 }

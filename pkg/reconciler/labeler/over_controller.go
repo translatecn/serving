@@ -37,10 +37,7 @@ import (
 
 // NewController wraps a new instance of the labeler that labels
 // Configurations with Routes in a controller.
-func NewController(
-	ctx context.Context,
-	cmw configmap.Watcher,
-) *controller.Impl {
+func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	logger := over_logging.FromContext(ctx)
 	routeInformer := routeinformer.Get(ctx)
 	configInformer := configurationinformer.Get(ctx)

@@ -52,13 +52,6 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 	return ToContext(ctx, s.Load())
 }
 
-// Load fetches config from Store.
-func (s *Store) Load() *Config {
-	return &Config{
-		RevisionGC: s.UntypedLoad(gc.ConfigName).(*gc.Config).DeepCopy(),
-	}
-}
-
 // NewStore creates a configmap.UntypedStore based config store.
 func NewStore(ctx context.Context, onAfterStore ...func(name string, value interface{})) *Store {
 	return &Store{
@@ -71,5 +64,12 @@ func NewStore(ctx context.Context, onAfterStore ...func(name string, value inter
 			},
 			onAfterStore...,
 		),
+	}
+}
+
+// Load fetches config from Store.
+func (s *Store) Load() *Config {
+	return &Config{
+		RevisionGC: s.UntypedLoad(gc.ConfigName).(*gc.Config).DeepCopy(),
 	}
 }

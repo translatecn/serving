@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package gc
+package over_gc
 
 import (
 	"context"
@@ -32,24 +32,19 @@ import (
 	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/over_logging"
 	pkgreconciler "knative.dev/serving/pkg/reconciler"
-	configns "knative.dev/serving/pkg/reconciler/gc/config"
+	configns "knative.dev/serving/pkg/reconciler/over_gc/config"
 )
 
 // collect deletes stale revisions if they are sufficiently old
-func collect(
-	ctx context.Context,
-	client clientset.Interface,
-	revisionLister listers.RevisionLister,
-	config *v1.Configuration,
-) pkgreconciler.Event {
+func collect(ctx context.Context, client clientset.Interface, revisionLister listers.RevisionLister, config *v1.Configuration) pkgreconciler.Event {
 	cfg := configns.FromContext(ctx).RevisionGC
 	logger := over_logging.FromContext(ctx)
 
-	min, max := int(cfg.MinNonActiveRevisions), int(cfg.MaxNonActiveRevisions)
+	min, max := int(cfg.MinNonActiveRevisions), int(cfg.MaxNonActiveRevisions) // 20,1000
 	if max == gc.Disabled && cfg.RetainSinceCreateTime == gc.Disabled && cfg.RetainSinceLastActiveTime == gc.Disabled {
 		return nil // all deletion settings are disabled
 	}
-
+	// 				serving.knative.dev/configuration
 	selector := labels.SelectorFromSet(labels.Set{serving.ConfigurationLabelKey: config.Name})
 	revs, err := revisionLister.Revisions(config.Namespace).List(selector)
 	if err != nil {
@@ -59,7 +54,7 @@ func collect(
 		return nil // not enough total revs
 	}
 
-	// Filter out active revs
+	// 过滤掉活跃版本（修订版本）
 	revs = nonactiveRevisions(revs, config)
 
 	if len(revs) <= min {
@@ -118,6 +113,16 @@ func collect(
 	return nil
 }
 
+// revisionLastActiveTime returns if present:
+// routingStateModified, then the created time.
+// This is used for sort-ordering by most recently active.
+func revisionLastActiveTime(rev *v1.Revision) time.Time {
+	if t := rev.GetRoutingStateModified(); !t.IsZero() {
+		return t
+	}
+	return rev.ObjectMeta.GetCreationTimestamp().Time
+}
+
 // nonactiveRevisions swaps keeps only non active revisions.
 func nonactiveRevisions(revs []*v1.Revision, config *v1.Configuration) []*v1.Revision {
 	swap := len(revs)
@@ -161,17 +166,6 @@ func isRevisionStale(cfg *gc.Config, rev *v1.Revision, logger *zap.SugaredLogger
 		return false // Revision was recently active. Not stale.
 	}
 
-	logger.Infof("Detected stale revision %q with creation time %v and last active time %v.",
-		rev.ObjectMeta.Name, createTime, active)
+	logger.Infof("Detected stale revision %q with creation time %v and last active time %v.", rev.ObjectMeta.Name, createTime, active)
 	return true
-}
-
-// revisionLastActiveTime returns if present:
-// routingStateModified, then the created time.
-// This is used for sort-ordering by most recently active.
-func revisionLastActiveTime(rev *v1.Revision) time.Time {
-	if t := rev.GetRoutingStateModified(); !t.IsZero() {
-		return t
-	}
-	return rev.ObjectMeta.GetCreationTimestamp().Time
 }
