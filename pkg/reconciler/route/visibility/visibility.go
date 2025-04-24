@@ -26,7 +26,7 @@ import (
 	netv1alpha1 "knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/over_network"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
@@ -65,7 +65,7 @@ func (b *Resolver) getServices(route *v1.Route) (map[string]*corev1.Service, err
 func (b *Resolver) routeVisibility(ctx context.Context, route *v1.Route) netv1alpha1.IngressVisibility {
 	domainConfig := config.FromContext(ctx).Domain
 	domain := domainConfig.LookupDomainForLabels(route.Labels)
-	if domain == "svc."+network.GetClusterDomainName() {
+	if domain == "svc."+over_network.GetClusterDomainName() {
 		return netv1alpha1.IngressVisibilityClusterLocal
 	}
 	return netv1alpha1.IngressVisibilityExternalIP

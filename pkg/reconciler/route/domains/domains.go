@@ -35,7 +35,7 @@ import (
 	"knative.dev/serving/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	pkgnet "knative.dev/serving/pkg/network"
+	pkgnet "knative.dev/serving/pkg/over_network"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
 )

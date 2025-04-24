@@ -31,7 +31,7 @@ import (
 	"knative.dev/serving/pkg/apiextensions/storageversion"
 	"knative.dev/serving/pkg/over_environment"
 	"knative.dev/serving/pkg/over_logging"
-	"knative.dev/serving/pkg/signals"
+	"knative.dev/serving/pkg/over_signals"
 )
 
 const (
@@ -64,7 +64,7 @@ func main() {
 		apixclient.NewForConfigOrDie(config),
 	)
 
-	ctx := signals.NewContext()
+	ctx := over_signals.NewContext()
 
 	logger.Infof("Migrating %d group resources", len(grs))
 

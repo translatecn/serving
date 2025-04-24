@@ -25,8 +25,8 @@ import (
 	"knative.dev/serving/networking/pkg/apis/networking"
 	"knative.dev/serving/networking/pkg/config"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/over_kmap"
+	"knative.dev/serving/pkg/over_network"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	networkingv1alpha1 "knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
@@ -38,32 +38,6 @@ import (
 const (
 	localDomainSuffix = "-local"
 )
-
-// MakeCertificate creates a Certificate, inheriting the certClass
-// annotations from the owner, as well as the namespaces. If owner
-// does not have a certClass, use the provided `certClass` parameter.
-// baseDomain is the top level domain for the cert. It should be a suffix of dnsName.
-func MakeCertificate(owner kmeta.OwnerRefableAccessor, ownerLabelKey string, dnsName string, certName string, certClass string, baseDomain string) *networkingv1alpha1.Certificate {
-	return &networkingv1alpha1.Certificate{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            certName,
-			Namespace:       owner.GetNamespace(),
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(owner)},
-			Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
-				networking.CertificateClassAnnotationKey: certClass,
-			}, owner.GetAnnotations()), ExcludedAnnotations.Has),
-			Labels: map[string]string{
-				ownerLabelKey:                      owner.GetName(),
-				networking.CertificateTypeLabelKey: string(config.CertificateExternalDomain),
-			},
-		},
-		Spec: networkingv1alpha1.CertificateSpec{
-			DNSNames:   []string{dnsName},
-			Domain:     baseDomain,
-			SecretName: certName,
-		},
-	}
-}
 
 // MakeCertificates creates an array of Certificate for the Route to request TLS certificates.
 // domainTagMap is an one-to-one mapping between domain and tag, for major domain (tag-less),
@@ -112,7 +86,7 @@ func MakeClusterLocalCertificate(route *v1.Route, tag string, domains sets.Set[s
 		},
 		Spec: networkingv1alpha1.CertificateSpec{
 			DNSNames:   domainsOrdered,
-			Domain:     "svc." + network.GetClusterDomainName(),
+			Domain:     "svc." + over_network.GetClusterDomainName(),
 			SecretName: certName,
 		},
 	}
@@ -130,4 +104,30 @@ func certNameFromRouteAndTag(route *v1.Route, tag string) string {
 		certName += fmt.Sprint("-", adler32.Checksum([]byte(tag)))
 	}
 	return certName
+}
+
+// MakeCertificate creates a Certificate, inheriting the certClass
+// annotations from the owner, as well as the namespaces. If owner
+// does not have a certClass, use the provided `certClass` parameter.
+// baseDomain is the top level domain for the cert. It should be a suffix of dnsName.
+func MakeCertificate(owner kmeta.OwnerRefableAccessor, ownerLabelKey string, dnsName string, certName string, certClass string, baseDomain string) *networkingv1alpha1.Certificate {
+	return &networkingv1alpha1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            certName,
+			Namespace:       owner.GetNamespace(),
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(owner)},
+			Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
+				networking.CertificateClassAnnotationKey: certClass,
+			}, owner.GetAnnotations()), ExcludedAnnotations.Has),
+			Labels: map[string]string{
+				ownerLabelKey:                      owner.GetName(),
+				networking.CertificateTypeLabelKey: string(config.CertificateExternalDomain),
+			},
+		},
+		Spec: networkingv1alpha1.CertificateSpec{
+			DNSNames:   []string{dnsName},
+			Domain:     baseDomain,
+			SecretName: certName,
+		},
+	}
 }

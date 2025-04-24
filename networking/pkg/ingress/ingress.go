@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
-	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/over_network"
 )
 
 // ComputeHash computes a hash of the Ingress Spec, Namespace and Name
@@ -35,8 +35,8 @@ import (
 func ExpandedHosts(hosts sets.Set[string]) sets.Set[string] {
 	allowedSuffixes := []string{
 		"",
-		"." + network.GetClusterDomainName(),
-		".svc." + network.GetClusterDomainName(),
+		"." + over_network.GetClusterDomainName(),
+		".svc." + over_network.GetClusterDomainName(),
 	}
 	// Optimistically pre-alloc.
 	expanded := make(sets.Set[string], len(hosts)*len(allowedSuffixes))

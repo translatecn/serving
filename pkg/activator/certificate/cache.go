@@ -34,13 +34,13 @@ import (
 	"knative.dev/serving/networking/pkg/apis/networking"
 	"knative.dev/serving/pkg/reconciler"
 
-	"knative.dev/serving/networking/pkg/certificates"
 	netcfg "knative.dev/serving/networking/pkg/config"
+	"knative.dev/serving/networking/pkg/over_certificates"
 	"knative.dev/serving/pkg/controller"
 	nsconfigmapinformer "knative.dev/serving/pkg/injection/clients/namespacedkube/informers/core/v1/configmap"
 	nssecretinformer "knative.dev/serving/pkg/injection/clients/namespacedkube/informers/core/v1/secret"
 	"knative.dev/serving/pkg/over_logging"
-	"knative.dev/serving/pkg/system"
+	"knative.dev/serving/pkg/over_system"
 )
 
 // CertCache caches certificates and CA pool.
@@ -66,17 +66,17 @@ func NewCertCache(ctx context.Context) (*CertCache, error) {
 		logger:            over_logging.FromContext(ctx),
 	}
 
-	secret, err := cr.secretInformer.Lister().Secrets(system.Namespace()).Get(netcfg.ServingRoutingCertName)
+	secret, err := cr.secretInformer.Lister().Secrets(over_system.Namespace()).Get(netcfg.ServingRoutingCertName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get activator certificate, secret %s/%s was not found: %w. Enabling system-internal-tls requires the secret to be present and populated with a valid certificate",
-			system.Namespace(), netcfg.ServingRoutingCertName, err)
+			over_system.Namespace(), netcfg.ServingRoutingCertName, err)
 	}
 
 	cr.updateCertificate(secret)
 	cr.updateTrustPool()
 
 	nsSecretInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterWithNameAndNamespace(system.Namespace(), netcfg.ServingRoutingCertName),
+		FilterFunc: controller.FilterWithNameAndNamespace(over_system.Namespace(), netcfg.ServingRoutingCertName),
 		Handler: cache.ResourceEventHandlerFuncs{
 			UpdateFunc: cr.handleCertificateUpdate,
 			AddFunc:    cr.handleCertificateAdd,
@@ -111,7 +111,7 @@ func (cr *CertCache) updateCertificate(secret *corev1.Secret) {
 	cr.certificatesMux.Lock()
 	defer cr.certificatesMux.Unlock()
 
-	cert, err := tls.X509KeyPair(secret.Data[certificates.CertName], secret.Data[certificates.PrivateKeyName])
+	cert, err := tls.X509KeyPair(secret.Data[over_certificates.CertName], secret.Data[over_certificates.PrivateKeyName])
 	if err != nil {
 		cr.logger.Warnf("failed to parse certificate in secret %s/%s: %v", secret.Namespace, secret.Name, zap.Error(err))
 		return
@@ -132,22 +132,22 @@ func (cr *CertCache) updateTrustPool() {
 	defer cr.certificatesMux.Unlock()
 
 	cr.TLSConf.RootCAs = pool
-	cr.TLSConf.ServerName = certificates.LegacyFakeDnsName
+	cr.TLSConf.ServerName = over_certificates.LegacyFakeDnsName
 	cr.TLSConf.MinVersion = tls.VersionTLS13
 }
 
 func (cr *CertCache) addSecretCAIfPresent(pool *x509.CertPool) {
-	secret, err := cr.secretInformer.Lister().Secrets(system.Namespace()).Get(netcfg.ServingRoutingCertName)
+	secret, err := cr.secretInformer.Lister().Secrets(over_system.Namespace()).Get(netcfg.ServingRoutingCertName)
 	if err != nil {
-		cr.logger.Warnf("Failed to get secret %s/%s: %v", system.Namespace(), netcfg.ServingRoutingCertName, zap.Error(err))
+		cr.logger.Warnf("Failed to get secret %s/%s: %v", over_system.Namespace(), netcfg.ServingRoutingCertName, zap.Error(err))
 		return
 	}
-	if len(secret.Data[certificates.CaCertName]) > 0 {
-		block, _ := pem.Decode(secret.Data[certificates.CaCertName])
+	if len(secret.Data[over_certificates.CaCertName]) > 0 {
+		block, _ := pem.Decode(secret.Data[over_certificates.CaCertName])
 		ca, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
 			cr.logger.Warnf("CA from Secret %s/%s[%s] is invalid and will be ignored: %v",
-				system.Namespace(), netcfg.ServingRoutingCertName, certificates.CaCertName, err)
+				over_system.Namespace(), netcfg.ServingRoutingCertName, over_certificates.CaCertName, err)
 		} else {
 			pool.AddCert(ca)
 		}
@@ -160,9 +160,9 @@ func (cr *CertCache) addTrustBundles(pool *x509.CertPool) {
 		cr.logger.Error("Failed to get label selector", zap.Error(err))
 		return
 	}
-	cms, err := cr.configmapInformer.Lister().ConfigMaps(system.Namespace()).List(selector)
+	cms, err := cr.configmapInformer.Lister().ConfigMaps(over_system.Namespace()).List(selector)
 	if err != nil {
-		cr.logger.Warnf("Failed to get ConfigMaps %s/%s with label %s: %v", system.Namespace(),
+		cr.logger.Warnf("Failed to get ConfigMaps %s/%s with label %s: %v", over_system.Namespace(),
 			netcfg.ServingRoutingCertName, networking.TrustBundleLabelKey, zap.Error(err))
 		return
 	}
@@ -171,7 +171,7 @@ func (cr *CertCache) addTrustBundles(pool *x509.CertPool) {
 		for _, bundle := range cm.Data {
 			ok := pool.AppendCertsFromPEM([]byte(bundle))
 			if !ok {
-				cr.logger.Warnf("Failed to add CA bundle from ConfigMaps %s/%s as it contains invalid certificates. Bundle: %s", system.Namespace(),
+				cr.logger.Warnf("Failed to add CA bundle from ConfigMaps %s/%s as it contains invalid certificates. Bundle: %s", over_system.Namespace(),
 					cm.Name, bundle)
 			}
 		}

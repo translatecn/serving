@@ -27,20 +27,20 @@ import (
 	"knative.dev/serving/pkg/leaderelection"
 	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/over_logging"
+	"knative.dev/serving/pkg/over_signals"
+	"knative.dev/serving/pkg/over_webhook"
+	"knative.dev/serving/pkg/over_webhook/configmaps"
+	"knative.dev/serving/pkg/over_webhook/over_certificates"
+	"knative.dev/serving/pkg/over_webhook/over_resourcesemantics"
+	"knative.dev/serving/pkg/over_webhook/over_resourcesemantics/defaulting"
+	"knative.dev/serving/pkg/over_webhook/over_resourcesemantics/validation"
 	certconfig "knative.dev/serving/pkg/reconciler/over_certificate/config"
-	"knative.dev/serving/pkg/signals"
-	"knative.dev/serving/pkg/webhook"
-	"knative.dev/serving/pkg/webhook/certificates"
-	"knative.dev/serving/pkg/webhook/configmaps"
-	"knative.dev/serving/pkg/webhook/resourcesemantics"
-	"knative.dev/serving/pkg/webhook/resourcesemantics/defaulting"
-	"knative.dev/serving/pkg/webhook/resourcesemantics/validation"
 
 	// resource validation types
 	net "knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
-	extravalidation "knative.dev/serving/pkg/webhook"
+	extravalidation "knative.dev/serving/pkg/over_webhook"
 
 	// config validation constructors
 	network "knative.dev/serving/networking/pkg"
@@ -49,11 +49,11 @@ import (
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/gc"
+	tracingconfig "knative.dev/serving/pkg/over_tracing/config"
 	domainconfig "knative.dev/serving/pkg/reconciler/route/config"
-	tracingconfig "knative.dev/serving/pkg/tracing/config"
 )
 
-var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
+var types = map[schema.GroupVersionKind]over_resourcesemantics.GenericCRD{
 	servingv1.SchemeGroupVersion.WithKind("Revision"):      &servingv1.Revision{},
 	servingv1.SchemeGroupVersion.WithKind("Configuration"): &servingv1.Configuration{},
 	servingv1.SchemeGroupVersion.WithKind("Route"):         &servingv1.Route{},
@@ -70,10 +70,10 @@ var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
 }
 
 var serviceValidation = validation.NewCallback(
-	extravalidation.ValidateService, webhook.Create, webhook.Update)
+	extravalidation.ValidateService, over_webhook.Create, over_webhook.Update)
 
 var configValidation = validation.NewCallback(
-	extravalidation.ValidateConfiguration, webhook.Create, webhook.Update)
+	extravalidation.ValidateConfiguration, over_webhook.Create, over_webhook.Update)
 
 var callbacks = map[schema.GroupVersionKind]validation.Callback{
 	servingv1.SchemeGroupVersion.WithKind("Service"):       serviceValidation,
@@ -162,15 +162,15 @@ func newConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 
 func main() {
 	// Set up a signal context with our webhook options
-	ctx := webhook.WithOptions(signals.NewContext(), webhook.Options{
-		ServiceName: webhook.NameFromEnv(),
-		Port:        webhook.PortFromEnv(8443),
+	ctx := over_webhook.WithOptions(over_signals.NewContext(), over_webhook.Options{
+		ServiceName: over_webhook.NameFromEnv(),
+		Port:        over_webhook.PortFromEnv(8443),
 		SecretName:  "webhook-certs",
 	})
 
 	ctx = sharedmain.WithHealthProbesDisabled(ctx)
 	sharedmain.WebhookMainWithContext(ctx, "webhook",
-		certificates.NewController,
+		over_certificates.NewController,
 		newDefaultingAdmissionController,
 		newValidationAdmissionController,
 		newConfigValidationController,

@@ -127,7 +127,7 @@ func (i *impl) TrackReference(ref Reference, obj interface{}) error {
 	}
 
 	// Determine the key of the object tracking this reference.
-	object, err := kmeta.DeletionHandlingAccessor(obj)
+	object, err := kmeta.DeletionHandlingAccessor(obj) // DomainMapping
 	if err != nil {
 		return err
 	}

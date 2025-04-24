@@ -47,11 +47,11 @@ import (
 	"knative.dev/serving/pkg/over_logging"
 	"knative.dev/serving/pkg/over_logging/logkey"
 	"knative.dev/serving/pkg/over_profiling"
+	"knative.dev/serving/pkg/over_signals"
+	"knative.dev/serving/pkg/over_system"
 	"knative.dev/serving/pkg/over_version"
+	"knative.dev/serving/pkg/over_webhook"
 	"knative.dev/serving/pkg/reconciler"
-	"knative.dev/serving/pkg/signals"
-	"knative.dev/serving/pkg/system"
-	"knative.dev/serving/pkg/webhook"
 )
 
 func init() {
@@ -67,7 +67,7 @@ func GetLeaderElectionConfig(ctx context.Context) (*leaderelection.Config, error
 		return cfg, nil
 	}
 
-	leaderElectionConfigMap, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, leaderelection.ConfigMapName(), metav1.GetOptions{})
+	leaderElectionConfigMap, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(over_system.Namespace()).Get(ctx, leaderelection.ConfigMapName(), metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		return leaderelection.NewConfigFromConfigMap(nil)
 	} else if err != nil {
@@ -85,7 +85,7 @@ func GetObservabilityConfig(ctx context.Context) (*metrics.ObservabilityConfig, 
 		return cfg, nil
 	}
 
-	observabilityConfigMap, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, metrics.ConfigMapName(), metav1.GetOptions{})
+	observabilityConfigMap, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(over_system.Namespace()).Get(ctx, metrics.ConfigMapName(), metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		return metrics.NewObservabilityConfigFromConfigMap(nil)
 	}
@@ -104,7 +104,7 @@ func GetObservabilityConfig(ctx context.Context) (*metrics.ObservabilityConfig, 
 // webhooks, then a webhook is started to serve them.
 func Main(component string, ctors ...injection.ControllerConstructor) {
 	// Set up signals so we handle the first shutdown signal gracefully.
-	MainWithContext(signals.NewContext(), component, ctors...)
+	MainWithContext(over_signals.NewContext(), component, ctors...)
 }
 
 var (
@@ -199,7 +199,8 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 	if !IsHADisabled(ctx) {
 		// Signal that we are executing in a context with leader election.
 		ctx = leaderelection.WithDynamicLeaderElectorBuilder(ctx, kubeclient.Get(ctx),
-			leaderElectionConfig.GetComponentConfig(component))
+			leaderElectionConfig.GetComponentConfig(component),
+		)
 	}
 
 	SetupObservabilityOrDie(ctx, component, logger, profilingHandler)
@@ -221,17 +222,17 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 
 	// If we have one or more admission controllers, then start the webhook
 	// and pass them in.
-	var wh *webhook.Webhook
+	var wh *over_webhook.Webhook
 	if len(webhooks) > 0 {
 		// Register webhook metrics
-		opts := webhook.GetOptions(ctx)
+		opts := over_webhook.GetOptions(ctx)
 		if opts != nil {
-			webhook.RegisterMetrics(opts.StatsReporterOptions...)
+			over_webhook.RegisterMetrics(opts.StatsReporterOptions...)
 		} else {
-			webhook.RegisterMetrics()
+			over_webhook.RegisterMetrics()
 		}
 
-		wh, err = webhook.New(ctx, webhooks)
+		wh, err = over_webhook.New(ctx, webhooks)
 		if err != nil {
 			logger.Fatalw("Failed to create webhook", zap.Error(err))
 		}
@@ -271,11 +272,6 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 }
 
 type healthProbesDisabledKey struct{}
-
-// WithHealthProbesDisabled signals to MainWithContext that it should disable default probes (readiness and liveness).
-func WithHealthProbesDisabled(ctx context.Context) context.Context {
-	return context.WithValue(ctx, healthProbesDisabledKey{}, struct{}{})
-}
 
 func healthProbesDisabled(ctx context.Context) bool {
 	return ctx.Value(healthProbesDisabledKey{}) != nil
@@ -332,7 +328,7 @@ func SetupConfigMapWatchOrDie(ctx context.Context, logger *zap.SugaredLogger) *c
 	kc := kubeclient.Get(ctx)
 	// Create ConfigMaps watcher with optional label-based filter.
 	var cmLabelReqs []labels.Requirement
-	if cmLabel := system.ResourceLabel(); cmLabel != "" {
+	if cmLabel := over_system.ResourceLabel(); cmLabel != "" {
 		req, err := cminformer.FilterConfigByLabelExists(cmLabel)
 		if err != nil {
 			logger.Fatalw("Failed to generate requirement for label "+cmLabel, zap.Error(err))
@@ -341,14 +337,14 @@ func SetupConfigMapWatchOrDie(ctx context.Context, logger *zap.SugaredLogger) *c
 		cmLabelReqs = append(cmLabelReqs, *req)
 	}
 	// TODO(mattmoor): This should itself take a context and be injection-based.
-	return cminformer.NewInformedWatcher(kc, system.Namespace(), cmLabelReqs...)
+	return cminformer.NewInformedWatcher(kc, over_system.Namespace(), cmLabelReqs...)
 }
 
 // WatchLoggingConfigOrDie establishes a watch of the logging config or dies by
 // calling log.Fatalw. Note, if the config does not exist, it will be defaulted
 // and this method will not die.
 func WatchLoggingConfigOrDie(ctx context.Context, cmw *cminformer.InformedWatcher, logger *zap.SugaredLogger, atomicLevel zap.AtomicLevel, component string) {
-	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, over_logging.ConfigMapName(),
+	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(over_system.Namespace()).Get(ctx, over_logging.ConfigMapName(),
 		metav1.GetOptions{}); err == nil {
 		cmw.Watch(over_logging.ConfigMapName(), over_logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	} else if !apierrors.IsNotFound(err) {
@@ -360,7 +356,7 @@ func WatchLoggingConfigOrDie(ctx context.Context, cmw *cminformer.InformedWatche
 // or dies by calling log.Fatalw. Note, if the config does not exist, it will be
 // defaulted and this method will not die.
 func WatchObservabilityConfigOrDie(ctx context.Context, cmw *cminformer.InformedWatcher, profilingHandler *over_profiling.Handler, logger *zap.SugaredLogger, component string) {
-	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, metrics.ConfigMapName(),
+	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(over_system.Namespace()).Get(ctx, metrics.ConfigMapName(),
 		metav1.GetOptions{}); err == nil {
 		cmw.Watch(metrics.ConfigMapName(),
 			metrics.ConfigMapWatcher(ctx, component, SecretFetcher(ctx), logger),
@@ -382,7 +378,7 @@ func SecretFetcher(ctx context.Context) metrics.SecretFetcher {
 	// TODO(evankanderson): If this direct request to the apiserver on each TLS connection
 	// to the opencensus agent is too much load, switch to a cached Secret.
 	return func(name string) (*corev1.Secret, error) {
-		return kubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Get(ctx, name, metav1.GetOptions{})
+		return kubeclient.Get(ctx).CoreV1().Secrets(over_system.Namespace()).Get(ctx, name, metav1.GetOptions{})
 	}
 }
 
@@ -404,7 +400,7 @@ func ControllersAndWebhooksFromCtors(ctx context.Context,
 
 		// Build a list of any reconcilers that implement webhook.AdmissionController
 		switch c := ctrl.Reconciler.(type) {
-		case webhook.AdmissionController, webhook.ConversionController:
+		case over_webhook.AdmissionController, over_webhook.ConversionController:
 			webhooks = append(webhooks, c)
 		}
 
@@ -433,7 +429,7 @@ func GetLoggingConfig(ctx context.Context) (*over_logging.Config, error) {
 	// e.g. istio sidecar needs a few seconds to configure the pod network.
 	var lastErr error
 	if err := wait.PollUntilContextTimeout(ctx, 1*time.Second, 5*time.Second, true, func(ctx context.Context) (bool, error) {
-		loggingConfigMap, lastErr = kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, over_logging.ConfigMapName(), metav1.GetOptions{})
+		loggingConfigMap, lastErr = kubeclient.Get(ctx).CoreV1().ConfigMaps(over_system.Namespace()).Get(ctx, over_logging.ConfigMapName(), metav1.GetOptions{})
 		return lastErr == nil || apierrors.IsNotFound(lastErr), nil
 	}); err != nil {
 		return nil, fmt.Errorf("timed out waiting for the condition: %w", lastErr)
@@ -442,4 +438,9 @@ func GetLoggingConfig(ctx context.Context) (*over_logging.Config, error) {
 		return over_logging.NewConfigFromMap(nil)
 	}
 	return over_logging.NewConfigFromConfigMap(loggingConfigMap)
+}
+
+// WithHealthProbesDisabled signals to MainWithContext that it should disable default probes (readiness and liveness).
+func WithHealthProbesDisabled(ctx context.Context) context.Context {
+	return context.WithValue(ctx, healthProbesDisabledKey{}, struct{}{})
 }

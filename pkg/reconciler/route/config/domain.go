@@ -17,15 +17,14 @@ limitations under the License.
 package config
 
 import (
-	"strings"
-
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/serving/pkg/configmap"
 	"sigs.k8s.io/yaml"
+	"strings"
 
 	"knative.dev/serving/networking/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/configmap"
-	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/over_network"
 )
 
 const (
@@ -37,7 +36,7 @@ const (
 
 // DefaultDomain holds the domain that Route's live under by default
 // when no label selector-based options apply.
-var DefaultDomain = "svc." + network.GetClusterDomainName()
+var DefaultDomain = "svc." + over_network.GetClusterDomainName()
 
 // LabelSelector represents map of {key,value} pairs. A single {key,value} in the
 // map is equivalent to a requirement key == value. The requirements are ANDed.
@@ -89,6 +88,31 @@ type domainInternalConfig struct {
 	Type     string            `json:"type"`
 }
 
+// LookupDomainForLabels returns a domain given a set of labels.
+// Since we reject configuration without a default domain, this should
+// always return a value.
+func (c *Domain) LookupDomainForLabels(labels map[string]string) string {
+	domain := ""
+	specificity := -1
+	// If we see VisibilityLabelKey sets with VisibilityClusterLocal, that
+	// will take precedence and the route will get a Cluster's Domain Name.
+	if labels[networking.VisibilityLabelKey] == serving.VisibilityClusterLocal {
+		return "svc." + over_network.GetClusterDomainName()
+	}
+	for k, v := range c.Domains {
+		// Ignore if selector doesn't match, or decrease the specificity.
+		if !v.Selector.Matches(labels) || v.Selector.specificity() < specificity {
+			continue
+		}
+		if v.Selector.specificity() > specificity || strings.Compare(k, domain) < 0 {
+			domain = k
+			specificity = v.Selector.specificity()
+		}
+	}
+
+	return domain
+}
+
 // NewDomainFromConfigMap creates a Domain from the supplied ConfigMap
 func NewDomainFromConfigMap(configMap *corev1.ConfigMap) (*Domain, error) {
 	c := Domain{Domains: map[string]DomainConfig{}}
@@ -115,29 +139,4 @@ func NewDomainFromConfigMap(configMap *corev1.ConfigMap) (*Domain, error) {
 		c.Domains[DefaultDomain] = DomainConfig{Selector: &LabelSelector{}, Type: DomainTypeWildcard}
 	}
 	return &c, nil
-}
-
-// LookupDomainForLabels returns a domain given a set of labels.
-// Since we reject configuration without a default domain, this should
-// always return a value.
-func (c *Domain) LookupDomainForLabels(labels map[string]string) string {
-	domain := ""
-	specificity := -1
-	// If we see VisibilityLabelKey sets with VisibilityClusterLocal, that
-	// will take precedence and the route will get a Cluster's Domain Name.
-	if labels[networking.VisibilityLabelKey] == serving.VisibilityClusterLocal {
-		return "svc." + network.GetClusterDomainName()
-	}
-	for k, v := range c.Domains {
-		// Ignore if selector doesn't match, or decrease the specificity.
-		if !v.Selector.Matches(labels) || v.Selector.specificity() < specificity {
-			continue
-		}
-		if v.Selector.specificity() > specificity || strings.Compare(k, domain) < 0 {
-			domain = k
-			specificity = v.Selector.specificity()
-		}
-	}
-
-	return domain
 }

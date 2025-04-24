@@ -39,7 +39,7 @@ import (
 	"knative.dev/serving/pkg/activator"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
-	pkgnet "knative.dev/serving/pkg/network"
+	pkgnet "knative.dev/serving/pkg/over_network"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/over_resources"
 	"knative.dev/serving/pkg/resources"

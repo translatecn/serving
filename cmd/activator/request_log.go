@@ -23,8 +23,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/serving/pkg/activator/handler"
 	"knative.dev/serving/pkg/apis/serving"
-	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/metrics"
+	pkghttp "knative.dev/serving/pkg/over_http"
 )
 
 func updateRequestLogFromConfigMap(logger *zap.SugaredLogger, h *pkghttp.RequestLogHandler) func(configMap *corev1.ConfigMap) {

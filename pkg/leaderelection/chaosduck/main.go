@@ -37,8 +37,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	kubeclient "knative.dev/serving/pkg/client/injection/kube/client"
 	"knative.dev/serving/pkg/over_kflag"
-	"knative.dev/serving/pkg/signals"
-	"knative.dev/serving/pkg/system"
+	"knative.dev/serving/pkg/over_signals"
+	"knative.dev/serving/pkg/over_system"
 )
 
 // components is a mapping from component name to the collection of leader pod names.
@@ -81,7 +81,7 @@ func extractDeployment(pod string) string {
 // buildComponents crawls the list of leases and builds a mapping from component names
 // to the set pod names that hold one or more leases.
 func buildComponents(ctx context.Context, kc kubernetes.Interface) (components, error) {
-	leases, err := kc.CoordinationV1().Leases(system.Namespace()).List(ctx, metav1.ListOptions{})
+	leases, err := kc.CoordinationV1().Leases(over_system.Namespace()).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func quack(ctx context.Context, kc kubernetes.Interface, component string, leade
 	}
 	log.Printf("Quacking at %q leader %q", component, tribute)
 
-	return kc.CoreV1().Pods(system.Namespace()).Delete(ctx, tribute, metav1.DeleteOptions{})
+	return kc.CoreV1().Pods(over_system.Namespace()).Delete(ctx, tribute, metav1.DeleteOptions{})
 }
 
 // matchesAny returns true if any of the given regexes matches the given string.
@@ -130,7 +130,7 @@ func matchesAny(regexes []*regexp.Regexp, str string) bool {
 }
 
 func main() {
-	ctx, _ := injection.EnableInjectionOrDie(signals.NewContext(), nil)
+	ctx, _ := injection.EnableInjectionOrDie(over_signals.NewContext(), nil)
 	kc := kubeclient.Get(ctx)
 
 	regexes := make([]*regexp.Regexp, 0, len(disabledComponentsRegex.Value))

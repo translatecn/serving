@@ -40,10 +40,10 @@ import (
 	"knative.dev/serving/pkg/hash"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/over_logging"
+	"knative.dev/serving/pkg/over_system"
 	"knative.dev/serving/pkg/reconciler/over_serverlessservice/resources"
 	"knative.dev/serving/pkg/reconciler/over_serverlessservice/resources/over_names"
 	presources "knative.dev/serving/pkg/resources"
-	"knative.dev/serving/pkg/system"
 )
 
 // reconciler implements controller.Reconciler for Service resources.
@@ -105,7 +105,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 		srcEps                *corev1.Endpoints
 		foundServingEndpoints bool
 	)
-	activatorEps, err := r.endpointsLister.Endpoints(system.Namespace()).Get(networking.ActivatorServiceName)
+	activatorEps, err := r.endpointsLister.Endpoints(over_system.Namespace()).Get(networking.ActivatorServiceName)
 	if err != nil {
 		return fmt.Errorf("failed to get activator service endpoints: %w", err)
 	}

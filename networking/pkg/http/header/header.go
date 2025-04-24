@@ -101,26 +101,10 @@ const (
 	ProtobufMIMEType = "application/protobuf"
 )
 
-// KnativeProbeHeader returns the value for key ProbeHeaderName in request headers.
-func GetKnativeProbeValue(r *http.Request) string {
-	return r.Header.Get(ProbeKey)
-}
-
-// KnativeProxyHeader returns the value for key ProxyHeaderName in request headers.
-func GetKnativeProxyValue(r *http.Request) string {
-	return r.Header.Get(ProxyKey)
-}
-
 // IsProbe returns true if the request is a Kubernetes probe or a Knative probe,
 // i.e. non-empty ProbeHeaderName header.
 func IsProbe(r *http.Request) bool {
 	return IsKubeletProbe(r) || GetKnativeProbeValue(r) != ""
-}
-
-// IsKubeletProbe returns true if the request is a Kubernetes probe.
-func IsKubeletProbe(r *http.Request) bool {
-	return strings.HasPrefix(r.Header.Get("User-Agent"), KubeProbeUAPrefix) ||
-		r.Header.Get(KubeletProbeKey) != ""
 }
 
 // RewriteHostIn removes the `Host` header from the inbound (server) request
@@ -147,4 +131,20 @@ func RewriteHostOut(r *http.Request) {
 		r.Header.Del("Host")
 		r.Header.Del(OriginalHostKey)
 	}
+}
+
+// IsKubeletProbe returns true if the request is a Kubernetes probe.
+func IsKubeletProbe(r *http.Request) bool {
+	return strings.HasPrefix(r.Header.Get("User-Agent"), KubeProbeUAPrefix) ||
+		r.Header.Get(KubeletProbeKey) != ""
+}
+
+// KnativeProxyHeader returns the value for key ProxyHeaderName in request headers.
+func GetKnativeProxyValue(r *http.Request) string {
+	return r.Header.Get(ProxyKey)
+}
+
+// KnativeProbeHeader returns the value for key ProbeHeaderName in request headers.
+func GetKnativeProbeValue(r *http.Request) string {
+	return r.Header.Get(ProbeKey)
 }

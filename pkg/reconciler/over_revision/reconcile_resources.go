@@ -25,7 +25,7 @@ import (
 	"knative.dev/serving/pkg/kmeta"
 	"knative.dev/serving/pkg/over_logging/logkey"
 
-	networkingaccessor "knative.dev/serving/pkg/reconciler/accessor/networking"
+	networkingaccessor "knative.dev/serving/pkg/reconciler/over_accessor/networking"
 	"knative.dev/serving/pkg/tracker"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -35,7 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	networkingApi "knative.dev/serving/networking/pkg/apis/networking"
-	"knative.dev/serving/networking/pkg/certificates"
+	"knative.dev/serving/networking/pkg/over_certificates"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/over_kmp"
@@ -143,10 +143,10 @@ func (c *Reconciler) reconcileQueueProxyCertificate(ctx context.Context, rev *v1
 		return fmt.Errorf("secret %s/%s is not ready yet: %w", ns, networking.ServingCertName, err)
 	}
 
-	if _, ok := secret.Data[certificates.CertName]; !ok {
+	if _, ok := secret.Data[over_certificates.CertName]; !ok {
 		return fmt.Errorf("certificate in secret %s/%s is not ready yet: public cert not found", ns, networking.ServingCertName)
 	}
-	if _, ok := secret.Data[certificates.PrivateKeyName]; !ok {
+	if _, ok := secret.Data[over_certificates.PrivateKeyName]; !ok {
 		return fmt.Errorf("certificate in secret %s/%s is not ready yet: private key not found", ns, networking.ServingCertName)
 	}
 

@@ -40,10 +40,6 @@ type leaderAware struct {
 	enqueue    func(bkt reconciler.Bucket, key types.NamespacedName)
 }
 
-func (l *leaderAware) Reconcile(ctx context.Context, key string) error {
-	return l.reconciler.Reconcile(ctx, key)
-}
-
 func setupSharedElector(ctx context.Context, controllers []*controller.Impl) (leaderelection.Elector, error) {
 	reconcilers := make([]*leaderAware, 0, len(controllers))
 
@@ -98,4 +94,7 @@ func coalesce(reconcilers []*leaderAware) reconciler.LeaderAware {
 			}
 		},
 	}
+}
+func (l *leaderAware) Reconcile(ctx context.Context, key string) error {
+	return l.reconciler.Reconcile(ctx, key)
 }

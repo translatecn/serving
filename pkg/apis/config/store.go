@@ -76,24 +76,6 @@ type Store struct {
 	*configmap.UntypedStore
 }
 
-// NewStore creates a new store of Configs and optionally calls functions when ConfigMaps are updated.
-func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
-	store := &Store{
-		UntypedStore: configmap.NewUntypedStore(
-			"apis",
-			logger,
-			configmap.Constructors{
-				DefaultsConfigName:  NewDefaultsConfigFromConfigMap,
-				FeaturesConfigName:  NewFeaturesConfigFromConfigMap,
-				asconfig.ConfigName: asconfig.NewConfigFromConfigMap,
-			},
-			onAfterStore...,
-		),
-	}
-
-	return store
-}
-
 // ToContext attaches the current Config state to the provided context.
 func (s *Store) ToContext(ctx context.Context) context.Context {
 	return ToContext(ctx, s.Load())
@@ -112,4 +94,22 @@ func (s *Store) Load() *Config {
 		cfg.Autoscaler = as.DeepCopy()
 	}
 	return cfg
+}
+
+// NewStore creates a new store of Configs and optionally calls functions when ConfigMaps are updated.
+func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
+	store := &Store{
+		UntypedStore: configmap.NewUntypedStore(
+			"apis",
+			logger,
+			configmap.Constructors{
+				DefaultsConfigName:  NewDefaultsConfigFromConfigMap,
+				FeaturesConfigName:  NewFeaturesConfigFromConfigMap,
+				asconfig.ConfigName: asconfig.NewConfigFromConfigMap,
+			},
+			onAfterStore...,
+		),
+	}
+
+	return store
 }

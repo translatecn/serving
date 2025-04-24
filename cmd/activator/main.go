@@ -34,8 +34,8 @@ import (
 	// Injection related imports.
 	"knative.dev/serving/pkg/activator"
 	kubeclient "knative.dev/serving/pkg/client/injection/kube/client"
-	"knative.dev/serving/pkg/http/handler"
 	"knative.dev/serving/pkg/injection"
+	"knative.dev/serving/pkg/over_http/over_handler"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -52,20 +52,20 @@ import (
 	"knative.dev/serving/pkg/configmap"
 	configmapinformer "knative.dev/serving/pkg/configmap/informer"
 	"knative.dev/serving/pkg/controller"
-	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/injection/sharedmain"
 	"knative.dev/serving/pkg/metrics"
-	pkgnet "knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/networking"
+	pkghttp "knative.dev/serving/pkg/over_http"
 	"knative.dev/serving/pkg/over_logging"
 	pkglogging "knative.dev/serving/pkg/over_logging"
 	"knative.dev/serving/pkg/over_logging/logkey"
+	pkgnet "knative.dev/serving/pkg/over_network"
 	"knative.dev/serving/pkg/over_profiling"
+	"knative.dev/serving/pkg/over_signals"
+	"knative.dev/serving/pkg/over_system"
+	"knative.dev/serving/pkg/over_tracing"
+	tracingconfig "knative.dev/serving/pkg/over_tracing/config"
 	"knative.dev/serving/pkg/over_version"
-	"knative.dev/serving/pkg/signals"
-	"knative.dev/serving/pkg/system"
-	"knative.dev/serving/pkg/tracing"
-	tracingconfig "knative.dev/serving/pkg/tracing/config"
 	"knative.dev/serving/pkg/websocket"
 )
 
@@ -147,7 +147,7 @@ func main() {
 
 	// Fetch networking configuration to determine whether EnableMeshPodAddressability
 	// is enabled or not.
-	networkCM, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, netcfg.ConfigMapName, metav1.GetOptions{})
+	networkCM, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(over_system.Namespace()).Get(ctx, netcfg.ConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		logger.Fatalw("Failed to fetch network config", zap.Error(err))
 	}
@@ -177,7 +177,7 @@ func main() {
 	throttler := activatornet.NewThrottler(ctx, env.PodIP)
 	go throttler.Run(ctx, transport, networkConfig.EnableMeshPodAddressability, networkConfig.MeshCompatibilityMode)
 
-	oct := tracing.NewOpenCensusTracer(tracing.WithExporterFull(networking.ActivatorServiceName, env.PodIP, logger))
+	oct := over_tracing.NewOpenCensusTracer(over_tracing.WithExporterFull(networking.ActivatorServiceName, env.PodIP, logger))
 	defer oct.Shutdown(context.Background())
 
 	tracerUpdater := configmap.TypeFilter(&tracingconfig.Config{})(func(name string, value interface{}) {
@@ -189,7 +189,7 @@ func main() {
 	})
 
 	// Set up our config store
-	configMapWatcher := configmapinformer.NewInformedWatcher(kubeClient, system.Namespace())
+	configMapWatcher := configmapinformer.NewInformedWatcher(kubeClient, over_system.Namespace())
 	configStore := activatorconfig.NewStore(logger, tracerUpdater)
 	configStore.WatchConfigs(configMapWatcher)
 
@@ -197,7 +197,7 @@ func main() {
 	defer close(statCh)
 
 	// Open a WebSocket connection to the autoscaler.
-	autoscalerEndpoint := "ws://" + pkgnet.GetServiceHostname("autoscaler", system.Namespace()) + autoscalerPort
+	autoscalerEndpoint := "ws://" + pkgnet.GetServiceHostname("autoscaler", over_system.Namespace()) + autoscalerPort
 	logger.Info("Connecting to Autoscaler at ", autoscalerEndpoint)
 	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
 	defer statSink.Shutdown()
@@ -211,7 +211,7 @@ func main() {
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	// ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️
 	ah := activatorhandler.New(ctx, throttler, transport, networkConfig.EnableMeshPodAddressability, logger, tlsEnabled) // 开始转发了
-	ah = handler.NewTimeoutHandler(ah, "activator request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
+	ah = over_handler.NewTimeoutHandler(ah, "activator request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
 		if rev := activatorhandler.RevisionFrom(r.Context()); rev != nil {
 			responseStartTimeout := 0 * time.Second
 			if rev.Spec.ResponseStartTimeoutSeconds != nil {
@@ -246,7 +246,7 @@ func main() {
 	ah = &activatorhandler.ProbeHandler{NextHandler: ah} // ✅
 	ah = netprobe.NewHandler(ah)                         // ✅
 	// Set up our health check based on the health of stat sink and environmental factors.
-	sigCtx := signals.NewContext()
+	sigCtx := over_signals.NewContext()
 	hc := newHealthCheck(sigCtx, logger, statSink)                                         // ✅
 	ah = &activatorhandler.HealthHandler{HealthCheck: hc, NextHandler: ah, Logger: logger} // ✅
 

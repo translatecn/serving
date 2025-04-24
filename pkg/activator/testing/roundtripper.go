@@ -25,7 +25,7 @@ import (
 	"time"
 
 	netheader "knative.dev/serving/networking/pkg/http/header"
-	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/over_queue"
 )
 
 // FakeResponse is a response given by the FakeRoundTripper
@@ -63,7 +63,7 @@ func defaultProbeResponse() *FakeResponse {
 	return &FakeResponse{
 		Err:  nil,
 		Code: http.StatusOK,
-		Body: queue.Name,
+		Body: over_queue.Name,
 	}
 }
 
@@ -142,7 +142,7 @@ func (rt *FakeRoundTripper) RT(req *http.Request) (*http.Response, error) {
 		}
 
 		// Make sure the probe is attributed with correct header.
-		if req.Header.Get(netheader.ProbeKey) != queue.Name {
+		if req.Header.Get(netheader.ProbeKey) != over_queue.Name {
 			return response(&FakeResponse{
 				Code: http.StatusBadRequest,
 				Body: "probe sent to a wrong system",

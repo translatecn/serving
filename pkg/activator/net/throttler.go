@@ -44,7 +44,7 @@ import (
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/over_logging"
 	"knative.dev/serving/pkg/over_logging/logkey"
-	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/over_queue"
 	"knative.dev/serving/pkg/reconciler"
 )
 
@@ -58,8 +58,8 @@ const (
 	// The revisionThrottler breaker's concurrency increases up to this value as
 	// new endpoints show up. We need to set some value here since the breaker
 	// requires an explicit buffer size (it's backed by a chan struct{}), but
-	// queue.MaxBreakerCapacity is math.MaxInt32.
-	revisionMaxConcurrency = queue.MaxBreakerCapacity
+	// over_queue.MaxBreakerCapacity is math.MaxInt32.
+	revisionMaxConcurrency = over_queue.MaxBreakerCapacity
 )
 
 func newPodTracker(dest string, b breaker) *podTracker {
@@ -171,7 +171,7 @@ type revisionThrottler struct {
 
 func newRevisionThrottler(revID types.NamespacedName,
 	containerConcurrency int, proto string,
-	breakerParams queue.BreakerParams,
+	breakerParams over_queue.BreakerParams,
 	logger *zap.SugaredLogger,
 ) *revisionThrottler {
 	logger = logger.With(zap.String(logkey.Key, revID.String()))
@@ -185,11 +185,11 @@ func newRevisionThrottler(revID types.NamespacedName,
 		lbp = randomChoice2Policy
 	case containerConcurrency <= 3:
 		// For very low CC values use first available pod.
-		revBreaker = queue.NewBreaker(breakerParams)
+		revBreaker = over_queue.NewBreaker(breakerParams)
 		lbp = firstAvailableLBPolicy
 	default:
 		// Otherwise RR.
-		revBreaker = queue.NewBreaker(breakerParams)
+		revBreaker = over_queue.NewBreaker(breakerParams)
 		lbp = newRoundRobinPolicy()
 	}
 	t := &revisionThrottler{
@@ -603,7 +603,7 @@ func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*r
 			revID,
 			int(rev.Spec.GetContainerConcurrency()),
 			pkgnet.ServicePortName(rev.GetProtocol()),
-			queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: revisionMaxConcurrency},
+			over_queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: revisionMaxConcurrency},
 			t.logger,
 		)
 		t.revisionThrottlers[revID] = revThrottler
@@ -715,7 +715,7 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 				if rt.containerConcurrency == 0 {
 					tracker = newPodTracker(newDest, nil)
 				} else {
-					tracker = newPodTracker(newDest, queue.NewBreaker(queue.BreakerParams{
+					tracker = newPodTracker(newDest, over_queue.NewBreaker(over_queue.BreakerParams{
 						QueueDepth:      breakerQueueDepth,
 						MaxConcurrency:  rt.containerConcurrency,
 						InitialCapacity: rt.containerConcurrency, // Presume full unused capacity.

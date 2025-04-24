@@ -29,7 +29,7 @@ import (
 
 	"knative.dev/serving/pkg/over_environment"
 	"knative.dev/serving/pkg/over_logging"
-	"knative.dev/serving/pkg/system"
+	"knative.dev/serving/pkg/over_system"
 )
 
 const (
@@ -56,12 +56,12 @@ func main() {
 	logger.Info("Deleting old Serving resources if any")
 
 	for _, dep := range []string{"domain-mapping", "domainmapping-webhook", "net-certmanager-controller", "net-certmanager-webhook"} {
-		if err = client.AppsV1().Deployments(system.Namespace()).Delete(context.Background(), dep, metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
+		if err = client.AppsV1().Deployments(over_system.Namespace()).Delete(context.Background(), dep, metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
 			logger.Fatal("failed to delete deployment ", dep, ": ", err)
 		}
 	}
 
-	leases, err := client.CoordinationV1().Leases(system.Namespace()).List(context.Background(), metav1.ListOptions{})
+	leases, err := client.CoordinationV1().Leases(over_system.Namespace()).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		logger.Fatal("failed to fetch leases: ", err)
 	}
@@ -70,17 +70,17 @@ func main() {
 		if strings.HasPrefix(lease.Name, "domainmapping") ||
 			strings.HasPrefix(lease.Name, "net-certmanager") ||
 			strings.HasPrefix(lease.Name, networkingCertificatesReconcilerLease) || strings.HasPrefix(lease.Name, controlProtocolCertificatesReconcilerLease) {
-			if err = client.CoordinationV1().Leases(system.Namespace()).Delete(context.Background(), lease.Name, metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
+			if err = client.CoordinationV1().Leases(over_system.Namespace()).Delete(context.Background(), lease.Name, metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
 				logger.Fatalf("failed to delete lease %s: %v", lease.Name, err)
 			}
 		}
 	}
 
 	// Delete the rest of the domain mapping resources
-	if err = client.CoreV1().Services(system.Namespace()).Delete(context.Background(), "domainmapping-webhook", metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
+	if err = client.CoreV1().Services(over_system.Namespace()).Delete(context.Background(), "domainmapping-webhook", metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
 		logger.Fatal("failed to delete service domainmapping-webhook: ", err)
 	}
-	if err = client.CoreV1().Secrets(system.Namespace()).Delete(context.Background(), "domainmapping-webhook-certs", metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
+	if err = client.CoreV1().Secrets(over_system.Namespace()).Delete(context.Background(), "domainmapping-webhook-certs", metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
 		logger.Fatal("failed to delete secret domainmapping-webhook-certs: ", err)
 	}
 	if err = client.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.Background(), "webhook.domainmapping.serving.knative.dev", metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
@@ -91,16 +91,16 @@ func main() {
 	}
 
 	// Delete the rest of the net-certmanager resources
-	if err = client.CoreV1().Services(system.Namespace()).Delete(context.Background(), "net-certmanager-controller", metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
+	if err = client.CoreV1().Services(over_system.Namespace()).Delete(context.Background(), "net-certmanager-controller", metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
 		logger.Fatal("failed to delete service net-certmanager-controller: ", err)
 	}
-	if err = client.CoreV1().Services(system.Namespace()).Delete(context.Background(), "net-certmanager-webhook", metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
+	if err = client.CoreV1().Services(over_system.Namespace()).Delete(context.Background(), "net-certmanager-webhook", metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
 		logger.Fatal("failed to delete service net-certmanager-webhook: ", err)
 	}
 	if err = client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), "config.webhook.net-certmanager.networking.internal.knative.dev", metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
 		logger.Fatal("failed to delete validating webhook config.webhook.net-certmanager.networking.internal.knative.dev: ", err)
 	}
-	if err = client.CoreV1().Secrets(system.Namespace()).Delete(context.Background(), "net-certmanager-webhook-certs", metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
+	if err = client.CoreV1().Secrets(over_system.Namespace()).Delete(context.Background(), "net-certmanager-webhook-certs", metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
 		logger.Fatal("failed to delete secret net-certmanager-webhook-certs: ", err)
 	}
 	if err = client.RbacV1().ClusterRoles().Delete(context.Background(), "knative-serving-certmanager", metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {

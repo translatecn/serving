@@ -40,7 +40,7 @@ import (
 	"knative.dev/serving/pkg/controller"
 	"knative.dev/serving/pkg/hash"
 	"knative.dev/serving/pkg/over_logging"
-	"knative.dev/serving/pkg/system"
+	"knative.dev/serving/pkg/over_system"
 )
 
 // leaseTracker monitors lease resources to update the Forwarder's processor configuration(s)
@@ -202,7 +202,7 @@ func LeaseBasedProcessor(ctx context.Context, f *Forwarder, accept statProcessor
 
 	leaseInformer := leaseinformer.Get(ctx)
 	leaseInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: lt.filterFunc(system.Namespace()),
+		FilterFunc: lt.filterFunc(over_system.Namespace()),
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    lt.leaseUpdated,
 			UpdateFunc: controller.PassNew(lt.leaseUpdated),

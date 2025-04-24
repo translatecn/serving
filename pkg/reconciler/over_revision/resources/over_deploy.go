@@ -29,7 +29,7 @@ import (
 	"knative.dev/serving/pkg/kmeta"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/over_ptr"
-	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/over_queue"
 	over_config "knative.dev/serving/pkg/reconciler/over_revision/config"
 	"knative.dev/serving/pkg/reconciler/over_revision/resources/names"
 
@@ -68,14 +68,14 @@ var (
 	}
 
 	varCertVolumeMount = corev1.VolumeMount{
-		MountPath: queue.CertDirectory,
+		MountPath: over_queue.CertDirectory,
 		Name:      certVolumeName,
 		ReadOnly:  true,
 	}
 
 	varTokenVolumeMount = corev1.VolumeMount{
 		Name:      varTokenVolume.Name,
-		MountPath: queue.TokenDirectory,
+		MountPath: over_queue.TokenDirectory,
 	}
 
 	varPodInfoVolume = corev1.Volume{
@@ -83,7 +83,7 @@ var (
 		VolumeSource: corev1.VolumeSource{
 			DownwardAPI: &corev1.DownwardAPIVolumeSource{
 				Items: []corev1.DownwardAPIVolumeFile{{
-					Path: queue.PodInfoAnnotationsFilename,
+					Path: over_queue.PodInfoAnnotationsFilename,
 					FieldRef: &corev1.ObjectFieldSelector{
 						FieldPath: "metadata.annotations",
 					},
@@ -94,7 +94,7 @@ var (
 
 	varPodInfoVolumeMount = corev1.VolumeMount{
 		Name:      varPodInfoVolume.Name,
-		MountPath: queue.PodInfoDirectory,
+		MountPath: over_queue.PodInfoDirectory,
 		ReadOnly:  true,
 	}
 
@@ -106,7 +106,7 @@ var (
 		PreStop: &corev1.LifecycleHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Port: intstr.FromInt(networking.QueueAdminPort),
-				Path: queue.RequestQueueDrainPath,
+				Path: over_queue.RequestQueueDrainPath,
 			},
 		},
 	}

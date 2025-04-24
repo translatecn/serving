@@ -73,19 +73,6 @@ type LeaderAwareFuncs struct {
 
 var _ LeaderAware = (*LeaderAwareFuncs)(nil)
 
-// IsLeaderFor implements LeaderAware
-func (laf *LeaderAwareFuncs) IsLeaderFor(key types.NamespacedName) bool {
-	laf.RLock()
-	defer laf.RUnlock()
-
-	for _, bkt := range laf.buckets {
-		if bkt.Has(key) {
-			return true
-		}
-	}
-	return false
-}
-
 // Promote implements LeaderAware
 func (laf *LeaderAwareFuncs) Promote(b Bucket, enq func(Bucket, types.NamespacedName)) error {
 	func() {
@@ -114,4 +101,17 @@ func (laf *LeaderAwareFuncs) Demote(b Bucket) {
 	if demote := laf.DemoteFunc; demote != nil {
 		demote(b)
 	}
+}
+
+// IsLeaderFor implements LeaderAware
+func (laf *LeaderAwareFuncs) IsLeaderFor(key types.NamespacedName) bool {
+	laf.RLock()
+	defer laf.RUnlock()
+
+	for _, bkt := range laf.buckets {
+		if bkt.Has(key) {
+			return true
+		}
+	}
+	return false
 }

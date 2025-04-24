@@ -18,7 +18,7 @@ package names
 
 import (
 	"knative.dev/serving/pkg/kmeta"
-	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/over_network"
 )
 
 // K8sService returns the name of the K8sService for a given route.
@@ -28,7 +28,7 @@ func K8sService(route kmeta.Accessor) string {
 
 // K8sServiceFullname returns the full name of the K8sService for a given route.
 func K8sServiceFullname(route kmeta.Accessor) string {
-	return network.GetServiceHostname(K8sService(route), route.GetNamespace())
+	return over_network.GetServiceHostname(K8sService(route), route.GetNamespace())
 }
 
 // Ingress returns the name for the Ingress

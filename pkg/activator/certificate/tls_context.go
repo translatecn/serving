@@ -23,9 +23,9 @@ import (
 	"fmt"
 	"net"
 
-	"knative.dev/serving/networking/pkg/certificates"
+	"knative.dev/serving/networking/pkg/over_certificates"
 	"knative.dev/serving/pkg/activator/handler"
-	pkgnet "knative.dev/serving/pkg/network"
+	pkgnet "knative.dev/serving/pkg/over_network"
 )
 
 // TLSContext returns DialTLSContextFunc.
@@ -47,7 +47,7 @@ func dialTLSContext(ctx context.Context, network, addr string, cr *CertCache) (n
 	cr.certificatesMux.RUnlock()
 
 	revID := handler.RevIDFrom(ctx)
-	san := certificates.DataPlaneUserSAN(revID.Namespace)
+	san := over_certificates.DataPlaneUserSAN(revID.Namespace)
 
 	tlsConf.VerifyConnection = verifySAN(san)
 	return pkgnet.DialTLSWithBackOff(ctx, network, addr, tlsConf)

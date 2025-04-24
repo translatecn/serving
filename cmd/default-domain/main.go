@@ -42,9 +42,9 @@ import (
 	netcfg "knative.dev/serving/networking/pkg/config"
 	netprobe "knative.dev/serving/networking/pkg/http/over_probe"
 	"knative.dev/serving/pkg/over_logging"
+	"knative.dev/serving/pkg/over_signals"
+	"knative.dev/serving/pkg/over_system"
 	routecfg "knative.dev/serving/pkg/reconciler/route/config"
-	"knative.dev/serving/pkg/signals"
-	"knative.dev/serving/pkg/system"
 )
 
 var (
@@ -78,7 +78,7 @@ func clientsFromFlags() (kubernetes.Interface, *netclient.Clientset, error) {
 }
 
 func lookupConfigMap(ctx context.Context, kubeClient kubernetes.Interface, name string) (*corev1.ConfigMap, error) {
-	return kubeClient.CoreV1().ConfigMaps(system.Namespace()).Get(ctx, name, metav1.GetOptions{})
+	return kubeClient.CoreV1().ConfigMaps(over_system.Namespace()).Get(ctx, name, metav1.GetOptions{})
 }
 
 func findGatewayAddress(ctx context.Context, kubeclient kubernetes.Interface, client *netclient.Clientset, logging *zap.SugaredLogger) (*corev1.LoadBalancerIngress, error) {
@@ -90,12 +90,11 @@ func findGatewayAddress(ctx context.Context, kubeclient kubernetes.Interface, cl
 	if err != nil {
 		return nil, err
 	}
-
 	// Create a KIngress that points at that Service
-	ing, err := client.NetworkingV1alpha1().Ingresses(system.Namespace()).Create(ctx, &netv1alpha1.Ingress{
+	ing, err := client.NetworkingV1alpha1().Ingresses(over_system.Namespace()).Create(ctx, &netv1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "default-domain-",
-			Namespace:    system.Namespace(),
+			Namespace:    over_system.Namespace(),
 			Annotations: map[string]string{
 				netapi.IngressClassAnnotationKey: netCfg.DefaultIngressClass,
 			},
@@ -109,7 +108,7 @@ func findGatewayAddress(ctx context.Context, kubeclient kubernetes.Interface, cl
 						Splits: []netv1alpha1.IngressBackendSplit{{
 							IngressBackend: netv1alpha1.IngressBackend{
 								ServiceName:      "default-domain-service",
-								ServiceNamespace: system.Namespace(),
+								ServiceNamespace: over_system.Namespace(),
 								ServicePort:      intstr.FromInt(80),
 							},
 						}},
@@ -121,11 +120,11 @@ func findGatewayAddress(ctx context.Context, kubeclient kubernetes.Interface, cl
 	if err != nil {
 		return nil, err
 	}
-	defer client.NetworkingV1alpha1().Ingresses(system.Namespace()).Delete(ctx, ing.Name, metav1.DeleteOptions{})
+	defer client.NetworkingV1alpha1().Ingresses(over_system.Namespace()).Delete(ctx, ing.Name, metav1.DeleteOptions{})
 
 	// Wait for the Ingress to be Ready.
 	if err := wait.PollUntilContextTimeout(ctx, pollInterval, waitTimeout, true, func(context.Context) (done bool, err error) {
-		ing, err = client.NetworkingV1alpha1().Ingresses(system.Namespace()).Get(
+		ing, err = client.NetworkingV1alpha1().Ingresses(over_system.Namespace()).Get(
 			ctx, ing.Name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
@@ -173,7 +172,7 @@ func buildMagicDNSName(ip, magicDNS string) string {
 
 func main() {
 	flag.Parse()
-	ctx := signals.NewContext()
+	ctx := over_signals.NewContext()
 	logger := over_logging.FromContext(ctx).Named(appName)
 	defer logger.Sync()
 
@@ -181,7 +180,6 @@ func main() {
 	if err != nil {
 		logger.Fatalw("Error building kube clientset", zap.Error(err))
 	}
-
 	// Fetch and parse the domain ConfigMap from the system namespace.
 	domainCM, err := lookupConfigMap(ctx, kubeClient, routecfg.DomainConfigName)
 	if err != nil {
@@ -204,7 +202,6 @@ func main() {
 	}))
 	server := http.Server{Addr: ":8080", Handler: h, ReadHeaderTimeout: time.Minute}
 	go server.ListenAndServe()
-
 	// Determine the address of the gateway service.
 	address, err := findGatewayAddress(ctx, kubeClient, client, logger)
 	if err != nil {
@@ -232,7 +229,7 @@ func main() {
 	// and send it back to the API server.
 	domain := buildMagicDNSName(ip, *magicDNS)
 	domainCM.Data[domain] = ""
-	if _, err = kubeClient.CoreV1().ConfigMaps(system.Namespace()).Update(ctx, domainCM, metav1.UpdateOptions{}); err != nil {
+	if _, err = kubeClient.CoreV1().ConfigMaps(over_system.Namespace()).Update(ctx, domainCM, metav1.UpdateOptions{}); err != nil {
 		logger.Fatalw("Error updating ConfigMap", zap.Error(err))
 	}
 

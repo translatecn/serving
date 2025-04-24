@@ -30,9 +30,9 @@ import (
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
-	network "knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/over_logging"
 	"knative.dev/serving/pkg/over_logging/logkey"
+	network "knative.dev/serving/pkg/over_network"
 )
 
 // NewContextHandler creates a handler that extracts the necessary context from the request

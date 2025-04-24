@@ -32,6 +32,8 @@ import (
 	"knative.dev/serving/pkg/injection"
 	"knative.dev/serving/pkg/injection/sharedmain"
 	"knative.dev/serving/pkg/networking"
+	"knative.dev/serving/pkg/over_signals"
+	"knative.dev/serving/pkg/over_system"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/configuration"
 	"knative.dev/serving/pkg/reconciler/domainmapping"
@@ -43,8 +45,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/over_serverlessservice"
 	"knative.dev/serving/pkg/reconciler/over_service"
 	"knative.dev/serving/pkg/reconciler/route"
-	"knative.dev/serving/pkg/signals"
-	"knative.dev/serving/pkg/system"
 
 	versioned "github.com/cert-manager/cert-manager/pkg/client/clientset/versioned"
 	"knative.dev/serving/pkg/client/certmanager/injection/informers/acme/v1/challenge"
@@ -79,7 +79,7 @@ func main() {
 		"reconciliation-timeout", reconciler.DefaultTimeout,
 		"The amount of time to give each reconciliation of a resource to complete before its context is canceled.")
 
-	ctx := signals.NewContext()
+	ctx := over_signals.NewContext()
 
 	// HACK: This parses flags, so the above should be set once this runs.
 	cfg := injection.ParseAndGetRESTConfigOrDie()
@@ -92,7 +92,12 @@ func main() {
 		if ok, err := certManagerCRDsExist(v); !ok {
 			log.Fatalf("Please install cert-manager: %v", err)
 		}
-		for _, inf := range []injection.InformerInjector{challenge.WithInformer, v1certificate.WithInformer, certificaterequest.WithInformer, clusterissuer.WithInformer, issuer.WithInformer} {
+		for _, inf := range []injection.InformerInjector{
+			challenge.WithInformer,
+			v1certificate.WithInformer,
+			certificaterequest.WithInformer,
+			clusterissuer.WithInformer,
+			issuer.WithInformer} {
 			injection.Default.RegisterInformer(inf)
 		}
 		ctors = append(ctors, over_certificate.NewController)
@@ -104,7 +109,7 @@ func main() {
 func shouldEnableNetCertManagerController(ctx context.Context, client *kubernetes.Clientset) bool {
 	var cm *v1.ConfigMap
 	var err error
-	if cm, err = client.CoreV1().ConfigMaps(system.Namespace()).Get(ctx, "config-network", metav1.GetOptions{}); err != nil {
+	if cm, err = client.CoreV1().ConfigMaps(over_system.Namespace()).Get(ctx, "config-network", metav1.GetOptions{}); err != nil {
 		log.Fatalf("Failed to get cm config-network: %v", err)
 	}
 	netCfg, err := netcfg.NewConfigFromMap(cm.Data)

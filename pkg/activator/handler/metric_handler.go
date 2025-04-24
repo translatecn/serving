@@ -22,9 +22,9 @@ import (
 
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
-	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/metrics"
 	pkgmetrics "knative.dev/serving/pkg/metrics"
+	pkghttp "knative.dev/serving/pkg/over_http"
 )
 
 // NewMetricHandler creates a handler that collects and reports request metrics.

@@ -117,19 +117,6 @@ func (dms *DomainMappingStatus) MarkHTTPDowngrade(name string) {
 		"Certificate %s is not ready downgrade HTTP.", name)
 }
 
-// MarkIngressNotConfigured changes the IngressReady condition to be unknown to reflect
-// that the Ingress does not yet have a Status.
-func (dms *DomainMappingStatus) MarkIngressNotConfigured() {
-	domainMappingCondSet.Manage(dms).MarkUnknown(DomainMappingConditionIngressReady,
-		"IngressNotConfigured", "Ingress has not yet been reconciled.")
-}
-
-// MarkDomainClaimed updates the DomainMappingConditionDomainClaimed condition
-// to indicate that the domain was successfully claimed.
-func (dms *DomainMappingStatus) MarkDomainClaimed() {
-	domainMappingCondSet.Manage(dms).MarkTrue(DomainMappingConditionDomainClaimed)
-}
-
 // MarkDomainClaimNotOwned updates the DomainMappingConditionDomainClaimed
 // condition to indicate that the domain is already in use by another
 // DomainMapping.
@@ -174,4 +161,17 @@ func (dms *DomainMappingStatus) PropagateIngressStatus(cs netv1alpha1.IngressSta
 	case corev1.ConditionUnknown:
 		m.MarkUnknown(DomainMappingConditionIngressReady, cc.Reason, cc.Message)
 	}
+}
+
+// MarkIngressNotConfigured changes the IngressReady condition to be unknown to reflect
+// that the Ingress does not yet have a Status.
+func (dms *DomainMappingStatus) MarkIngressNotConfigured() {
+	domainMappingCondSet.Manage(dms).MarkUnknown(DomainMappingConditionIngressReady,
+		"IngressNotConfigured", "Ingress has not yet been reconciled.")
+}
+
+// MarkDomainClaimed updates the DomainMappingConditionDomainClaimed condition
+// to indicate that the domain was successfully claimed.
+func (dms *DomainMappingStatus) MarkDomainClaimed() {
+	domainMappingCondSet.Manage(dms).MarkTrue(DomainMappingConditionDomainClaimed)
 }

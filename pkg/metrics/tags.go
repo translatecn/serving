@@ -55,62 +55,9 @@ type podCtx struct {
 	pod, container string
 }
 
-// podContext generates a new base metric reporting context containing
-// the respective pod specific tags.
-func podContext(pod, container string) (context.Context, error) {
-	key := podCtx{pod: pod, container: container}
-	if ctx, ok := contextCache.Get(key); ok {
-		return ctx.(context.Context), nil
-	}
-
-	ctx, err := tag.New(context.Background(), tag.Upsert(PodKey, pod), tag.Upsert(ContainerKey, container))
-	if err != nil {
-		return ctx, err
-	}
-
-	contextCache.Add(key, ctx)
-	return ctx, nil
-}
-
 type podRevisionCtx struct {
 	pod      podCtx
 	revision types.NamespacedName
-}
-
-// PodRevisionContext generates a new base metric reporting context containing
-// the respective pod and revision specific tags.
-func PodRevisionContext(pod, container, ns, svc, cfg, rev string) (context.Context, error) {
-	key := podRevisionCtx{
-		pod:      podCtx{pod: pod, container: container},
-		revision: types.NamespacedName{Namespace: ns, Name: rev},
-	}
-
-	if ctx, ok := contextCache.Get(key); ok {
-		return ctx.(context.Context), nil
-	}
-
-	ctx, err := podContext(pod, container)
-	if err != nil {
-		return ctx, err
-	}
-
-	ctx = augmentWithRevision(ctx, ns, svc, cfg, rev)
-	contextCache.Add(key, ctx)
-	return ctx, nil
-}
-
-// augmentWithRevision augments the given context with a knative_revision resource.
-func augmentWithRevision(baseCtx context.Context, ns, svc, cfg, rev string) context.Context {
-	r := resource.Resource{
-		Type: ResourceTypeKnativeRevision,
-		Labels: map[string]string{
-			LabelNamespaceName:     ns,
-			LabelServiceName:       valueOrUnknown(svc),
-			LabelConfigurationName: cfg,
-			LabelRevisionName:      rev,
-		},
-	}
-	return metricskey.WithResource(baseCtx, r)
 }
 
 // AugmentWithResponse augments the given context with response-code specific tags.
@@ -151,4 +98,57 @@ func RevisionContext(ns, svc, cfg, rev string) context.Context {
 	contextCache.Add(key, ctx)
 
 	return ctx
+}
+
+// PodRevisionContext generates a new base metric reporting context containing
+// the respective pod and revision specific tags.
+func PodRevisionContext(pod, container, ns, svc, cfg, rev string) (context.Context, error) {
+	key := podRevisionCtx{
+		pod:      podCtx{pod: pod, container: container},
+		revision: types.NamespacedName{Namespace: ns, Name: rev},
+	}
+
+	if ctx, ok := contextCache.Get(key); ok {
+		return ctx.(context.Context), nil
+	}
+
+	ctx, err := podContext(pod, container)
+	if err != nil {
+		return ctx, err
+	}
+
+	ctx = augmentWithRevision(ctx, ns, svc, cfg, rev)
+	contextCache.Add(key, ctx)
+	return ctx, nil
+}
+
+// podContext generates a new base metric reporting context containing
+// the respective pod specific tags.
+func podContext(pod, container string) (context.Context, error) {
+	key := podCtx{pod: pod, container: container}
+	if ctx, ok := contextCache.Get(key); ok {
+		return ctx.(context.Context), nil
+	}
+
+	ctx, err := tag.New(context.Background(), tag.Upsert(PodKey, pod), tag.Upsert(ContainerKey, container))
+	if err != nil {
+		return ctx, err
+	}
+
+	contextCache.Add(key, ctx)
+	return ctx, nil
+}
+
+// augmentWithRevision augments the given context with a knative_revision resource.
+func augmentWithRevision(baseCtx context.Context, ns, svc, cfg, rev string) context.Context {
+	r := resource.Resource{
+		Type: ResourceTypeKnativeRevision,
+		Labels: map[string]string{
+			LabelNamespaceName:     ns,
+			LabelServiceName:       valueOrUnknown(svc),
+			LabelConfigurationName: cfg,
+			LabelRevisionName:      rev,
+		},
+	}
+	return metricskey.WithResource(baseCtx, r)
 }

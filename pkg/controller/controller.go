@@ -447,12 +447,6 @@ func (c *Impl) handleErr(logger *zap.SugaredLogger, err error, key types.Namespa
 	c.workQueue.Forget(key)
 }
 
-// NewSkipKey returns a new instance of skipKeyError.
-// Users can return this type of error to indicate that the key was skipped.
-func NewSkipKey(key string) error {
-	return skipKeyError{key: key}
-}
-
 // skipKeyError is an error that indicates a key was skipped.
 // We should not re-queue keys when it returns this error from Reconcile.
 type skipKeyError struct {
@@ -688,22 +682,30 @@ func (c *Impl) EnqueueControllerOf(obj interface{}) {
 	}
 }
 
-func StartAll(ctx context.Context, controllers ...*Impl) error {
-	eg, egCtx := errgroup.WithContext(ctx)
-
-	// Start all of the controllers.
-	for _, controller := range controllers {
-		c := controller
-		eg.Go(func() error {
-			return c.Run(egCtx)
-		})
-	}
-	return eg.Wait()
+// GlobalResync enqueues into the slow lane all objects from the passed SharedInformer
+func (c *Impl) GlobalResync(si cache.SharedInformer) {
+	alwaysTrue := func(interface{}) bool { return true }
+	c.FilteredGlobalResync(alwaysTrue, si)
 }
 
-// Run runs the controller with it's configured Concurrency
-func (c *Impl) Run(ctx context.Context) error {
-	return c.RunContext(ctx, c.Concurrency)
+// FilteredGlobalResync enqueues all objects from the
+// SharedInformer that pass the filter function in to the slow queue.
+func (c *Impl) FilteredGlobalResync(f func(interface{}) bool, si cache.SharedInformer) {
+	if c.workQueue.ShuttingDown() {
+		return
+	}
+	list := si.GetStore().List()
+	for _, obj := range list {
+		if f(obj) {
+			c.EnqueueSlow(obj)
+		}
+	}
+}
+
+// NewSkipKey returns a new instance of skipKeyError.
+// Users can return this type of error to indicate that the key was skipped.
+func NewSkipKey(key string) error {
+	return skipKeyError{key: key}
 }
 
 func NewContext(ctx context.Context, r Reconciler, options ControllerOptions) *Impl {
@@ -733,23 +735,20 @@ func NewContext(ctx context.Context, r Reconciler, options ControllerOptions) *I
 
 	return i
 }
+func StartAll(ctx context.Context, controllers ...*Impl) error {
+	eg, egCtx := errgroup.WithContext(ctx)
 
-// GlobalResync enqueues into the slow lane all objects from the passed SharedInformer
-func (c *Impl) GlobalResync(si cache.SharedInformer) {
-	alwaysTrue := func(interface{}) bool { return true }
-	c.FilteredGlobalResync(alwaysTrue, si)
+	// Start all of the controllers.
+	for _, controller := range controllers {
+		c := controller
+		eg.Go(func() error {
+			return c.Run(egCtx)
+		})
+	}
+	return eg.Wait()
 }
 
-// FilteredGlobalResync enqueues all objects from the
-// SharedInformer that pass the filter function in to the slow queue.
-func (c *Impl) FilteredGlobalResync(f func(interface{}) bool, si cache.SharedInformer) {
-	if c.workQueue.ShuttingDown() {
-		return
-	}
-	list := si.GetStore().List()
-	for _, obj := range list {
-		if f(obj) {
-			c.EnqueueSlow(obj)
-		}
-	}
+// Run runs the controller with it's configured Concurrency
+func (c *Impl) Run(ctx context.Context) error {
+	return c.RunContext(ctx, c.Concurrency)
 }

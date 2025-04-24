@@ -37,10 +37,10 @@ import (
 	"knative.dev/serving/pkg/over_kmap"
 	"knative.dev/serving/pkg/over_profiling"
 	"knative.dev/serving/pkg/over_ptr"
-	"knative.dev/serving/pkg/queue"
-	"knative.dev/serving/pkg/queue/readiness"
+	"knative.dev/serving/pkg/over_queue"
+	"knative.dev/serving/pkg/over_queue/over_readiness"
+	"knative.dev/serving/pkg/over_system"
 	over_config "knative.dev/serving/pkg/reconciler/over_revision/config"
-	"knative.dev/serving/pkg/system"
 )
 
 const (
@@ -299,7 +299,7 @@ func makeQueueContainer(rev *v1.Revision, cfg *over_config.Config) (*corev1.Cont
 				Port: intstr.FromInt32(servingPort.ContainerPort),
 				HTTPHeaders: []corev1.HTTPHeader{{
 					Name:  netheader.ProbeKey,
-					Value: queue.Name,
+					Value: over_queue.Name,
 				}},
 			},
 		}
@@ -333,12 +333,12 @@ func makeQueueContainer(rev *v1.Revision, cfg *over_config.Config) (*corev1.Cont
 	var readinessProbeJSON string
 	var err error
 	if multiContainerProbingEnabled && readinessProbes != nil && len(readinessProbes) > 0 {
-		readinessProbeJSON, err = readiness.EncodeMultipleProbes(readinessProbes)
+		readinessProbeJSON, err = over_readiness.EncodeMultipleProbes(readinessProbes)
 		if err != nil {
 			return nil, fmt.Errorf("failed to serialize multiple readiness probes: %w", err)
 		}
 	} else if userContainerReadinessProbe != nil {
-		readinessProbeJSON, err = readiness.EncodeSingleProbe(userContainerReadinessProbe)
+		readinessProbeJSON, err = over_readiness.EncodeSingleProbe(userContainerReadinessProbe)
 		if err != nil {
 			return nil, fmt.Errorf("failed to serialize single readiness probe: %w", err)
 		}
@@ -433,8 +433,8 @@ func makeQueueContainer(rev *v1.Revision, cfg *over_config.Config) (*corev1.Cont
 			Name:  "USER_PORT",
 			Value: strconv.Itoa(int(userPort)),
 		}, {
-			Name:  system.NamespaceEnvKey,
-			Value: system.Namespace(),
+			Name:  over_system.NamespaceEnvKey,
+			Value: over_system.Namespace(),
 		}, {
 			Name:  metrics.DomainEnv,
 			Value: metrics.Domain(),

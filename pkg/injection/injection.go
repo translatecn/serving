@@ -24,7 +24,7 @@ import (
 
 	"knative.dev/serving/pkg/controller"
 	"knative.dev/serving/pkg/over_logging"
-	"knative.dev/serving/pkg/signals"
+	"knative.dev/serving/pkg/over_signals"
 )
 
 // EnableInjectionOrDie enables Knative Client Injection, and provides a
@@ -42,7 +42,7 @@ import (
 // ```
 func EnableInjectionOrDie(ctx context.Context, cfg *rest.Config) (context.Context, func()) {
 	if ctx == nil {
-		ctx = signals.NewContext()
+		ctx = over_signals.NewContext()
 	}
 	if cfg == nil {
 		cfg = ParseAndGetRESTConfigOrDie()

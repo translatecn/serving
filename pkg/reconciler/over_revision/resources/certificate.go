@@ -21,8 +21,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/serving/networking/pkg/apis/networking"
 	"knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/networking/pkg/certificates"
 	"knative.dev/serving/networking/pkg/config"
+	"knative.dev/serving/networking/pkg/over_certificates"
 	servingnetworking "knative.dev/serving/pkg/networking"
 )
 
@@ -42,9 +42,9 @@ func MakeQueueProxyCertificate(namespace *corev1.Namespace, certClass string) *v
 		},
 		Spec: v1alpha1.CertificateSpec{
 			DNSNames: []string{
-				certificates.DataPlaneUserSAN(namespace.Name),
+				over_certificates.DataPlaneUserSAN(namespace.Name),
 				// added for reverse-compatibility with net-* implementations that do not work with multi-SANs
-				certificates.LegacyFakeDnsName,
+				over_certificates.LegacyFakeDnsName,
 			},
 			SecretName: servingnetworking.ServingCertName,
 		},

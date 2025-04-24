@@ -56,12 +56,12 @@ import (
 	smetrics "knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/over_logging"
 	"knative.dev/serving/pkg/over_profiling"
+	"knative.dev/serving/pkg/over_signals"
+	"knative.dev/serving/pkg/over_system"
 	"knative.dev/serving/pkg/over_version"
 	"knative.dev/serving/pkg/reconciler/autoscaling/over_kpa"
 	"knative.dev/serving/pkg/reconciler/over_metric"
 	"knative.dev/serving/pkg/resources"
-	"knative.dev/serving/pkg/signals"
-	"knative.dev/serving/pkg/system"
 )
 
 const (
@@ -73,7 +73,7 @@ const (
 
 func main() {
 	// Set up signals so we handle the first shutdown signal gracefully.
-	ctx := signals.NewContext()
+	ctx := over_signals.NewContext()
 
 	// Report stats on Go memory usage every 30 seconds.
 	metrics.MemStatsOrDie(ctx)
@@ -122,7 +122,7 @@ func main() {
 
 	profilingHandler := over_profiling.NewHandler(logger, false)
 
-	cmw := configmap.NewInformedWatcher(kubeclient.Get(ctx), system.Namespace())
+	cmw := configmap.NewInformedWatcher(kubeclient.Get(ctx), over_system.Namespace())
 	// Watch the logging config map and dynamically update logging levels.
 	cmw.Watch(over_logging.ConfigMapName(), over_logging.UpdateLevelFromConfigMap(logger, atomicLevel, component)) // ✅
 	// Watch the observability config map
@@ -133,7 +133,7 @@ func main() {
 	)
 
 	podLister := filteredpodinformer.Get(ctx, serving.RevisionUID).Lister()
-	networkCM, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, netcfg.ConfigMapName, metav1.GetOptions{})
+	networkCM, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(over_system.Namespace()).Get(ctx, netcfg.ConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		logger.Fatalw("Failed to fetch network config", zap.Error(err))
 	}

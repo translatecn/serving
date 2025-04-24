@@ -139,13 +139,6 @@ func getCurMetricsExporter() view.Exporter {
 	return *e
 }
 
-func getCurMetricsConfig() *metricsConfig {
-	readCmd := &readMetricsConfig{done: make(chan *metricsConfig)}
-	mWorker.c <- readCmd
-	cfg := <-readCmd.done
-	return cfg
-}
-
 func setCurMetricsConfigUnlocked(c *metricsConfig) {
 	setReportingPeriod(c)
 	curMetricsConfig = c
@@ -178,6 +171,22 @@ type noneExporter struct{}
 func (*noneExporter) ExportView(*view.Data) {
 }
 
+// ConfigMapWatcher returns a helper func which updates the exporter configuration based on
+// values in the supplied ConfigMap. This method captures a corev1.SecretLister which is used
+// to configure mTLS with the opencensus agent.
+func ConfigMapWatcher(ctx context.Context, component string, secrets SecretFetcher, logger *zap.SugaredLogger) func(*corev1.ConfigMap) {
+	domain := Domain()
+	return func(configMap *corev1.ConfigMap) {
+		UpdateExporter(ctx,
+			ExporterOptions{
+				Domain:    domain,
+				Component: strings.ReplaceAll(component, "-", "_"),
+				ConfigMap: configMap.Data,
+				Secrets:   secrets,
+			}, logger)
+	}
+}
+
 // UpdateExporter updates the exporter based on the given ExporterOptions.
 // This is a thread-safe function. The entire series of operations is locked
 // to prevent a race condition between reading the current configuration
@@ -206,19 +215,9 @@ func UpdateExporter(ctx context.Context, ops ExporterOptions, logger *zap.Sugare
 	err = <-updateCmd.done
 	return err
 }
-
-// ConfigMapWatcher returns a helper func which updates the exporter configuration based on
-// values in the supplied ConfigMap. This method captures a corev1.SecretLister which is used
-// to configure mTLS with the opencensus agent.
-func ConfigMapWatcher(ctx context.Context, component string, secrets SecretFetcher, logger *zap.SugaredLogger) func(*corev1.ConfigMap) {
-	domain := Domain()
-	return func(configMap *corev1.ConfigMap) {
-		UpdateExporter(ctx,
-			ExporterOptions{
-				Domain:    domain,
-				Component: strings.ReplaceAll(component, "-", "_"),
-				ConfigMap: configMap.Data,
-				Secrets:   secrets,
-			}, logger)
-	}
+func getCurMetricsConfig() *metricsConfig {
+	readCmd := &readMetricsConfig{done: make(chan *metricsConfig)}
+	mWorker.c <- readCmd
+	cfg := <-readCmd.done
+	return cfg
 }

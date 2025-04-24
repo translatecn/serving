@@ -25,9 +25,9 @@ import (
 	"go.uber.org/zap"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	"knative.dev/serving/pkg/hash"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/over_logging"
 	"knative.dev/serving/pkg/over_logging/logkey"
+	"knative.dev/serving/pkg/over_network"
 )
 
 const (
@@ -42,7 +42,7 @@ const (
 	retryProcessingInterval = 500 * time.Millisecond
 )
 
-var svcURLSuffix = fmt.Sprintf("svc.%s:%d", network.GetClusterDomainName(), autoscalerPort)
+var svcURLSuffix = fmt.Sprintf("svc.%s:%d", over_network.GetClusterDomainName(), autoscalerPort)
 
 // statProcessor is a function to process a single StatMessage.
 type statProcessor func(sm asmetrics.StatMessage)

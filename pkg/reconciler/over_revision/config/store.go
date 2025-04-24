@@ -26,7 +26,7 @@ import (
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/over_logging"
-	pkgtracing "knative.dev/serving/pkg/tracing/config"
+	pkgtracing "knative.dev/serving/pkg/over_tracing/config"
 )
 
 type cfgKey struct{}

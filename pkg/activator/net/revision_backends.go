@@ -52,7 +52,7 @@ import (
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/over_logging"
 	"knative.dev/serving/pkg/over_logging/logkey"
-	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/over_queue"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/over_serverlessservice/resources/over_names"
 )
@@ -407,12 +407,12 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (pass bool, n
 
 	// NOTE: changes below may require changes to testing/roundtripper.go to make unit tests pass.
 	options := []interface{}{
-		netprober.WithHeader(netheader.ProbeKey, queue.Name),
+		netprober.WithHeader(netheader.ProbeKey, over_queue.Name),
 		netprober.WithHeader(netheader.UserAgentKey, netheader.ActivatorUserAgent),
 		// Order is important since first failing verification short-circuits the rest: checkMesh must be first.
 		checkMesh,
 		netprober.ExpectsStatusCodes([]int{http.StatusOK}),
-		netprober.ExpectsBody(queue.Name),
+		netprober.ExpectsBody(over_queue.Name),
 	}
 
 	if rw.usePassthroughLb {

@@ -33,8 +33,8 @@ import (
 	"knative.dev/serving/pkg/controller"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/over_logging"
+	"knative.dev/serving/pkg/over_system"
 	pkgreconciler "knative.dev/serving/pkg/reconciler"
-	"knative.dev/serving/pkg/system"
 )
 
 // NewController initializes the controller and is called by the generated code.
@@ -95,7 +95,7 @@ func NewController(
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		// Accept only ActivatorService K8s service objects.
 		FilterFunc: pkgreconciler.ChainFilterFuncs(
-			pkgreconciler.NamespaceFilterFunc(system.Namespace()),
+			pkgreconciler.NamespaceFilterFunc(over_system.Namespace()),
 			pkgreconciler.NameFilterFunc(networking.ActivatorServiceName)),
 		Handler: controller.HandleAll(grCb),
 	})

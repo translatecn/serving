@@ -4,11 +4,13 @@
 #cd istio-1.25.0
 #export PATH=$PWD/bin:$PATH
 #istioctl install --set profile=default -y --set hub=registry.cn-hangzhou.aliyuncs.com/acejilam
-install-k8s-by-kind.sh koord v1.30.3
+install-k8s-by-kind.sh knative v1.30.3
+
+export KUBECONFIG=~/.kube/knative
 
 function t() {
 	docker pull $1
-	kind load docker-image -n koord $1
+	kind load docker-image -n knative $1
 }
 
 t registry.cn-hangzhou.aliyuncs.com/acejilam/knative-serving-activator:v1.17.0
@@ -55,10 +57,10 @@ kubectl get pods --namespace knative-serving
 
 #git clone https://github.com/knative/docs.git
 #cd docs/code-samples/serving/hello-world/helloworld-go
-cd debug/helloworld-go
 #docker build -t registry.cn-hangzhou.aliyuncs.com/ls-2018/knative:helloworld-go .
 #docker push registry.cn-hangzhou.aliyuncs.com/ls-2018/knative:helloworld-go
 #sed -i 's@docker.io/{username}/helloworld-go@registry.cn-hangzhou.aliyuncs.com/ls-2018/knative:helloworld-go@g' service.yaml
-kubectl apply -f pod.yaml
+kubectl apply -f debug/helloworld-go/pod.yaml
+kubectl apply -f debug/helloworld-go/revision-v1.yaml
 #cd -
 # k exec -it title -c title -- curl -H 'Host: helloworld-go.default.127.0.0.1.sslip.io' kourier.kourier-system

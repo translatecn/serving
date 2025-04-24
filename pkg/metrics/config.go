@@ -121,6 +121,44 @@ func (mc *metricsConfig) record(ctx context.Context, mss []stats.Measurement, ro
 	return stats.RecordWithOptions(ctx, append(ros, stats.WithMeasurements(mss...))...)
 }
 
+// prometheusPort returns the TCP port number configured via the environment
+// for the Prometheus metrics exporter if it's set, a default value otherwise.
+// No validation is performed on the port value, other than ensuring that value
+// is a valid port number (16-bit unsigned integer).
+func prometheusPort() (int, error) {
+	ppStr := os.Getenv(prometheusPortEnvName)
+	if ppStr == "" {
+		return defaultPrometheusPort, nil
+	}
+
+	pp, err := strconv.ParseInt(ppStr, 10, 16)
+	if err != nil {
+		return -1, fmt.Errorf("the environment variable %q could not be parsed as a port number: %w",
+			prometheusPortEnvName, err)
+	}
+
+	return int(pp), nil
+}
+
+// prometheusHost returns the host configured via the environment
+// for the Prometheus metrics exporter if it's set, a default value otherwise.
+// No validation is done here.
+func prometheusHost() string {
+	phStr := os.Getenv(prometheusHostEnvName)
+	if phStr == "" {
+		return defaultPrometheusHost
+	}
+	return phStr
+}
+
+// Domain holds the metrics domain to use for surfacing metrics.
+func Domain() string {
+	if domain := os.Getenv(DomainEnv); domain != "" {
+		return domain
+	}
+	return ""
+}
+
 func createMetricsConfig(_ context.Context, ops ExporterOptions) (*metricsConfig, error) {
 	var mc metricsConfig
 	mc.domain = ops.Domain
@@ -212,45 +250,3 @@ func createMetricsConfig(_ context.Context, ops ExporterOptions) (*metricsConfig
 	}
 	return &mc, nil
 }
-
-// Domain holds the metrics domain to use for surfacing metrics.
-func Domain() string {
-	if domain := os.Getenv(DomainEnv); domain != "" {
-		return domain
-	}
-	return ""
-}
-
-// prometheusPort returns the TCP port number configured via the environment
-// for the Prometheus metrics exporter if it's set, a default value otherwise.
-// No validation is performed on the port value, other than ensuring that value
-// is a valid port number (16-bit unsigned integer).
-func prometheusPort() (int, error) {
-	ppStr := os.Getenv(prometheusPortEnvName)
-	if ppStr == "" {
-		return defaultPrometheusPort, nil
-	}
-
-	pp, err := strconv.ParseInt(ppStr, 10, 16)
-	if err != nil {
-		return -1, fmt.Errorf("the environment variable %q could not be parsed as a port number: %w",
-			prometheusPortEnvName, err)
-	}
-
-	return int(pp), nil
-}
-
-// prometheusHost returns the host configured via the environment
-// for the Prometheus metrics exporter if it's set, a default value otherwise.
-// No validation is done here.
-func prometheusHost() string {
-	phStr := os.Getenv(prometheusHostEnvName)
-	if phStr == "" {
-		return defaultPrometheusHost
-	}
-	return phStr
-}
-
-// JSONToOptions converts a json string to ExporterOptions.
-
-// OptionsToJSON converts an ExporterOptions object to a JSON string.

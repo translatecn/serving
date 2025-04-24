@@ -30,18 +30,18 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	netheader "knative.dev/serving/networking/pkg/http/header"
-	netproxy "knative.dev/serving/networking/pkg/http/proxy"
+	netproxy "knative.dev/serving/networking/pkg/http/over_proxy"
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	apiconfig "knative.dev/serving/pkg/apis/config"
-	pkghttp "knative.dev/serving/pkg/http"
-	pkghandler "knative.dev/serving/pkg/network/handlers"
 	"knative.dev/serving/pkg/networking"
+	pkghttp "knative.dev/serving/pkg/over_http"
 	"knative.dev/serving/pkg/over_logging/logkey"
-	"knative.dev/serving/pkg/queue"
+	pkghandler "knative.dev/serving/pkg/over_network/over_handlers"
+	"knative.dev/serving/pkg/over_queue"
+	tracingconfig "knative.dev/serving/pkg/over_tracing/config"
+	"knative.dev/serving/pkg/over_tracing/propagation/tracecontextb3"
 	"knative.dev/serving/pkg/reconciler/over_serverlessservice/resources/over_names"
-	tracingconfig "knative.dev/serving/pkg/tracing/config"
-	"knative.dev/serving/pkg/tracing/propagation/tracecontextb3"
 )
 
 // Throttler is the interface that Handler calls to Try to proxy the user request.
@@ -105,7 +105,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		a.logger.Errorw("Throttler try error", zap.String(logkey.Key, revID.String()), zap.Error(err))
 
-		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, queue.ErrRequestQueueFull) {
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, over_queue.ErrRequestQueueFull) {
 			http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)

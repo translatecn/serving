@@ -29,7 +29,7 @@ import (
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
-	netstats "knative.dev/serving/networking/pkg/http/stats"
+	netstats "knative.dev/serving/networking/pkg/http/over_stats"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"

@@ -23,8 +23,8 @@ import (
 	"strconv"
 	"strings"
 
-	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
-	networkaccessor "knative.dev/serving/pkg/reconciler/accessor/networking"
+	kaccessor "knative.dev/serving/pkg/reconciler/over_accessor"
+	networkaccessor "knative.dev/serving/pkg/reconciler/over_accessor/networking"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -42,9 +42,9 @@ import (
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	domainmappingreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1beta1/domainmapping"
 	"knative.dev/serving/pkg/controller"
-	"knative.dev/serving/pkg/network"
 	servingnetworking "knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/over_logging"
+	"knative.dev/serving/pkg/over_network"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/domainmapping/config"
 	"knative.dev/serving/pkg/reconciler/domainmapping/resources"
@@ -171,79 +171,8 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, dm *v1beta1.DomainMapping
 	return r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Delete(ctx, dm.Name, metav1.DeleteOptions{})
 }
 
-func externalDomainTLSEnabled(ctx context.Context, dm *v1beta1.DomainMapping) bool {
-	if !config.FromContext(ctx).Network.ExternalDomainTLS {
-		return false
-	}
-	annotationValue := netapi.GetDisableExternalDomainTLS(dm.Annotations)
-	disabledByAnnotation, err := strconv.ParseBool(annotationValue)
-	if annotationValue != "" && err != nil {
-		logger := over_logging.FromContext(ctx)
-		// Validation should've caught an invalid value here.
-		// If we have one anyway, assume not disabled and log a warning.
-		logger.Warnf("DM.Annotations[%s] = %q is invalid",
-			netapi.DisableExternalDomainTLSAnnotation, annotationValue)
-	}
-
-	return !disabledByAnnotation
-}
-
 func certClass(ctx context.Context) string {
 	return config.FromContext(ctx).Network.DefaultCertificateClass
-}
-
-func (r *Reconciler) tls(ctx context.Context, dm *v1beta1.DomainMapping) ([]netv1alpha1.IngressTLS, []netv1alpha1.HTTP01Challenge, error) {
-	if dm.Spec.TLS != nil {
-		dm.Status.MarkCertificateNotRequired(v1beta1.TLSCertificateProvidedExternally)
-		dm.Status.URL.Scheme = "https"
-		return []netv1alpha1.IngressTLS{{
-			Hosts:           []string{dm.Name},
-			SecretName:      dm.Spec.TLS.SecretName,
-			SecretNamespace: dm.Namespace,
-		}}, nil, nil
-	}
-
-	if !externalDomainTLSEnabled(ctx, dm) {
-		dm.Status.MarkTLSNotEnabled(v1.ExternalDomainTLSNotEnabledMessage)
-		return nil, nil, nil
-	}
-
-	acmeChallenges := []netv1alpha1.HTTP01Challenge{}
-	desiredCert := resources.MakeCertificate(dm, certClass(ctx))
-	cert, err := networkaccessor.ReconcileCertificate(ctx, dm, desiredCert, r)
-	if err != nil {
-		if kaccessor.IsNotOwned(err) {
-			dm.Status.MarkCertificateNotOwned(desiredCert.Name)
-		} else {
-			dm.Status.MarkCertificateProvisionFailed(desiredCert.Name)
-		}
-		return nil, nil, err
-	}
-
-	for _, dnsName := range desiredCert.Spec.DNSNames {
-		if dnsName == dm.Name {
-			dm.Status.URL.Scheme = "https"
-			break
-		}
-	}
-	if cert.IsReady() {
-		dm.Status.MarkCertificateReady(cert.Name)
-		return []netv1alpha1.IngressTLS{routeresources.MakeIngressTLS(cert, desiredCert.Spec.DNSNames)}, nil, nil
-	}
-	if config.FromContext(ctx).Network.HTTPProtocol == netcfg.HTTPEnabled {
-		// When httpProtocol is enabled, downgrade http scheme.
-		dm.Status.URL.Scheme = "http"
-		dm.Status.MarkHTTPDowngrade(cert.Name)
-	} else {
-		// Otherwise, mark certificate not ready.
-		dm.Status.MarkCertificateNotReady(cert.Name)
-	}
-	acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
-
-	sort.Slice(acmeChallenges, func(i, j int) bool {
-		return acmeChallenges[i].URL.String() < acmeChallenges[j].URL.String()
-	})
-	return nil, acmeChallenges, nil
 }
 
 func (r *Reconciler) reconcileIngress(ctx context.Context, dm *v1beta1.DomainMapping, desired *netv1alpha1.Ingress) (*netv1alpha1.Ingress, error) {
@@ -299,7 +228,7 @@ func (r *Reconciler) resolveRef(ctx context.Context, dm *v1beta1.DomainMapping) 
 	// TODO(julz) in the future we may support addressables that are not created
 	// from Services, in which case we would need to dynamically create the
 	// an ExternalName Service for the KIngress to use.
-	requiredSuffix := ".svc." + network.GetClusterDomainName()
+	requiredSuffix := ".svc." + over_network.GetClusterDomainName()
 	parts := strings.Split(strings.TrimSuffix(resolved.Host, requiredSuffix), ".")
 	if !strings.HasSuffix(resolved.Host, requiredSuffix) || len(parts) != 2 {
 		dm.Status.MarkReferenceNotResolved(fmt.Sprintf("resolved URI %q must be of the form {name}.{namespace}%s", resolved, requiredSuffix))
@@ -317,6 +246,19 @@ func (r *Reconciler) resolveRef(ctx context.Context, dm *v1beta1.DomainMapping) 
 	return resolved.Host, parts[0], nil
 }
 
+func (r *Reconciler) createDomainClaim(ctx context.Context, dm *v1beta1.DomainMapping) error {
+	if !config.FromContext(ctx).Network.AutocreateClusterDomainClaims {
+		dm.Status.MarkDomainClaimNotOwned()
+		return fmt.Errorf("no ClusterDomainClaim found for domain %q (and autocreate-cluster-domain-claims property is not true)", dm.Name)
+	}
+
+	_, err := r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Create(ctx, resources.MakeDomainClaim(dm), metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create ClusterDomainClaim: %w", err)
+	}
+
+	return nil
+}
 func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1beta1.DomainMapping) error {
 	dc, err := r.domainClaimLister.Get(dm.Name)
 	if err != nil && !apierrs.IsNotFound(err) {
@@ -334,16 +276,71 @@ func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1beta1.Domai
 	return nil
 }
 
-func (r *Reconciler) createDomainClaim(ctx context.Context, dm *v1beta1.DomainMapping) error {
-	if !config.FromContext(ctx).Network.AutocreateClusterDomainClaims {
-		dm.Status.MarkDomainClaimNotOwned()
-		return fmt.Errorf("no ClusterDomainClaim found for domain %q (and autocreate-cluster-domain-claims property is not true)", dm.Name)
+func (r *Reconciler) tls(ctx context.Context, dm *v1beta1.DomainMapping) ([]netv1alpha1.IngressTLS, []netv1alpha1.HTTP01Challenge, error) {
+	if dm.Spec.TLS != nil {
+		dm.Status.MarkCertificateNotRequired(v1beta1.TLSCertificateProvidedExternally)
+		dm.Status.URL.Scheme = "https"
+		return []netv1alpha1.IngressTLS{{
+			Hosts:           []string{dm.Name},
+			SecretName:      dm.Spec.TLS.SecretName,
+			SecretNamespace: dm.Namespace,
+		}}, nil, nil
 	}
 
-	_, err := r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Create(ctx, resources.MakeDomainClaim(dm), metav1.CreateOptions{})
+	if !externalDomainTLSEnabled(ctx, dm) {
+		dm.Status.MarkTLSNotEnabled(v1.ExternalDomainTLSNotEnabledMessage)
+		return nil, nil, nil
+	}
+
+	var acmeChallenges []netv1alpha1.HTTP01Challenge
+	desiredCert := resources.MakeCertificate(dm, certClass(ctx))
+	cert, err := networkaccessor.ReconcileCertificate(ctx, dm, desiredCert, r)
 	if err != nil {
-		return fmt.Errorf("failed to create ClusterDomainClaim: %w", err)
+		if kaccessor.IsNotOwned(err) {
+			dm.Status.MarkCertificateNotOwned(desiredCert.Name)
+		} else {
+			dm.Status.MarkCertificateProvisionFailed(desiredCert.Name)
+		}
+		return nil, nil, err
 	}
 
-	return nil
+	for _, dnsName := range desiredCert.Spec.DNSNames {
+		if dnsName == dm.Name {
+			dm.Status.URL.Scheme = "https"
+			break
+		}
+	}
+	if cert.IsReady() {
+		dm.Status.MarkCertificateReady(cert.Name)
+		return []netv1alpha1.IngressTLS{routeresources.MakeIngressTLS(cert, desiredCert.Spec.DNSNames)}, nil, nil
+	}
+	if config.FromContext(ctx).Network.HTTPProtocol == netcfg.HTTPEnabled {
+		// When httpProtocol is enabled, downgrade http scheme.
+		dm.Status.URL.Scheme = "http"
+		dm.Status.MarkHTTPDowngrade(cert.Name)
+	} else {
+		// Otherwise, mark certificate not ready.
+		dm.Status.MarkCertificateNotReady(cert.Name)
+	}
+	acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
+
+	sort.Slice(acmeChallenges, func(i, j int) bool {
+		return acmeChallenges[i].URL.String() < acmeChallenges[j].URL.String()
+	})
+	return nil, acmeChallenges, nil
+}
+
+func externalDomainTLSEnabled(ctx context.Context, dm *v1beta1.DomainMapping) bool {
+	if !config.FromContext(ctx).Network.ExternalDomainTLS {
+		return false
+	}
+	annotationValue := netapi.GetDisableExternalDomainTLS(dm.Annotations)
+	disabledByAnnotation, err := strconv.ParseBool(annotationValue)
+	if annotationValue != "" && err != nil {
+		logger := over_logging.FromContext(ctx)
+		// Validation should've caught an invalid value here.
+		// If we have one anyway, assume not disabled and log a warning.
+		logger.Warnf("DM.Annotations[%s] = %q is invalid", netapi.DisableExternalDomainTLSAnnotation, annotationValue)
+	}
+	return !disabledByAnnotation
 }

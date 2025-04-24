@@ -29,24 +29,11 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
 	"knative.dev/serving/pkg/hash"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/over_logging"
+	"knative.dev/serving/pkg/over_network"
+	"knative.dev/serving/pkg/over_system"
 	"knative.dev/serving/pkg/reconciler"
-	"knative.dev/serving/pkg/system"
 )
-
-// WithDynamicLeaderElectorBuilder sets up the statefulset elector based on environment,
-// falling back on the standard elector.
-func WithDynamicLeaderElectorBuilder(ctx context.Context, kc kubernetes.Interface, cc ComponentConfig) context.Context {
-	logger := over_logging.FromContext(ctx)
-	b, _, err := NewStatefulSetBucketAndSet(int(cc.Buckets))
-	if err == nil {
-		logger.Info("Running with StatefulSet leader election")
-		return WithStatefulSetElectorBuilder(ctx, cc, b)
-	}
-	logger.Info("Running with Standard leader election")
-	return WithStandardLeaderElectorBuilder(ctx, kc, cc)
-}
 
 // WithStandardLeaderElectorBuilder infuses a context with the ability to build
 // LeaderElectors with the provided component configuration acquiring resource
@@ -55,16 +42,6 @@ func WithStandardLeaderElectorBuilder(ctx context.Context, kc kubernetes.Interfa
 	return context.WithValue(ctx, builderKey{}, &standardBuilder{
 		kc:  kc,
 		lec: cc,
-	})
-}
-
-// WithStatefulSetElectorBuilder infuses a context with the ability to build
-// Electors which are assigned leadership based on the StatefulSet ordinal from
-// the provided component configuration.
-func WithStatefulSetElectorBuilder(ctx context.Context, cc ComponentConfig, bkt reconciler.Bucket) context.Context {
-	return context.WithValue(ctx, builderKey{}, &statefulSetBuilder{
-		lec: cc,
-		bkt: bkt,
 	})
 }
 
@@ -134,7 +111,7 @@ func (b *standardBuilder) buildElector(ctx context.Context, la reconciler.Leader
 	electors := make([]Elector, 0, b.lec.Buckets)
 	for _, bkt := range bkts {
 		rl, err := resourcelock.New(knativeResourceLock,
-			system.Namespace(), // use namespace we are running in
+			over_system.Namespace(), // use namespace we are running in
 			bkt.Name(),
 			b.kc.CoreV1(),
 			b.kc.CoordinationV1(),
@@ -209,24 +186,6 @@ type statefulSetBuilder struct {
 	bkt reconciler.Bucket
 }
 
-func (b *statefulSetBuilder) buildElector(ctx context.Context, la reconciler.LeaderAware, enq func(reconciler.Bucket, types.NamespacedName)) (Elector, error) {
-	logger := over_logging.FromContext(ctx)
-	logger.Infof("%s will run in StatefulSet ordinal assignment mode with bucket name %s",
-		b.lec.Component, b.bkt.Name())
-
-	return &unopposedElector{
-		bkt: b.bkt,
-		la:  la,
-		enq: enq,
-	}, nil
-}
-
-func statefulSetPodDNS(ordinal int, ssc *statefulSetConfig) string {
-	return fmt.Sprintf("%s://%s-%d.%s.%s.svc.%s:%s", ssc.Protocol,
-		ssc.StatefulSetID.ssName, ordinal, ssc.ServiceName,
-		system.Namespace(), network.GetClusterDomainName(), ssc.Port)
-}
-
 // unopposedElector promotes when run without needing to be elected.
 type unopposedElector struct {
 	bkt reconciler.Bucket
@@ -242,12 +201,6 @@ var (
 // Run implements Elector
 func (ue *unopposedElector) Run(ctx context.Context) {
 	ue.la.Promote(ue.bkt, ue.enq)
-}
-
-func (ue *unopposedElector) InitialBuckets() []reconciler.Bucket {
-	return []reconciler.Bucket{
-		ue.bkt,
-	}
 }
 
 type runAll struct {
@@ -308,4 +261,48 @@ func NewStatefulSetBucketAndSet(buckets int) (reconciler.Bucket, *hash.BucketSet
 	// Buckets is sorted in order of names so we can use ordinal to
 	// get the correct Bucket for this binary.
 	return bs.Buckets()[ssc.StatefulSetID.ordinal], bs, nil
+}
+func statefulSetPodDNS(ordinal int, ssc *statefulSetConfig) string {
+	return fmt.Sprintf("%s://%s-%d.%s.%s.svc.%s:%s", ssc.Protocol,
+		ssc.StatefulSetID.ssName, ordinal, ssc.ServiceName,
+		over_system.Namespace(), over_network.GetClusterDomainName(), ssc.Port)
+}
+
+// WithStatefulSetElectorBuilder infuses a context with the ability to build
+// Electors which are assigned leadership based on the StatefulSet ordinal from
+// the provided component configuration.
+func WithStatefulSetElectorBuilder(ctx context.Context, cc ComponentConfig, bkt reconciler.Bucket) context.Context {
+	return context.WithValue(ctx, builderKey{}, &statefulSetBuilder{
+		lec: cc,
+		bkt: bkt,
+	})
+}
+
+// WithDynamicLeaderElectorBuilder sets up the statefulset elector based on environment,
+// falling back on the standard elector.
+func WithDynamicLeaderElectorBuilder(ctx context.Context, kc kubernetes.Interface, cc ComponentConfig) context.Context {
+	logger := over_logging.FromContext(ctx)
+	b, _, err := NewStatefulSetBucketAndSet(int(cc.Buckets))
+	if err == nil {
+		logger.Info("Running with StatefulSet leader election")
+		return WithStatefulSetElectorBuilder(ctx, cc, b)
+	}
+	logger.Info("Running with Standard leader election")
+	return WithStandardLeaderElectorBuilder(ctx, kc, cc)
+}
+func (b *statefulSetBuilder) buildElector(ctx context.Context, la reconciler.LeaderAware, enq func(reconciler.Bucket, types.NamespacedName)) (Elector, error) {
+	logger := over_logging.FromContext(ctx)
+	logger.Infof("%s will run in StatefulSet ordinal assignment mode with bucket name %s",
+		b.lec.Component, b.bkt.Name())
+
+	return &unopposedElector{
+		bkt: b.bkt,
+		la:  la,
+		enq: enq,
+	}, nil
+}
+func (ue *unopposedElector) InitialBuckets() []reconciler.Bucket {
+	return []reconciler.Bucket{
+		ue.bkt,
+	}
 }
