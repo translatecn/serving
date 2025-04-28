@@ -26,35 +26,6 @@ import (
 	"knative.dev/serving/networking/pkg/apis/networking"
 )
 
-// healthyAddresses takes an endpoints object and a port name and return the set
-// of addresses that implement this port.
-func healthyAddresses(endpoints *corev1.Endpoints, portName string) sets.Set[string] {
-	var addresses int
-	for _, es := range endpoints.Subsets {
-		for _, port := range es.Ports {
-			if port.Name == portName {
-				addresses += len(es.Addresses)
-				break
-			}
-		}
-	}
-
-	ready := make(sets.Set[string], addresses)
-
-	for _, es := range endpoints.Subsets {
-		for _, port := range es.Ports {
-			if port.Name == portName {
-				for _, addr := range es.Addresses {
-					ready.Insert(addr.IP)
-				}
-				break
-			}
-		}
-	}
-
-	return ready
-}
-
 // endpointsToDests takes an endpoints object and a port name and returns two sets of
 // ready and non-ready l4 dests in the endpoints object which have that port.
 func endpointsToDests(endpoints *corev1.Endpoints, portName string) (ready, notReady sets.Set[string]) {
@@ -103,4 +74,33 @@ func getServicePort(protocol networking.ProtocolType, svc *corev1.Service) (int,
 	}
 
 	return 0, false
+}
+
+// healthyAddresses takes an endpoints object and a port name and return the set
+// of addresses that implement this port.
+func healthyAddresses(endpoints *corev1.Endpoints, portName string) sets.Set[string] {
+	var addresses int
+	for _, es := range endpoints.Subsets {
+		for _, port := range es.Ports {
+			if port.Name == portName {
+				addresses += len(es.Addresses)
+				break
+			}
+		}
+	}
+
+	ready := make(sets.Set[string], addresses)
+
+	for _, es := range endpoints.Subsets {
+		for _, port := range es.Ports {
+			if port.Name == portName {
+				for _, addr := range es.Addresses {
+					ready.Insert(addr.IP)
+				}
+				break
+			}
+		}
+	}
+
+	return ready
 }

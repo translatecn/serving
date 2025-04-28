@@ -23,7 +23,7 @@ import (
 	"strconv"
 	"time"
 
-	"knative.dev/serving/pkg/over_logging"
+	"knative.dev/serving/pkg/overlogging"
 )
 
 // HealthCheckDefaultPort defines the default port number for health probes
@@ -32,7 +32,7 @@ const HealthCheckDefaultPort = 8080
 // ServeHealthProbes sets up liveness and readiness probes.
 // If user sets no probes explicitly via the context then defaults are added.
 func ServeHealthProbes(ctx context.Context, port int) error {
-	logger := over_logging.FromContext(ctx)
+	logger := overlogging.FromContext(ctx)
 	server := http.Server{ReadHeaderTimeout: time.Minute, Handler: muxWithHandles(ctx), Addr: ":" + strconv.Itoa(port)}
 	go func() {
 		<-ctx.Done()
@@ -57,7 +57,7 @@ func muxWithHandles(ctx context.Context) *http.ServeMux {
 }
 
 func newDefaultProbesHandle(sigCtx context.Context) http.HandlerFunc {
-	logger := over_logging.FromContext(sigCtx)
+	logger := overlogging.FromContext(sigCtx)
 	return func(w http.ResponseWriter, r *http.Request) {
 		f := func() error {
 			select {

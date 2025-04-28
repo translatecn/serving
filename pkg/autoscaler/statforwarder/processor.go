@@ -24,7 +24,7 @@ import (
 	"go.uber.org/zap"
 
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
-	"knative.dev/serving/pkg/over_logging/logkey"
+	"knative.dev/serving/pkg/overlogging/logkey"
 	"knative.dev/serving/pkg/websocket"
 )
 

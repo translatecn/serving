@@ -1,0 +1,76 @@
+/*
+Copyright 2019 The Knative Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package overservice
+
+import (
+	"context"
+
+	cfgmap "knative.dev/serving/pkg/apis/config"
+	servingclient "knative.dev/serving/pkg/client/injection/client"
+	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
+	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route"
+	kserviceinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/service"
+	ksvcreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/service"
+
+	"k8s.io/client-go/tools/cache"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/overcontroller"
+	"knative.dev/serving/pkg/overconfigmap"
+	"knative.dev/serving/pkg/overlogging"
+)
+
+// NewController initializes the controller and is called by the generated code
+// Registers eventhandlers to enqueue events
+func NewController(
+	ctx context.Context,
+	cmw overconfigmap.Watcher,
+) *overcontroller.Impl {
+	logger := overlogging.FromContext(ctx)
+	serviceInformer := kserviceinformer.Get(ctx)
+	routeInformer := routeinformer.Get(ctx)
+	configurationInformer := configurationinformer.Get(ctx)
+	revisionInformer := revisioninformer.Get(ctx)
+
+	configStore := cfgmap.NewStore(logger.Named("config-store"))
+	configStore.WatchConfigs(cmw)
+
+	c := NewReconciler(
+		servingclient.Get(ctx),
+		configurationInformer.Lister(),
+		revisionInformer.Lister(),
+		routeInformer.Lister(),
+	)
+	_ = c.ReconcileKind
+	opts := func(*overcontroller.Impl) overcontroller.Options {
+		return overcontroller.Options{ConfigStore: configStore}
+	}
+	impl := ksvcreconciler.NewImpl(ctx, c, opts)
+
+	serviceInformer.Informer().AddEventHandler(overcontroller.HandleAll(impl.Enqueue))
+
+	configurationInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: overcontroller.FilterController(&v1.Service{}),
+		Handler:    overcontroller.HandleAll(impl.EnqueueControllerOf),
+	})
+	routeInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: overcontroller.FilterController(&v1.Service{}),
+		Handler:    overcontroller.HandleAll(impl.EnqueueControllerOf),
+	})
+
+	return impl
+}

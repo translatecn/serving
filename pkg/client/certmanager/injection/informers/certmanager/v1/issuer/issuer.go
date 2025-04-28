@@ -23,8 +23,8 @@ import (
 
 	v1 "github.com/cert-manager/cert-manager/pkg/client/informers/externalversions/certmanager/v1"
 	factory "knative.dev/serving/pkg/client/certmanager/injection/informers/factory"
-	controller "knative.dev/serving/pkg/controller"
-	overlogging "knative.dev/serving/pkg/over_logging"
+	controller "knative.dev/serving/pkg/overcontroller"
+	overlogging "knative.dev/serving/pkg/overlogging"
 )
 
 // Key is used for associating the Informer inside the context.Context.

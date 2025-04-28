@@ -89,7 +89,7 @@ func (g *duckGenerator) GenerateType(c *generator.Context, t *types.Type, w io.W
 		"duckCachedInformerFactory": c.Universe.Type(types.Name{Package: "knative.dev/serving/pkg/apis/duck", Name: "CachedInformerFactory"}),
 		"duckInformerFactory":       c.Universe.Type(types.Name{Package: "knative.dev/serving/pkg/apis/duck", Name: "InformerFactory"}),
 		"loggingFromContext": c.Universe.Function(types.Name{
-			Package: "knative.dev/serving/pkg/over_logging",
+			Package: "knative.dev/serving/pkg/overlogging",
 			Name:    "FromContext",
 		}),
 		"contextContext": c.Universe.Type(types.Name{

@@ -23,7 +23,7 @@ import (
 
 	fake "knative.dev/serving/pkg/client/injection/informers/factory/fake"
 	domainmapping "knative.dev/serving/pkg/client/injection/informers/serving/v1beta1/domainmapping"
-	controller "knative.dev/serving/pkg/controller"
+	controller "knative.dev/serving/pkg/overcontroller"
 	injection "knative.dev/serving/pkg/injection"
 )
 

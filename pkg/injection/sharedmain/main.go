@@ -39,18 +39,18 @@ import (
 	"k8s.io/client-go/rest"
 
 	kubeclient "knative.dev/serving/pkg/client/injection/kube/client"
-	cminformer "knative.dev/serving/pkg/configmap/informer"
-	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/overcontroller"
 	"knative.dev/serving/pkg/injection"
-	"knative.dev/serving/pkg/leaderelection"
+	"knative.dev/serving/pkg/overleaderelection"
 	"knative.dev/serving/pkg/metrics"
-	"knative.dev/serving/pkg/over_logging"
-	"knative.dev/serving/pkg/over_logging/logkey"
-	"knative.dev/serving/pkg/over_profiling"
-	"knative.dev/serving/pkg/over_signals"
-	"knative.dev/serving/pkg/over_system"
-	"knative.dev/serving/pkg/over_version"
-	"knative.dev/serving/pkg/over_webhook"
+	cminformer "knative.dev/serving/pkg/overconfigmap/informer"
+	"knative.dev/serving/pkg/overlogging"
+	"knative.dev/serving/pkg/overlogging/logkey"
+	"knative.dev/serving/pkg/overprofiling"
+	"knative.dev/serving/pkg/oversignals"
+	"knative.dev/serving/pkg/oversystem"
+	"knative.dev/serving/pkg/overversion"
+	"knative.dev/serving/pkg/overwebhook"
 	"knative.dev/serving/pkg/reconciler"
 )
 
@@ -62,18 +62,18 @@ func init() {
 // 1. provided context,
 // 2. reading from the API server,
 // 3. defaults (if not found).
-func GetLeaderElectionConfig(ctx context.Context) (*leaderelection.Config, error) {
-	if cfg := leaderelection.GetConfig(ctx); cfg != nil {
+func GetLeaderElectionConfig(ctx context.Context) (*overleaderelection.Config, error) {
+	if cfg := overleaderelection.GetConfig(ctx); cfg != nil {
 		return cfg, nil
 	}
 
-	leaderElectionConfigMap, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(over_system.Namespace()).Get(ctx, leaderelection.ConfigMapName(), metav1.GetOptions{})
+	leaderElectionConfigMap, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(oversystem.Namespace()).Get(ctx, overleaderelection.ConfigMapName(), metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
-		return leaderelection.NewConfigFromConfigMap(nil)
+		return overleaderelection.NewConfigFromConfigMap(nil)
 	} else if err != nil {
 		return nil, err
 	}
-	return leaderelection.NewConfigFromConfigMap(leaderElectionConfigMap)
+	return overleaderelection.NewConfigFromConfigMap(leaderElectionConfigMap)
 }
 
 // GetObservabilityConfig gets the observability config from the (in order):
@@ -85,7 +85,7 @@ func GetObservabilityConfig(ctx context.Context) (*metrics.ObservabilityConfig, 
 		return cfg, nil
 	}
 
-	observabilityConfigMap, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(over_system.Namespace()).Get(ctx, metrics.ConfigMapName(), metav1.GetOptions{})
+	observabilityConfigMap, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(oversystem.Namespace()).Get(ctx, metrics.ConfigMapName(), metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		return metrics.NewObservabilityConfigFromConfigMap(nil)
 	}
@@ -104,7 +104,7 @@ func GetObservabilityConfig(ctx context.Context) (*metrics.ObservabilityConfig, 
 // webhooks, then a webhook is started to serve them.
 func Main(component string, ctors ...injection.ControllerConstructor) {
 	// Set up signals so we handle the first shutdown signal gracefully.
-	MainWithContext(over_signals.NewContext(), component, ctors...)
+	MainWithContext(oversignals.NewContext(), component, ctors...)
 }
 
 var (
@@ -125,7 +125,7 @@ func MainWithContext(ctx context.Context, component string, ctors ...injection.C
 		if err != nil {
 			log.Fatalf("failed to parse value %q of K_THREADS_PER_CONTROLLER: %v\n", val, err)
 		}
-		controller.DefaultThreadsPerController = threadsPerController
+		overcontroller.DefaultThreadsPerController = threadsPerController
 	}
 
 	// TODO(mattmoor): Remove this once HA is stable.
@@ -179,13 +179,13 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 
 	logger, atomicLevel := SetupLoggerOrDie(ctx, component)
 	defer flush(logger)
-	ctx = over_logging.WithLogger(ctx, logger)
+	ctx = overlogging.WithLogger(ctx, logger)
 
 	// Override client-go's warning handler to give us nicely printed warnings.
-	rest.SetDefaultWarningHandler(&over_logging.WarningHandler{Logger: logger})
+	rest.SetDefaultWarningHandler(&overlogging.WarningHandler{Logger: logger})
 
-	profilingHandler := over_profiling.NewHandler(logger, false)
-	profilingServer := over_profiling.NewServer(profilingHandler)
+	profilingHandler := overprofiling.NewHandler(logger, false)
+	profilingServer := overprofiling.NewServer(profilingHandler)
 
 	CheckK8sClientMinimumVersionOrDie(ctx, logger)
 	cmw := SetupConfigMapWatchOrDie(ctx, logger)
@@ -198,7 +198,7 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 
 	if !IsHADisabled(ctx) {
 		// Signal that we are executing in a context with leader election.
-		ctx = leaderelection.WithDynamicLeaderElectorBuilder(ctx, kubeclient.Get(ctx),
+		ctx = overleaderelection.WithDynamicLeaderElectorBuilder(ctx, kubeclient.Get(ctx),
 			leaderElectionConfig.GetComponentConfig(component),
 		)
 	}
@@ -222,17 +222,17 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 
 	// If we have one or more admission controllers, then start the webhook
 	// and pass them in.
-	var wh *over_webhook.Webhook
+	var wh *overwebhook.Webhook
 	if len(webhooks) > 0 {
 		// Register webhook metrics
-		opts := over_webhook.GetOptions(ctx)
+		opts := overwebhook.GetOptions(ctx)
 		if opts != nil {
-			over_webhook.RegisterMetrics(opts.StatsReporterOptions...)
+			overwebhook.RegisterMetrics(opts.StatsReporterOptions...)
 		} else {
-			over_webhook.RegisterMetrics()
+			overwebhook.RegisterMetrics()
 		}
 
-		wh, err = over_webhook.New(ctx, webhooks)
+		wh, err = overwebhook.New(ctx, webhooks)
 		if err != nil {
 			logger.Fatalw("Failed to create webhook", zap.Error(err))
 		}
@@ -250,7 +250,7 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 	}
 	logger.Info("Starting controllers...")
 	eg.Go(func() error {
-		return controller.StartAll(ctx, controllers...)
+		return overcontroller.StartAll(ctx, controllers...)
 	})
 
 	// Setup default health checks to catch issues with cache sync etc.
@@ -289,7 +289,7 @@ func SetupLoggerOrDie(ctx context.Context, component string) (*zap.SugaredLogger
 	if err != nil {
 		log.Fatal("Error reading/parsing logging configuration: ", err)
 	}
-	l, level := over_logging.NewLoggerFromConfig(loggingConfig, component)
+	l, level := overlogging.NewLoggerFromConfig(loggingConfig, component)
 
 	// If PodName is injected into the env vars, set it on the logger.
 	// This is needed for HA components to distinguish logs from different
@@ -303,7 +303,7 @@ func SetupLoggerOrDie(ctx context.Context, component string) (*zap.SugaredLogger
 
 // SetupObservabilityOrDie sets up the observability using the config from the given context
 // or dies by calling log.Fatalf.
-func SetupObservabilityOrDie(ctx context.Context, component string, logger *zap.SugaredLogger, profilingHandler *over_profiling.Handler) {
+func SetupObservabilityOrDie(ctx context.Context, component string, logger *zap.SugaredLogger, profilingHandler *overprofiling.Handler) {
 	observabilityConfig, err := GetObservabilityConfig(ctx)
 	if err != nil {
 		logger.Fatal("Error loading observability configuration: ", err)
@@ -317,7 +317,7 @@ func SetupObservabilityOrDie(ctx context.Context, component string, logger *zap.
 // is at least the minimum allowable version or dies by calling log.Fatalw.
 func CheckK8sClientMinimumVersionOrDie(ctx context.Context, logger *zap.SugaredLogger) {
 	kc := kubeclient.Get(ctx)
-	if err := over_version.CheckMinimumVersion(kc.Discovery()); err != nil {
+	if err := overversion.CheckMinimumVersion(kc.Discovery()); err != nil {
 		logger.Fatalw("Version check failed", zap.Error(err))
 	}
 }
@@ -328,7 +328,7 @@ func SetupConfigMapWatchOrDie(ctx context.Context, logger *zap.SugaredLogger) *c
 	kc := kubeclient.Get(ctx)
 	// Create ConfigMaps watcher with optional label-based filter.
 	var cmLabelReqs []labels.Requirement
-	if cmLabel := over_system.ResourceLabel(); cmLabel != "" {
+	if cmLabel := oversystem.ResourceLabel(); cmLabel != "" {
 		req, err := cminformer.FilterConfigByLabelExists(cmLabel)
 		if err != nil {
 			logger.Fatalw("Failed to generate requirement for label "+cmLabel, zap.Error(err))
@@ -337,26 +337,26 @@ func SetupConfigMapWatchOrDie(ctx context.Context, logger *zap.SugaredLogger) *c
 		cmLabelReqs = append(cmLabelReqs, *req)
 	}
 	// TODO(mattmoor): This should itself take a context and be injection-based.
-	return cminformer.NewInformedWatcher(kc, over_system.Namespace(), cmLabelReqs...)
+	return cminformer.NewInformedWatcher(kc, oversystem.Namespace(), cmLabelReqs...)
 }
 
 // WatchLoggingConfigOrDie establishes a watch of the logging config or dies by
 // calling log.Fatalw. Note, if the config does not exist, it will be defaulted
 // and this method will not die.
 func WatchLoggingConfigOrDie(ctx context.Context, cmw *cminformer.InformedWatcher, logger *zap.SugaredLogger, atomicLevel zap.AtomicLevel, component string) {
-	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(over_system.Namespace()).Get(ctx, over_logging.ConfigMapName(),
+	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(oversystem.Namespace()).Get(ctx, overlogging.ConfigMapName(),
 		metav1.GetOptions{}); err == nil {
-		cmw.Watch(over_logging.ConfigMapName(), over_logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
+		cmw.Watch(overlogging.ConfigMapName(), overlogging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	} else if !apierrors.IsNotFound(err) {
-		logger.Fatalw("Error reading ConfigMap "+over_logging.ConfigMapName(), zap.Error(err))
+		logger.Fatalw("Error reading ConfigMap "+overlogging.ConfigMapName(), zap.Error(err))
 	}
 }
 
 // WatchObservabilityConfigOrDie establishes a watch of the observability config
 // or dies by calling log.Fatalw. Note, if the config does not exist, it will be
 // defaulted and this method will not die.
-func WatchObservabilityConfigOrDie(ctx context.Context, cmw *cminformer.InformedWatcher, profilingHandler *over_profiling.Handler, logger *zap.SugaredLogger, component string) {
-	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(over_system.Namespace()).Get(ctx, metrics.ConfigMapName(),
+func WatchObservabilityConfigOrDie(ctx context.Context, cmw *cminformer.InformedWatcher, profilingHandler *overprofiling.Handler, logger *zap.SugaredLogger, component string) {
+	if _, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(oversystem.Namespace()).Get(ctx, metrics.ConfigMapName(),
 		metav1.GetOptions{}); err == nil {
 		cmw.Watch(metrics.ConfigMapName(),
 			metrics.ConfigMapWatcher(ctx, component, SecretFetcher(ctx), logger),
@@ -378,7 +378,7 @@ func SecretFetcher(ctx context.Context) metrics.SecretFetcher {
 	// TODO(evankanderson): If this direct request to the apiserver on each TLS connection
 	// to the opencensus agent is too much load, switch to a cached Secret.
 	return func(name string) (*corev1.Secret, error) {
-		return kubeclient.Get(ctx).CoreV1().Secrets(over_system.Namespace()).Get(ctx, name, metav1.GetOptions{})
+		return kubeclient.Get(ctx).CoreV1().Secrets(oversystem.Namespace()).Get(ctx, name, metav1.GetOptions{})
 	}
 }
 
@@ -387,12 +387,12 @@ func SecretFetcher(ctx context.Context) metrics.SecretFetcher {
 func ControllersAndWebhooksFromCtors(ctx context.Context,
 	cmw *cminformer.InformedWatcher,
 	ctors ...injection.ControllerConstructor,
-) ([]*controller.Impl, []interface{}) {
+) ([]*overcontroller.Impl, []interface{}) {
 	// Check whether the context has been infused with a leader elector builder.
 	// If it has, then every reconciler we plan to start MUST implement LeaderAware.
-	leEnabled := leaderelection.HasLeaderElection(ctx)
+	leEnabled := overleaderelection.HasLeaderElection(ctx)
 
-	controllers := make([]*controller.Impl, 0, len(ctors))
+	controllers := make([]*overcontroller.Impl, 0, len(ctors))
 	webhooks := make([]interface{}, 0)
 	for _, cf := range ctors {
 		ctrl := cf(ctx, cmw)
@@ -400,7 +400,7 @@ func ControllersAndWebhooksFromCtors(ctx context.Context,
 
 		// Build a list of any reconcilers that implement webhook.AdmissionController
 		switch c := ctrl.Reconciler.(type) {
-		case over_webhook.AdmissionController, over_webhook.ConversionController:
+		case overwebhook.AdmissionController, overwebhook.ConversionController:
 			webhooks = append(webhooks, c)
 		}
 
@@ -419,8 +419,8 @@ func ControllersAndWebhooksFromCtors(ctx context.Context,
 // 2. reading from the API server,
 // 3. defaults (if not found).
 // The context is expected to be initialized with injection.
-func GetLoggingConfig(ctx context.Context) (*over_logging.Config, error) {
-	if cfg := over_logging.GetConfig(ctx); cfg != nil {
+func GetLoggingConfig(ctx context.Context) (*overlogging.Config, error) {
+	if cfg := overlogging.GetConfig(ctx); cfg != nil {
 		return cfg, nil
 	}
 
@@ -429,15 +429,15 @@ func GetLoggingConfig(ctx context.Context) (*over_logging.Config, error) {
 	// e.g. istio sidecar needs a few seconds to configure the pod network.
 	var lastErr error
 	if err := wait.PollUntilContextTimeout(ctx, 1*time.Second, 5*time.Second, true, func(ctx context.Context) (bool, error) {
-		loggingConfigMap, lastErr = kubeclient.Get(ctx).CoreV1().ConfigMaps(over_system.Namespace()).Get(ctx, over_logging.ConfigMapName(), metav1.GetOptions{})
+		loggingConfigMap, lastErr = kubeclient.Get(ctx).CoreV1().ConfigMaps(oversystem.Namespace()).Get(ctx, overlogging.ConfigMapName(), metav1.GetOptions{})
 		return lastErr == nil || apierrors.IsNotFound(lastErr), nil
 	}); err != nil {
 		return nil, fmt.Errorf("timed out waiting for the condition: %w", lastErr)
 	}
 	if loggingConfigMap == nil {
-		return over_logging.NewConfigFromMap(nil)
+		return overlogging.NewConfigFromMap(nil)
 	}
-	return over_logging.NewConfigFromConfigMap(loggingConfigMap)
+	return overlogging.NewConfigFromConfigMap(loggingConfigMap)
 }
 
 // WithHealthProbesDisabled signals to MainWithContext that it should disable default probes (readiness and liveness).

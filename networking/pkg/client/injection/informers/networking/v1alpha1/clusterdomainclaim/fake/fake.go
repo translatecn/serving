@@ -23,7 +23,7 @@ import (
 
 	fake "knative.dev/serving/networking/pkg/client/injection/informers/factory/fake"
 	clusterdomainclaim "knative.dev/serving/networking/pkg/client/injection/informers/networking/v1alpha1/clusterdomainclaim"
-	controller "knative.dev/serving/pkg/controller"
+	controller "knative.dev/serving/pkg/overcontroller"
 	injection "knative.dev/serving/pkg/injection"
 )
 

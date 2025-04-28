@@ -21,7 +21,7 @@ import (
 
 	"knative.dev/serving/pkg/apis"
 	"knative.dev/serving/pkg/apis/duck/ducktypes"
-	"knative.dev/serving/pkg/over_kmap"
+	"knative.dev/serving/pkg/overkmap"
 )
 
 // +genduck
@@ -92,7 +92,7 @@ func (s *Status) GetCondition(t apis.ConditionType) *apis.Condition {
 func (s *Status) ConvertTo(ctx context.Context, sink *Status, predicates ...func(apis.ConditionType) bool) {
 	sink.ObservedGeneration = s.ObservedGeneration
 	if s.Annotations != nil {
-		sink.Annotations = over_kmap.Union(s.Annotations)
+		sink.Annotations = overkmap.Union(s.Annotations)
 	}
 
 	conditions := make(apis.Conditions, 0, len(s.Conditions))

@@ -18,7 +18,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/serving/pkg/kmeta"
+	"knative.dev/serving/pkg/overkmeta"
 )
 
 // +genclient
@@ -40,7 +40,7 @@ type ClusterDomainClaim struct {
 }
 
 // Check that we can create OwnerReferences to a ClusterDomainClaim.
-var _ kmeta.OwnerRefable = (*ClusterDomainClaim)(nil)
+var _ overkmeta.OwnerRefable = (*ClusterDomainClaim)(nil)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

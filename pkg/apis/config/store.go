@@ -21,7 +21,7 @@ import (
 
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
-	"knative.dev/serving/pkg/configmap"
+	"knative.dev/serving/pkg/overconfigmap"
 )
 
 type cfgKey struct{}
@@ -73,7 +73,7 @@ func ToContext(ctx context.Context, c *Config) context.Context {
 // Store is a typed wrapper around configmap.Untyped store to handle our configmaps.
 // +k8s:deepcopy-gen=false
 type Store struct {
-	*configmap.UntypedStore
+	*overconfigmap.UntypedStore
 }
 
 // ToContext attaches the current Config state to the provided context.
@@ -97,12 +97,12 @@ func (s *Store) Load() *Config {
 }
 
 // NewStore creates a new store of Configs and optionally calls functions when ConfigMaps are updated.
-func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
+func NewStore(logger overconfigmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
 	store := &Store{
-		UntypedStore: configmap.NewUntypedStore(
+		UntypedStore: overconfigmap.NewUntypedStore(
 			"apis",
 			logger,
-			configmap.Constructors{
+			overconfigmap.Constructors{
 				DefaultsConfigName:  NewDefaultsConfigFromConfigMap,
 				FeaturesConfigName:  NewFeaturesConfigFromConfigMap,
 				asconfig.ConfigName: asconfig.NewConfigFromConfigMap,

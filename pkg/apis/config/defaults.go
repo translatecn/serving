@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math"
 	"strings"
 	"text/template"
 
@@ -30,8 +29,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/serving/pkg/apis"
-	cm "knative.dev/serving/pkg/configmap"
-	"knative.dev/serving/pkg/over_ptr"
+	cm "knative.dev/serving/pkg/overconfigmap"
+	"knative.dev/serving/pkg/overptr"
 )
 
 const (
@@ -86,9 +85,8 @@ func defaultDefaultsConfig() *Defaults {
 		InitContainerNameTemplate:           DefaultInitContainerNameTemplate,
 		UserContainerNameTemplate:           DefaultUserContainerNameTemplate,
 		ContainerConcurrency:                DefaultContainerConcurrency,
-		ContainerConcurrencyMaxLimit:        DefaultMaxRevisionContainerConcurrency,
 		AllowContainerConcurrencyZero:       DefaultAllowContainerConcurrencyZero,
-		EnableServiceLinks:                  over_ptr.Bool(false),
+		EnableServiceLinks:                  overptr.Bool(false),
 	}
 }
 
@@ -97,9 +95,9 @@ func asTriState(key string, target **bool, defValue *bool) cm.ParseFunc {
 		if raw, ok := data[key]; ok {
 			switch {
 			case strings.EqualFold(raw, "true"):
-				*target = over_ptr.Bool(true)
+				*target = overptr.Bool(true)
 			case strings.EqualFold(raw, "false"):
-				*target = over_ptr.Bool(false)
+				*target = overptr.Bool(false)
 			default:
 				*target = defValue
 			}
@@ -124,7 +122,6 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		cm.AsInt64("revision-idle-timeout-seconds", &nc.RevisionIdleTimeoutSeconds),
 
 		cm.AsInt64("container-concurrency", &nc.ContainerConcurrency),
-		cm.AsInt64("container-concurrency-max-limit", &nc.ContainerConcurrencyMaxLimit),
 
 		cm.AsQuantity("revision-cpu-request", &nc.RevisionCPURequest),
 		cm.AsQuantity("revision-memory-request", &nc.RevisionMemoryRequest),
@@ -154,14 +151,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 	if nc.RevisionIdleTimeoutSeconds > 0 && nc.RevisionIdleTimeoutSeconds > nc.RevisionTimeoutSeconds {
 		return nil, fmt.Errorf("revision-idle-timeout-seconds (%d) cannot be greater than revision-timeout-seconds (%d)", nc.RevisionIdleTimeoutSeconds, nc.RevisionTimeoutSeconds)
 	}
-	if nc.ContainerConcurrencyMaxLimit < 1 {
-		return nil, apis.ErrOutOfBoundsValue(
-			nc.ContainerConcurrencyMaxLimit, 1, math.MaxInt32, "container-concurrency-max-limit")
-	}
-	if nc.ContainerConcurrency < 0 || nc.ContainerConcurrency > nc.ContainerConcurrencyMaxLimit {
-		return nil, apis.ErrOutOfBoundsValue(
-			nc.ContainerConcurrency, 0, nc.ContainerConcurrencyMaxLimit, "container-concurrency")
-	}
+
 	// Check that the templates properly apply to ObjectMeta.
 	if err := nc.UserContainerNameTemplate.Execute(io.Discard, metav1.ObjectMeta{}); err != nil {
 		return nil, fmt.Errorf("error executing template: %w", err)

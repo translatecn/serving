@@ -17,7 +17,7 @@ limitations under the License.
 package serving
 
 import (
-	"knative.dev/serving/pkg/over_kmap"
+	"knative.dev/serving/pkg/overkmap"
 )
 
 const (
@@ -143,33 +143,33 @@ const (
 )
 
 var (
-	RolloutDurationAnnotation = over_kmap.KeyPriority{
+	RolloutDurationAnnotation = overkmap.KeyPriority{
 		RolloutDurationKey,
 		GroupName + "/rolloutDuration",
 	}
-	QueueSidecarResourcePercentageAnnotation = over_kmap.KeyPriority{
+	QueueSidecarResourcePercentageAnnotation = overkmap.KeyPriority{
 		QueueSidecarResourcePercentageAnnotationKey,
 		"queue.sidecar." + GroupName + "/resourcePercentage",
 	}
-	QueueSidecarCPUResourceRequestAnnotation = over_kmap.KeyPriority{
+	QueueSidecarCPUResourceRequestAnnotation = overkmap.KeyPriority{
 		QueueSidecarCPUResourceRequestAnnotationKey,
 	}
-	QueueSidecarCPUResourceLimitAnnotation = over_kmap.KeyPriority{
+	QueueSidecarCPUResourceLimitAnnotation = overkmap.KeyPriority{
 		QueueSidecarCPUResourceLimitAnnotationKey,
 	}
-	QueueSidecarMemoryResourceRequestAnnotation = over_kmap.KeyPriority{
+	QueueSidecarMemoryResourceRequestAnnotation = overkmap.KeyPriority{
 		QueueSidecarMemoryResourceRequestAnnotationKey,
 	}
-	QueueSidecarMemoryResourceLimitAnnotation = over_kmap.KeyPriority{
+	QueueSidecarMemoryResourceLimitAnnotation = overkmap.KeyPriority{
 		QueueSidecarMemoryResourceLimitAnnotationKey,
 	}
-	QueueSidecarEphemeralStorageResourceRequestAnnotation = over_kmap.KeyPriority{
+	QueueSidecarEphemeralStorageResourceRequestAnnotation = overkmap.KeyPriority{
 		QueueSidecarEphemeralStorageResourceRequestAnnotationKey,
 	}
-	QueueSidecarEphemeralStorageResourceLimitAnnotation = over_kmap.KeyPriority{
+	QueueSidecarEphemeralStorageResourceLimitAnnotation = overkmap.KeyPriority{
 		QueueSidecarEphemeralStorageResourceLimitAnnotationKey,
 	}
-	ProgressDeadlineAnnotation = over_kmap.KeyPriority{
+	ProgressDeadlineAnnotation = overkmap.KeyPriority{
 		ProgressDeadlineAnnotationKey,
 	}
 )

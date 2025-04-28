@@ -101,6 +101,16 @@ func (u *URL) URL() *url.URL {
 	return &url
 }
 
+func init() {
+	equality.Semantic.AddFunc(
+		// url.URL has an unexported type (UserInfo) which causes semantic
+		// equality to panic unless we add a custom equality function
+		func(a, b URL) bool {
+			return a.String() == b.String()
+		},
+	)
+}
+
 // ResolveReference calls the underlying ResolveReference method
 // and returns an apis.URL
 func (u *URL) ResolveReference(ref *URL) *URL {
@@ -116,14 +126,4 @@ func (u *URL) ResolveReference(ref *URL) *URL {
 	// Turn new back to apis.URL
 	ret := URL(*newU)
 	return &ret
-}
-
-func init() {
-	equality.Semantic.AddFunc(
-		// url.URL has an unexported type (UserInfo) which causes semantic
-		// equality to panic unless we add a custom equality function
-		func(a, b URL) bool {
-			return a.String() == b.String()
-		},
-	)
 }

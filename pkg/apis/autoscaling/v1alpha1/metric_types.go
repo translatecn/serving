@@ -22,7 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/serving/pkg/apis"
 	duckv1 "knative.dev/serving/pkg/apis/duck/v1"
-	"knative.dev/serving/pkg/kmeta"
+	"knative.dev/serving/pkg/overkmeta"
 )
 
 // Metric represents a resource to configure the metric collector with.
@@ -51,7 +51,7 @@ var (
 	_ apis.Defaultable = (*Metric)(nil)
 
 	// Check that we can create OwnerReferences to a Metric.
-	_ kmeta.OwnerRefable = (*Metric)(nil)
+	_ overkmeta.OwnerRefable = (*Metric)(nil)
 
 	// Check that the type conforms to the duck Knative Resource shape.
 	_ duckv1.KRShaped = (*Metric)(nil)

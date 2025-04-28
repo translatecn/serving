@@ -25,8 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/serving/pkg/apis"
 	"knative.dev/serving/pkg/apis/config"
-	"knative.dev/serving/pkg/kmeta"
-	"knative.dev/serving/pkg/over_ptr"
+	"knative.dev/serving/pkg/overkmeta"
+	"knative.dev/serving/pkg/overptr"
 )
 
 // SetDefaults implements apis.Defaultable
@@ -50,14 +50,14 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 
 	// Default TimeoutSeconds based on our configmap.
 	if rs.TimeoutSeconds == nil || *rs.TimeoutSeconds == 0 {
-		rs.TimeoutSeconds = over_ptr.Int64(cfg.Defaults.RevisionTimeoutSeconds)
+		rs.TimeoutSeconds = overptr.Int64(cfg.Defaults.RevisionTimeoutSeconds)
 	}
 
 	// Default IdleTimeoutSeconds only in case we have a non-zero default and the latter is not larger than the revision timeout.
 	// A zero default or a zero value set from the user or a nil value skips timer setup at the QP side.
 	if rs.IdleTimeoutSeconds == nil {
 		if cfg.Defaults.RevisionIdleTimeoutSeconds < *rs.TimeoutSeconds && cfg.Defaults.RevisionIdleTimeoutSeconds != 0 {
-			rs.IdleTimeoutSeconds = over_ptr.Int64(cfg.Defaults.RevisionIdleTimeoutSeconds)
+			rs.IdleTimeoutSeconds = overptr.Int64(cfg.Defaults.RevisionIdleTimeoutSeconds)
 		}
 	}
 
@@ -65,13 +65,13 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 	// A zero default or a zero value set from the user or a nil value skips timer setup at the QP side.
 	if rs.ResponseStartTimeoutSeconds == nil {
 		if cfg.Defaults.RevisionResponseStartTimeoutSeconds < *rs.TimeoutSeconds && cfg.Defaults.RevisionResponseStartTimeoutSeconds != 0 {
-			rs.ResponseStartTimeoutSeconds = over_ptr.Int64(cfg.Defaults.RevisionResponseStartTimeoutSeconds)
+			rs.ResponseStartTimeoutSeconds = overptr.Int64(cfg.Defaults.RevisionResponseStartTimeoutSeconds)
 		}
 	}
 
 	// Default ContainerConcurrency based on our configmap.
 	if rs.ContainerConcurrency == nil {
-		rs.ContainerConcurrency = over_ptr.Int64(cfg.Defaults.ContainerConcurrency)
+		rs.ContainerConcurrency = overptr.Int64(cfg.Defaults.ContainerConcurrency)
 	}
 
 	// Avoid clashes with user-supplied names when generating defaults.
@@ -191,13 +191,13 @@ func (*RevisionSpec) applyReadinessProbeDefaults(container *corev1.Container) {
 
 func (*RevisionSpec) applyGRPCProbeDefaults(container *corev1.Container) {
 	if container.ReadinessProbe != nil && container.ReadinessProbe.GRPC != nil && container.ReadinessProbe.GRPC.Service == nil {
-		container.ReadinessProbe.GRPC.Service = over_ptr.String("")
+		container.ReadinessProbe.GRPC.Service = overptr.String("")
 	}
 	if container.LivenessProbe != nil && container.LivenessProbe.GRPC != nil && container.LivenessProbe.GRPC.Service == nil {
-		container.LivenessProbe.GRPC.Service = over_ptr.String("")
+		container.LivenessProbe.GRPC.Service = overptr.String("")
 	}
 	if container.StartupProbe != nil && container.StartupProbe.GRPC != nil && container.StartupProbe.GRPC.Service == nil {
-		container.StartupProbe.GRPC.Service = over_ptr.String("")
+		container.StartupProbe.GRPC.Service = overptr.String("")
 	}
 }
 
@@ -221,7 +221,7 @@ func (rs *RevisionSpec) defaultSecurityContext(psc *corev1.PodSecurityContext, c
 	}
 
 	if updatedSC.AllowPrivilegeEscalation == nil {
-		updatedSC.AllowPrivilegeEscalation = over_ptr.Bool(false)
+		updatedSC.AllowPrivilegeEscalation = overptr.Bool(false)
 	}
 	if psc.SeccompProfile == nil || psc.SeccompProfile.Type == "" {
 		if updatedSC.SeccompProfile == nil {
@@ -248,7 +248,7 @@ func (rs *RevisionSpec) defaultSecurityContext(psc *corev1.PodSecurityContext, c
 	}
 
 	if psc.RunAsNonRoot == nil {
-		updatedSC.RunAsNonRoot = over_ptr.Bool(true)
+		updatedSC.RunAsNonRoot = overptr.Bool(true)
 	}
 
 	if *updatedSC != (corev1.SecurityContext{}) {
@@ -266,7 +266,7 @@ func applyDefaultContainerNames(containers []corev1.Container, containerNames se
 
 			if len(containers) > 1 || containerNames.Has(name) {
 				for {
-					name = kmeta.ChildName(defaultContainerName, "-"+strconv.Itoa(nextSuffix))
+					name = overkmeta.ChildName(defaultContainerName, "-"+strconv.Itoa(nextSuffix))
 					nextSuffix++
 
 					// Continue until we get a name that doesn't clash with a user-supplied name.

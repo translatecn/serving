@@ -1,0 +1,18 @@
+autoscaling.knative.dev/target    xxx
+    autoscaling.knative.dev/metric    concurrency、cpu、memory、rps、xxx
+    autoscaling.knative.dev/window   20s   无效时间
+
+
+autoscaling.knative.dev/class     kpa.autoscaling.knative.dev、hpa.autoscaling.knative.dev
+
+
+
+
+都生效
+autoscaling.knative.dev/target: "10"
+autoscaling.knative.dev/min-scale: "0"
+autoscaling.knative.dev/max-scale: "10"
+autoscaling.knative.dev/initial-scale: "2"
+autoscaling.knative.dev/scale-down-delay: ""
+
+#        'serving.knative.dev/progress-deadline': 12s

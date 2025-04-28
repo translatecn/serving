@@ -91,7 +91,7 @@ func (g *clientGenerator) GenerateType(c *generator.Context, t *types.Type, w io
 		}),
 		"restConfig": c.Universe.Type(types.Name{Package: "k8s.io/client-go/rest", Name: "Config"}),
 		"loggingFromContext": c.Universe.Function(types.Name{
-			Package: "knative.dev/serving/pkg/over_logging",
+			Package: "knative.dev/serving/pkg/overlogging",
 			Name:    "FromContext",
 		}),
 		"contextContext": c.Universe.Type(types.Name{

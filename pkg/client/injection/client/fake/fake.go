@@ -26,7 +26,7 @@ import (
 	fake "knative.dev/serving/pkg/client/clientset/versioned/fake"
 	client "knative.dev/serving/pkg/client/injection/client"
 	injection "knative.dev/serving/pkg/injection"
-	overlogging "knative.dev/serving/pkg/over_logging"
+	overlogging "knative.dev/serving/pkg/overlogging"
 )
 
 func init() {

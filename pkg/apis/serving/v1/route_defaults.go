@@ -21,7 +21,7 @@ import (
 
 	"knative.dev/serving/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/over_ptr"
+	"knative.dev/serving/pkg/overptr"
 )
 
 // SetDefaults implements apis.Defaultable
@@ -40,8 +40,8 @@ func (r *Route) SetDefaults(ctx context.Context) {
 func (rs *RouteSpec) SetDefaults(ctx context.Context) {
 	if len(rs.Traffic) == 0 && HasDefaultConfigurationName(ctx) {
 		rs.Traffic = []TrafficTarget{{
-			Percent:        over_ptr.Int64(100),
-			LatestRevision: over_ptr.Bool(true),
+			Percent:        overptr.Int64(100),
+			LatestRevision: overptr.Bool(true),
 		}}
 	}
 
@@ -53,13 +53,13 @@ func (rs *RouteSpec) SetDefaults(ctx context.Context) {
 // SetDefaults implements apis.Defaultable
 func (tt *TrafficTarget) SetDefaults(ctx context.Context) {
 	if tt.LatestRevision == nil {
-		tt.LatestRevision = over_ptr.Bool(tt.RevisionName == "")
+		tt.LatestRevision = overptr.Bool(tt.RevisionName == "")
 	}
 	// Despite the fact that we have the field percent
 	// as required, historically we were lenient about checking this.
 	// But by setting explicit `0` we can eliminate lots of checking
 	// downstream in validation and controllers.
 	if tt.Percent == nil {
-		tt.Percent = over_ptr.Int64(0)
+		tt.Percent = overptr.Int64(0)
 	}
 }

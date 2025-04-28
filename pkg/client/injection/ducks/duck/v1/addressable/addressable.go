@@ -23,10 +23,10 @@ import (
 
 	duck "knative.dev/serving/pkg/apis/duck"
 	v1 "knative.dev/serving/pkg/apis/duck/v1"
-	controller "knative.dev/serving/pkg/controller"
+	controller "knative.dev/serving/pkg/overcontroller"
 	injection "knative.dev/serving/pkg/injection"
 	dynamicclient "knative.dev/serving/pkg/injection/clients/dynamicclient"
-	logging "knative.dev/serving/pkg/over_logging"
+	logging "knative.dev/serving/pkg/overlogging"
 )
 
 func init() {

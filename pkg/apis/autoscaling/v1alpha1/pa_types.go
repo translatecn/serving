@@ -22,7 +22,7 @@ import (
 	net "knative.dev/serving/networking/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis"
 	duckv1 "knative.dev/serving/pkg/apis/duck/v1"
-	"knative.dev/serving/pkg/kmeta"
+	"knative.dev/serving/pkg/overkmeta"
 )
 
 // +genclient
@@ -54,7 +54,7 @@ var (
 	_ apis.Defaultable = (*PodAutoscaler)(nil)
 
 	// Check that we can create OwnerReferences to a PodAutoscaler.
-	_ kmeta.OwnerRefable = (*PodAutoscaler)(nil)
+	_ overkmeta.OwnerRefable = (*PodAutoscaler)(nil)
 
 	// Check that the type conforms to the duck Knative Resource shape.
 	_ duckv1.KRShaped = (*PodAutoscaler)(nil)

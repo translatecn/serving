@@ -23,7 +23,7 @@ import (
 
 	challenge "knative.dev/serving/pkg/client/certmanager/injection/informers/acme/v1/challenge"
 	fake "knative.dev/serving/pkg/client/certmanager/injection/informers/factory/fake"
-	controller "knative.dev/serving/pkg/controller"
+	controller "knative.dev/serving/pkg/overcontroller"
 	injection "knative.dev/serving/pkg/injection"
 )
 

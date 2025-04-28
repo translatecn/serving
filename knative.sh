@@ -4,31 +4,37 @@
 #cd istio-1.25.0
 #export PATH=$PWD/bin:$PATH
 #istioctl install --set profile=default -y --set hub=registry.cn-hangzhou.aliyuncs.com/acejilam
-install-k8s-by-kind.sh knative v1.30.3
-
-export KUBECONFIG=~/.kube/knative
+install-k8s-by-kind.sh koord v1.30.3
 
 function t() {
 	docker pull $1
-	kind load docker-image -n knative $1
+	kind load docker-image -n koord $1
 }
 
 t registry.cn-hangzhou.aliyuncs.com/acejilam/knative-serving-activator:v1.17.0
 t registry.cn-hangzhou.aliyuncs.com/acejilam/knative-serving-autoscaler:v1.17.0
+t registry.cn-hangzhou.aliyuncs.com/acejilam/knative-serving-autoscaler-hpa:v1.17.0
 t registry.cn-hangzhou.aliyuncs.com/acejilam/knative-serving-controller:v1.17.0
 t registry.cn-hangzhou.aliyuncs.com/acejilam/knative-serving-webhook:v1.17.0
 t registry.cn-hangzhou.aliyuncs.com/acejilam/knative-serving-queue:v1.17.0
 t registry.cn-hangzhou.aliyuncs.com/acejilam/net-kourier-kourier:v1.17.0
-t registry.cn-hangzhou.aliyuncs.com/acejilam/centos:7
 t registry.cn-hangzhou.aliyuncs.com/acejilam/envoyproxy-envoy:v1.31-latest
-t registry.cn-hangzhou.aliyuncs.com/ls-2018/mygo:v1.24.0
+t registry.cn-hangzhou.aliyuncs.com/ls-2018/mygo:v1.24.1
+t quay.io/jetstack/cert-manager-cainjector:v1.17.2
+t quay.io/jetstack/cert-manager-controller:v1.17.2
+t quay.io/jetstack/cert-manager-webhook:v1.17.2
+t registry.cn-hangzhou.aliyuncs.com/acejilam/metrics-server:v0.7.2
+
+docker-install-metrics-server.sh
 
 #cd ../..
 kubectl create ns knative-serving
 kubectl apply -f ./debug/yaml/serving-crds.yaml
+kubectl apply -f ./debug/yaml/cert-manager.yaml
 kubectl wait --for=condition=Established --all crd
 
 kubectl apply -f ./debug/yaml/serving-core.yaml
+kubectl apply -f ./debug/yaml/hpa-autoscaling.yaml
 
 kubectl wait -A --for=condition=Ready --all pod --timeout=3000s
 kubectl apply -f ./debug/yaml/kourier.yaml
@@ -46,6 +52,11 @@ kubectl patch configmap/config-domain \
 	--type merge \
 	--patch '{"data":{"127.0.0.1.sslip.io":""}}'
 
+kubectl patch configmap/config-autoscaler \
+	--namespace knative-serving \
+	--type merge \
+	--patch '{"data":{"max-scale":"10","min-scale":"0","initial-scale":"1"}}'
+
 #kubectl apply -f ./yaml
 #export https_proxy=http://127.0.0.1:7890 http_proxy=http://127.0.0.1:7890 all_proxy=socks5://127.0.0.1:7890
 #kubectl apply --filename https://github.com/knative/serving/releases/download/knative-v1.17.0/serving-core.yaml
@@ -61,6 +72,6 @@ kubectl get pods --namespace knative-serving
 #docker push registry.cn-hangzhou.aliyuncs.com/ls-2018/knative:helloworld-go
 #sed -i 's@docker.io/{username}/helloworld-go@registry.cn-hangzhou.aliyuncs.com/ls-2018/knative:helloworld-go@g' service.yaml
 kubectl apply -f debug/helloworld-go/pod.yaml
-kubectl apply -f debug/helloworld-go/revision-v1.yaml
+#kubectl apply -f debug/helloworld-go/revision-v1.yaml
 #cd -
 # k exec -it title -c title -- curl -H 'Host: helloworld-go.default.127.0.0.1.sslip.io' kourier.kourier-system

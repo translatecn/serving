@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation"
 
-	"knative.dev/serving/pkg/kmeta"
+	"knative.dev/serving/pkg/overkmeta"
 )
 
 // New returns an implementation of Interface that lets a Reconciler
@@ -91,128 +91,6 @@ func (i *impl) Track(ref corev1.ObjectReference, obj interface{}) error {
 	}, obj)
 }
 
-func (i *impl) TrackReference(ref Reference, obj interface{}) error {
-	invalidFields := map[string][]string{
-		"APIVersion": validation.IsQualifiedName(ref.APIVersion),
-		"Kind":       validation.IsCIdentifier(ref.Kind),
-	}
-	// Allow namespace to be empty for cluster-scoped references.
-	if ref.Namespace != "" {
-		invalidFields["Namespace"] = validation.IsDNS1123Label(ref.Namespace)
-	}
-	var selector labels.Selector
-	fieldErrors := []string{}
-	switch {
-	case ref.Selector != nil && ref.Name != "":
-		fieldErrors = append(fieldErrors, "cannot provide both Name and Selector")
-	case ref.Name != "":
-		invalidFields["Name"] = validation.IsDNS1123Subdomain(ref.Name)
-	case ref.Selector != nil:
-		ls, err := metav1.LabelSelectorAsSelector(ref.Selector)
-		if err != nil {
-			invalidFields["Selector"] = []string{err.Error()}
-		}
-		selector = ls
-	default:
-		fieldErrors = append(fieldErrors, "must provide either Name or Selector")
-	}
-	for k, v := range invalidFields {
-		for _, msg := range v {
-			fieldErrors = append(fieldErrors, fmt.Sprintf("%s: %s", k, msg))
-		}
-	}
-	if len(fieldErrors) > 0 {
-		sort.Strings(fieldErrors)
-		return fmt.Errorf("invalid Reference:\n%s", strings.Join(fieldErrors, "\n"))
-	}
-
-	// Determine the key of the object tracking this reference.
-	object, err := kmeta.DeletionHandlingAccessor(obj) // DomainMapping
-	if err != nil {
-		return err
-	}
-	key := types.NamespacedName{Namespace: object.GetNamespace(), Name: object.GetName()}
-
-	i.m.Lock()
-	// Call the callback without the lock held.
-	var keys []types.NamespacedName
-	defer func(cb func(types.NamespacedName)) {
-		for _, key := range keys {
-			cb(key)
-		}
-	}(i.cb) // read i.cb with the lock held
-	defer i.m.Unlock()
-	if i.exact == nil {
-		i.exact = make(map[Reference]set)
-	}
-	if i.inexact == nil {
-		i.inexact = make(map[Reference]matchers)
-	}
-
-	// If the reference uses Name then it is an exact match.
-	if selector == nil {
-		l, ok := i.exact[ref]
-		if !ok {
-			l = set{}
-		}
-
-		if expiry, ok := l[key]; !ok || isExpired(expiry) {
-			// When covering an uncovered key, immediately call the
-			// registered callback to ensure that the following pattern
-			// doesn't create problems:
-			//    foo, err := lister.Get(key)
-			//    // Later...
-			//    err := tracker.TrackReference(fooRef, parent)
-			// In this example, "Later" represents a window where "foo" may
-			// have changed or been created while the Track is not active.
-			// The simplest way of eliminating such a window is to call the
-			// callback to "catch up" immediately following new
-			// registrations.
-			keys = append(keys, key)
-		}
-		// Overwrite the key with a new expiration.
-		l[key] = time.Now().Add(i.leaseDuration)
-
-		i.exact[ref] = l
-		return nil
-	}
-
-	// Otherwise, it is an inexact match by selector.
-	partialRef := Reference{
-		APIVersion: ref.APIVersion,
-		Kind:       ref.Kind,
-		Namespace:  ref.Namespace,
-		// Exclude the selector.
-	}
-	l, ok := i.inexact[partialRef]
-	if !ok {
-		l = matchers{}
-	}
-
-	if m, ok := l[key]; !ok || isExpired(m.expiry) {
-		// When covering an uncovered key, immediately call the
-		// registered callback to ensure that the following pattern
-		// doesn't create problems:
-		//    foo, err := lister.Get(key)
-		//    // Later...
-		//    err := tracker.TrackReference(fooRef, parent)
-		// In this example, "Later" represents a window where "foo" may
-		// have changed or been created while the Track is not active.
-		// The simplest way of eliminating such a window is to call the
-		// callback to "catch up" immediately following new
-		// registrations.
-		keys = append(keys, key)
-	}
-	// Overwrite the key with a new expiration.
-	l[key] = matcher{
-		selector: selector,
-		expiry:   time.Now().Add(i.leaseDuration),
-	}
-
-	i.inexact[partialRef] = l
-	return nil
-}
-
 func isExpired(expiry time.Time) bool {
 	return time.Now().After(expiry)
 }
@@ -228,12 +106,12 @@ func (i *impl) OnChanged(obj interface{}) {
 
 // GetObservers implements Interface.
 func (i *impl) GetObservers(obj interface{}) []types.NamespacedName {
-	item, err := kmeta.DeletionHandlingAccessor(obj)
+	item, err := overkmeta.DeletionHandlingAccessor(obj)
 	if err != nil {
 		return nil
 	}
 
-	or := kmeta.ObjectReference(item)
+	or := overkmeta.ObjectReference(item)
 	ref := Reference{
 		APIVersion: or.APIVersion,
 		Kind:       or.Kind,
@@ -285,9 +163,8 @@ func (i *impl) GetObservers(obj interface{}) []types.NamespacedName {
 	return keys
 }
 
-// OnChanged implements Interface.
 func (i *impl) OnDeletedObserver(obj interface{}) {
-	item, err := kmeta.DeletionHandlingAccessor(obj)
+	item, err := overkmeta.DeletionHandlingAccessor(obj)
 	if err != nil {
 		return
 	}
@@ -312,4 +189,126 @@ func (i *impl) OnDeletedObserver(obj interface{}) {
 			delete(i.exact, ref)
 		}
 	}
+}
+
+func (i *impl) TrackReference(ref Reference, obj interface{}) error {
+	invalidFields := map[string][]string{
+		"APIVersion": validation.IsQualifiedName(ref.APIVersion),
+		"Kind":       validation.IsCIdentifier(ref.Kind),
+	}
+	// Allow namespace to be empty for cluster-scoped references.
+	if ref.Namespace != "" {
+		invalidFields["Namespace"] = validation.IsDNS1123Label(ref.Namespace)
+	}
+	var selector labels.Selector
+	fieldErrors := []string{}
+	switch {
+	case ref.Selector != nil && ref.Name != "":
+		fieldErrors = append(fieldErrors, "cannot provide both Name and Selector")
+	case ref.Name != "":
+		invalidFields["Name"] = validation.IsDNS1123Subdomain(ref.Name)
+	case ref.Selector != nil:
+		ls, err := metav1.LabelSelectorAsSelector(ref.Selector)
+		if err != nil {
+			invalidFields["Selector"] = []string{err.Error()}
+		}
+		selector = ls
+	default:
+		fieldErrors = append(fieldErrors, "must provide either Name or Selector")
+	}
+	for k, v := range invalidFields {
+		for _, msg := range v {
+			fieldErrors = append(fieldErrors, fmt.Sprintf("%s: %s", k, msg))
+		}
+	}
+	if len(fieldErrors) > 0 {
+		sort.Strings(fieldErrors)
+		return fmt.Errorf("invalid Reference:\n%s", strings.Join(fieldErrors, "\n"))
+	}
+
+	// Determine the key of the object tracking this reference.
+	object, err := overkmeta.DeletionHandlingAccessor(obj) // DomainMapping
+	if err != nil {
+		return err
+	}
+	key := types.NamespacedName{Namespace: object.GetNamespace(), Name: object.GetName()}
+
+	i.m.Lock()
+	// Call the callback without the lock held.
+	var keys []types.NamespacedName
+	defer func(cb func(types.NamespacedName)) {
+		for _, key := range keys {
+			cb(key)
+		}
+	}(i.cb) // read i.cb with the lock held
+	defer i.m.Unlock()
+	if i.exact == nil {
+		i.exact = make(map[Reference]set)
+	}
+	if i.inexact == nil {
+		i.inexact = make(map[Reference]matchers)
+	}
+
+	// If the reference uses Name then it is an exact match.
+	if selector == nil {
+		l, ok := i.exact[ref]
+		if !ok {
+			l = set{}
+		}
+
+		if expiry, ok := l[key]; !ok || isExpired(expiry) {
+			// When covering an uncovered key, immediately call the
+			// registered callback to ensure that the following pattern
+			// doesn't create problems:
+			//    foo, err := lister.Get(key)
+			//    // Later...
+			//    err := tracker.TrackReference(fooRef, parent)
+			// In this example, "Later" represents a window where "foo" may
+			// have changed or been created while the Track is not active.
+			// The simplest way of eliminating such a window is to call the
+			// callback to "catch up" immediately following new
+			// registrations.
+			keys = append(keys, key) // {} knative-demo helloworld.wgs.com
+		}
+		// Overwrite the key with a new expiration.
+		l[key] = time.Now().Add(i.leaseDuration)
+
+		i.exact[ref] = l
+		return nil
+	}
+
+	// Otherwise, it is an inexact match by selector.
+	partialRef := Reference{
+		APIVersion: ref.APIVersion,
+		Kind:       ref.Kind,
+		Namespace:  ref.Namespace,
+		// Exclude the selector.
+	}
+	l, ok := i.inexact[partialRef]
+	if !ok {
+		l = matchers{}
+	}
+
+	if m, ok := l[key]; !ok || isExpired(m.expiry) {
+		// When covering an uncovered key, immediately call the
+		// registered callback to ensure that the following pattern
+		// doesn't create problems:
+		//    foo, err := lister.Get(key)
+		//    // Later...
+		//    err := tracker.TrackReference(fooRef, parent)
+		// In this example, "Later" represents a window where "foo" may
+		// have changed or been created while the Track is not active.
+		// The simplest way of eliminating such a window is to call the
+		// callback to "catch up" immediately following new
+		// registrations.
+		keys = append(keys, key)
+	}
+	// Overwrite the key with a new expiration.
+	l[key] = matcher{
+		selector: selector,
+		expiry:   time.Now().Add(i.leaseDuration),
+	}
+
+	i.inexact[partialRef] = l
+	return nil
 }

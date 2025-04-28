@@ -21,10 +21,10 @@ import (
 
 	informers "k8s.io/client-go/informers"
 	client "knative.dev/serving/pkg/client/injection/kube/client"
-	controller "knative.dev/serving/pkg/controller"
+	controller "knative.dev/serving/pkg/overcontroller"
 	injection "knative.dev/serving/pkg/injection"
-	logging "knative.dev/serving/pkg/over_logging"
-	"knative.dev/serving/pkg/over_system"
+	logging "knative.dev/serving/pkg/overlogging"
+	"knative.dev/serving/pkg/oversystem"
 )
 
 func init() {
@@ -39,7 +39,7 @@ func withInformerFactory(ctx context.Context) context.Context {
 	return context.WithValue(ctx, Key{},
 		informers.NewSharedInformerFactoryWithOptions(c, controller.GetResyncPeriod(ctx),
 			// This factory scopes things to the system namespace.
-			informers.WithNamespace(over_system.Namespace())))
+			informers.WithNamespace(oversystem.Namespace())))
 }
 
 // Get extracts the InformerFactory from the context.

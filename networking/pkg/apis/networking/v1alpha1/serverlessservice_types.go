@@ -22,7 +22,7 @@ import (
 	networking "knative.dev/serving/networking/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis"
 	duckv1 "knative.dev/serving/pkg/apis/duck/v1"
-	"knative.dev/serving/pkg/kmeta"
+	"knative.dev/serving/pkg/overkmeta"
 )
 
 // +genclient
@@ -58,7 +58,7 @@ var (
 	_ apis.Defaultable = (*ServerlessService)(nil)
 
 	// Check that we can create OwnerReferences to a ServerlessService.
-	_ kmeta.OwnerRefable = (*ServerlessService)(nil)
+	_ overkmeta.OwnerRefable = (*ServerlessService)(nil)
 
 	// Check that the type conforms to the duck Knative Resource shape.
 	_ duckv1.KRShaped = (*ServerlessService)(nil)
@@ -101,8 +101,7 @@ type ServerlessServiceSpec struct {
 	ProtocolType networking.ProtocolType `json:"protocolType"`
 
 	// 这两个属性很重要 ✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️✈️
-	// NumActivators contains number of Activators that this revision should be
-	// assigned.
+	// NumActivators 包含此修订版本 应分配的激活器数量。
 	// O means — assign all.
 	NumActivators int32 `json:"numActivators,omitempty"`
 }

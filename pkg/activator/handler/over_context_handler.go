@@ -30,9 +30,9 @@ import (
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
-	"knative.dev/serving/pkg/over_logging"
-	"knative.dev/serving/pkg/over_logging/logkey"
-	network "knative.dev/serving/pkg/over_network"
+	"knative.dev/serving/pkg/overlogging"
+	"knative.dev/serving/pkg/overlogging/logkey"
+	network "knative.dev/serving/pkg/overnetwork"
 )
 
 // NewContextHandler creates a handler that extracts the necessary context from the request
@@ -41,7 +41,7 @@ func NewContextHandler(ctx context.Context, next http.Handler, store *activatorc
 	return &contextHandler{
 		nextHandler:    next,
 		revisionLister: revisioninformer.Get(ctx).Lister(),
-		logger:         over_logging.FromContext(ctx),
+		logger:         overlogging.FromContext(ctx),
 		store:          store,
 	}
 }

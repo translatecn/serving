@@ -37,10 +37,10 @@ import (
 	kubeclient "knative.dev/serving/pkg/client/injection/kube/client"
 	leaseinformer "knative.dev/serving/pkg/client/injection/kube/informers/coordination/v1/lease"
 	endpointsinformer "knative.dev/serving/pkg/client/injection/kube/informers/core/v1/endpoints"
-	"knative.dev/serving/pkg/controller"
-	"knative.dev/serving/pkg/hash"
-	"knative.dev/serving/pkg/over_logging"
-	"knative.dev/serving/pkg/over_system"
+	"knative.dev/serving/pkg/overcontroller"
+	"knative.dev/serving/pkg/overhash"
+	"knative.dev/serving/pkg/overlogging"
+	"knative.dev/serving/pkg/oversystem"
 )
 
 // leaseTracker monitors lease resources to update the Forwarder's processor configuration(s)
@@ -51,7 +51,7 @@ type leaseTracker struct {
 	logger *zap.SugaredLogger
 	selfIP string
 	// bs is the BucketSet including all Autoscaler buckets.
-	bs *hash.BucketSet
+	bs *overhash.BucketSet
 
 	kc              kubernetes.Interface
 	endpointsLister corev1listers.EndpointsLister
@@ -190,7 +190,7 @@ func LeaseBasedProcessor(ctx context.Context, f *Forwarder, accept statProcessor
 	}
 	endpointsInformer := endpointsinformer.Get(ctx)
 	lt := &leaseTracker{
-		logger:          over_logging.FromContext(ctx),
+		logger:          overlogging.FromContext(ctx),
 		selfIP:          selfIP,
 		bs:              f.bs,
 		kc:              kubeclient.Get(ctx),
@@ -202,10 +202,10 @@ func LeaseBasedProcessor(ctx context.Context, f *Forwarder, accept statProcessor
 
 	leaseInformer := leaseinformer.Get(ctx)
 	leaseInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: lt.filterFunc(over_system.Namespace()),
+		FilterFunc: lt.filterFunc(oversystem.Namespace()),
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    lt.leaseUpdated,
-			UpdateFunc: controller.PassNew(lt.leaseUpdated),
+			UpdateFunc: overcontroller.PassNew(lt.leaseUpdated),
 			// TODO(yanweiguo): Set up DeleteFunc.
 		},
 	})

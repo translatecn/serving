@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: autoscaler
-          image: gcr.io/knative-releases/knative.dev/serving/cmd/autoscaler@sha256:ac1a83ba7c278ce9482b7bbfffe00e266f657b7d2356daed88ffe666bc68978e
+          image: registry.cn-hangzhou.aliyuncs.com/acejilam/knative-serving-autoscaler:v1.17.0
           ports:
             - name: metrics
               containerPort: 9090

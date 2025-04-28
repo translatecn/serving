@@ -28,7 +28,7 @@ import (
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/aggregation"
 	"knative.dev/serving/pkg/autoscaler/config"
-	"knative.dev/serving/pkg/over_logging/logkey"
+	"knative.dev/serving/pkg/overlogging/logkey"
 )
 
 const (

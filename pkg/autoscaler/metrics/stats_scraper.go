@@ -37,7 +37,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/metrics"
 	pkgmetrics "knative.dev/serving/pkg/metrics"
-	"knative.dev/serving/pkg/networking"
+	"knative.dev/serving/pkg/overnetworking"
 	"knative.dev/serving/pkg/resources"
 )
 
@@ -157,7 +157,7 @@ type serviceScraper struct {
 	podsAddressable  bool
 }
 
-var portAndPath = strconv.Itoa(networking.AutoscalingQueueMetricsPort) + "/metrics"
+var portAndPath = strconv.Itoa(overnetworking.AutoscalingQueueMetricsPort) + "/metrics"
 
 func urlFromTarget(t, ns string) string {
 	return fmt.Sprintf("http://%s.%s:", t, ns) + portAndPath

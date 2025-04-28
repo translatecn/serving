@@ -18,12 +18,11 @@ package net
 
 import (
 	"context"
+	netcfg "knative.dev/serving/networking/pkg/config"
 	"net/http"
 	"sort"
 	"sync"
 	"sync/atomic"
-
-	netcfg "knative.dev/serving/networking/pkg/config"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -39,12 +38,12 @@ import (
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	endpointsinformer "knative.dev/serving/pkg/client/injection/kube/informers/core/v1/endpoints"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
-	"knative.dev/serving/pkg/controller"
-	"knative.dev/serving/pkg/kmeta"
-	"knative.dev/serving/pkg/networking"
-	"knative.dev/serving/pkg/over_logging"
-	"knative.dev/serving/pkg/over_logging/logkey"
-	"knative.dev/serving/pkg/over_queue"
+	"knative.dev/serving/pkg/overcontroller"
+	"knative.dev/serving/pkg/overkmeta"
+	"knative.dev/serving/pkg/overlogging"
+	"knative.dev/serving/pkg/overlogging/logkey"
+	"knative.dev/serving/pkg/overnetworking"
+	"knative.dev/serving/pkg/overqueue"
 	"knative.dev/serving/pkg/reconciler"
 )
 
@@ -58,8 +57,8 @@ const (
 	// The revisionThrottler breaker's concurrency increases up to this value as
 	// new endpoints show up. We need to set some value here since the breaker
 	// requires an explicit buffer size (it's backed by a chan struct{}), but
-	// over_queue.MaxBreakerCapacity is math.MaxInt32.
-	revisionMaxConcurrency = over_queue.MaxBreakerCapacity
+	// overqueue.MaxBreakerCapacity is math.MaxInt32.
+	revisionMaxConcurrency = overqueue.MaxBreakerCapacity
 )
 
 func newPodTracker(dest string, b breaker) *podTracker {
@@ -169,43 +168,6 @@ type revisionThrottler struct {
 	logger *zap.SugaredLogger
 }
 
-func newRevisionThrottler(revID types.NamespacedName,
-	containerConcurrency int, proto string,
-	breakerParams over_queue.BreakerParams,
-	logger *zap.SugaredLogger,
-) *revisionThrottler {
-	logger = logger.With(zap.String(logkey.Key, revID.String()))
-	var (
-		revBreaker breaker
-		lbp        lbPolicy
-	)
-	switch {
-	case containerConcurrency == 0:
-		revBreaker = newInfiniteBreaker(logger)
-		lbp = randomChoice2Policy
-	case containerConcurrency <= 3:
-		// For very low CC values use first available pod.
-		revBreaker = over_queue.NewBreaker(breakerParams)
-		lbp = firstAvailableLBPolicy
-	default:
-		// Otherwise RR.
-		revBreaker = over_queue.NewBreaker(breakerParams)
-		lbp = newRoundRobinPolicy()
-	}
-	t := &revisionThrottler{
-		revID:                revID,
-		containerConcurrency: containerConcurrency,
-		breaker:              revBreaker,
-		logger:               logger,
-		protocol:             proto,
-		lbPolicy:             lbp,
-	}
-
-	// Start with unknown
-	t.activatorIndex.Store(-1)
-	return t
-}
-
 func noop() {}
 
 // Returns a dest that at the moment of choosing had an open slot
@@ -232,7 +194,7 @@ func (rt *revisionThrottler) try(ctx context.Context, function func(dest string,
 		reenqueue = false
 		if err := rt.breaker.Maybe(ctx, func() {
 			cb, tracker, isClusterIP := rt.acquireDest(ctx)
-			if tracker == nil {
+			if tracker == nil { // tracker 是后端pod
 				// This can happen if individual requests raced each other or if pod
 				// capacity was decreased after passing the outer semaphore.
 				reenqueue = true
@@ -289,30 +251,6 @@ func (rt *revisionThrottler) resetTrackers() {
 	}
 }
 
-func (rt *revisionThrottler) updateThrottlerState(backendCount int, trackers []*podTracker, clusterIPDest *podTracker) {
-	rt.logger.Infof("Updating Revision Throttler with: clusterIP = %v, trackers = %d, backends = %d",
-		clusterIPDest, len(trackers), backendCount)
-
-	// Update trackers / clusterIP before capacity. Otherwise we can race updating our breaker when
-	// we increase capacity, causing a request to fall through before a tracker is added, causing an
-	// incorrect LB decision.
-	if func() bool {
-		rt.mux.Lock()
-		defer rt.mux.Unlock()
-		rt.podTrackers = trackers
-		rt.clusterIPTracker = clusterIPDest
-		return clusterIPDest != nil || len(trackers) > 0
-	}() {
-		// If we have an address to target, then pass through an accurate
-		// accounting of the number of backends.
-		rt.updateCapacity(backendCount)
-	} else {
-		// If we do not have an address to target, then we should treat it
-		// as though we have zero backends.
-		rt.updateCapacity(0)
-	}
-}
-
 // pickIndices picks the indices for the slicing.
 func pickIndices(numTrackers, selfIndex, numActivators int) (beginIndex, endIndex, remnants int) {
 	if numActivators > numTrackers {
@@ -351,7 +289,7 @@ func NewThrottler(ctx context.Context, ipAddr string) *Throttler {
 		revisionThrottlers: make(map[types.NamespacedName]*revisionThrottler),
 		revisionLister:     revisionInformer.Lister(),
 		ipAddress:          ipAddr,
-		logger:             over_logging.FromContext(ctx),
+		logger:             overlogging.FromContext(ctx),
 		epsUpdateCh:        make(chan *corev1.Endpoints),
 	}
 
@@ -359,7 +297,7 @@ func NewThrottler(ctx context.Context, ipAddr string) *Throttler {
 	// throttlers on revision delete
 	revisionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    t.revisionUpdated,
-		UpdateFunc: controller.PassNew(t.revisionUpdated),
+		UpdateFunc: overcontroller.PassNew(t.revisionUpdated),
 		DeleteFunc: t.revisionDeleted,
 	})
 
@@ -368,10 +306,10 @@ func NewThrottler(ctx context.Context, ipAddr string) *Throttler {
 
 	// Handles public service updates.
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: reconciler.LabelFilterFunc(networking.ServiceTypeKey, string(networking.ServiceTypePublic), false),
+		FilterFunc: reconciler.LabelFilterFunc(overnetworking.ServiceTypeKey, string(overnetworking.ServiceTypePublic), false),
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    t.publicEndpointsUpdated,
-			UpdateFunc: controller.PassNew(t.publicEndpointsUpdated),
+			UpdateFunc: overcontroller.PassNew(t.publicEndpointsUpdated),
 		},
 	})
 	return t
@@ -385,8 +323,8 @@ func (t *Throttler) run(updateCh <-chan revisionDestsUpdate) {
 				t.logger.Info("The Throttler has stopped.")
 				return
 			}
-			t.handleUpdate(update)
-		case eps := <-t.epsUpdateCh:
+			t.handleUpdate(update) // ✅
+		case eps := <-t.epsUpdateCh: // endpoint 发生变化
 			t.handlePubEpsUpdate(eps)
 		}
 	}
@@ -417,7 +355,7 @@ func (t *Throttler) revisionUpdated(obj interface{}) {
 // revisionDeleted is to clean up revision throttlers after a revision is deleted to prevent unbounded
 // memory growth
 func (t *Throttler) revisionDeleted(obj interface{}) {
-	acc, err := kmeta.DeletionHandlingAccessor(obj)
+	acc, err := overkmeta.DeletionHandlingAccessor(obj)
 	if err != nil {
 		t.logger.Warnw("Revision delete failure to process", zap.Error(err))
 		return
@@ -430,27 +368,6 @@ func (t *Throttler) revisionDeleted(obj interface{}) {
 	t.revisionThrottlersMutex.Lock()
 	defer t.revisionThrottlersMutex.Unlock()
 	delete(t.revisionThrottlers, revID)
-}
-
-func (t *Throttler) handlePubEpsUpdate(eps *corev1.Endpoints) {
-	t.logger.Infof("Public EPS updates: %#v", eps)
-
-	revN := eps.Labels[serving.RevisionLabelKey]
-	if revN == "" {
-		// Perhaps, we're not the only ones using the same selector label.
-		t.logger.Infof("Ignoring update for PublicService %s/%s", eps.Namespace, eps.Name)
-		return
-	}
-	rev := types.NamespacedName{Name: revN, Namespace: eps.Namespace}
-	if rt, err := t.getOrCreateRevisionThrottler(rev); err != nil {
-		if k8serrors.IsNotFound(err) {
-			t.logger.Debugw("Revision not found. It was probably removed", zap.String(logkey.Key, rev.String()))
-		} else {
-			t.logger.Errorw("Failed to get revision throttler", zap.Error(err), zap.String(logkey.Key, rev.String()))
-		}
-	} else {
-		rt.handlePubEpsUpdate(eps, t.ipAddress)
-	}
 }
 
 // inferIndex returns the index of this activator slice.
@@ -468,12 +385,6 @@ func inferIndex(eps []string, ipAddress string) int {
 		return -1
 	}
 	return idx
-}
-
-func (t *Throttler) publicEndpointsUpdated(newObj interface{}) {
-	endpoints := newObj.(*corev1.Endpoints)
-	t.logger.Info("Updated public Endpoints: ", endpoints.Name)
-	t.epsUpdateCh <- endpoints
 }
 
 // minOneOrValue function returns num if its greater than 1
@@ -554,7 +465,7 @@ func (ib *infiniteBreaker) UpdateConcurrency(cc int) {
 
 // Maybe executes thunk when capacity is available
 func (ib *infiniteBreaker) Maybe(ctx context.Context, thunk func()) error {
-	has := ib.Capacity()
+	has := ib.Capacity() // 1
 	// We're scaled to serve.
 	if has > 0 {
 		thunk()
@@ -603,31 +514,12 @@ func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*r
 			revID,
 			int(rev.Spec.GetContainerConcurrency()),
 			pkgnet.ServicePortName(rev.GetProtocol()),
-			over_queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: revisionMaxConcurrency},
+			overqueue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: revisionMaxConcurrency},
 			t.logger,
 		)
 		t.revisionThrottlers[revID] = revThrottler
 	}
 	return revThrottler, nil
-}
-
-// Run starts the throttler and blocks until the context is done.
-func (t *Throttler) Run(ctx context.Context, probeTransport http.RoundTripper, usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode) {
-	rbm := newRevisionBackendsManager(ctx, probeTransport, usePassthroughLb, meshMode)
-	// Update channel is closed when ctx is done.
-	t.run(rbm.updates())
-}
-
-func (t *Throttler) handleUpdate(update revisionDestsUpdate) {
-	if rt, err := t.getOrCreateRevisionThrottler(update.Rev); err != nil {
-		if k8serrors.IsNotFound(err) {
-			t.logger.Debugw("Revision not found. It was probably removed", zap.String(logkey.Key, update.Rev.String()))
-		} else {
-			t.logger.Errorw("Failed to get revision throttler", zap.Error(err), zap.String(logkey.Key, update.Rev.String()))
-		}
-	} else {
-		rt.handleUpdate(update)
-	}
 }
 
 // assignSlice picks a subset of the individual pods to send requests to
@@ -662,80 +554,8 @@ func assignSlice(trackers []*podTracker, selfIndex, numActivators int) []*podTra
 	return x
 }
 
-func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP string) {
-	// NB: this is guaranteed to be executed on a single thread.
-	epSet := healthyAddresses(eps, rt.protocol)
-	if !epSet.Has(selfIP) {
-		// No need to do anything, this activator is not in path.
-		return
-	}
-
-	// We are using List to have the IP addresses sorted for consistent results.
-	epsL := sets.List(epSet)
-	//nolint:gosec // number of k8s replicas is bounded by int32
-	newNA, newAI := int32(len(epsL)), int32(inferIndex(epsL, selfIP))
-	if newAI == -1 {
-		// No need to do anything, this activator is not in path.
-		return
-	}
-
-	na, ai := rt.numActivators.Load(), rt.activatorIndex.Load()
-	if na == newNA && ai == newAI {
-		// The state didn't change, do nothing
-		return
-	}
-
-	rt.numActivators.Store(newNA)
-	rt.activatorIndex.Store(newAI)
-	rt.logger.Infof("This activator index is %d/%d was %d/%d",
-		newAI, newNA, ai, na)
-	rt.updateCapacity(rt.backendCount)
-}
-
-// This function will never be called in parallel but `try` can be called in parallel to this so we need
-// to lock on updating concurrency / trackers
-func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
-	rt.logger.Debugw("Handling update", zap.String("ClusterIP", update.ClusterIPDest), zap.Object("dests", over_logging.StringSet(update.Dests)))
-
-	// ClusterIP is not yet ready, so we want to send requests directly to the pods.
-	// NB: this will not be called in parallel, thus we can build a new podTrackers
-	// array before taking out a lock.
-	if update.ClusterIPDest == "" {
-		// Create a map for fast lookup of existing trackers.
-		trackersMap := make(map[string]*podTracker, len(rt.podTrackers))
-		for _, tracker := range rt.podTrackers {
-			trackersMap[tracker.dest] = tracker
-		}
-		trackers := make([]*podTracker, 0, len(update.Dests))
-		// Loop over dests, reuse existing tracker if we have one, otherwise create
-		// a new one.
-		for newDest := range update.Dests {
-			tracker, ok := trackersMap[newDest]
-			if !ok {
-				if rt.containerConcurrency == 0 {
-					tracker = newPodTracker(newDest, nil)
-				} else {
-					tracker = newPodTracker(newDest, over_queue.NewBreaker(over_queue.BreakerParams{
-						QueueDepth:      breakerQueueDepth,
-						MaxConcurrency:  rt.containerConcurrency,
-						InitialCapacity: rt.containerConcurrency, // Presume full unused capacity.
-					}))
-				}
-			}
-			trackers = append(trackers, tracker)
-		}
-
-		rt.updateThrottlerState(len(update.Dests), trackers, nil /*clusterIP*/)
-		return
-	}
-
-	rt.updateThrottlerState(len(update.Dests), nil /*trackers*/, newPodTracker(update.ClusterIPDest, nil))
-}
-
-// updateCapacity updates the capacity of the throttler and recomputes
-// the assigned trackers to the Activator instance.
-// Currently updateCapacity is ensured to be invoked from a single go routine
-// and this does not synchronize
+// updateCapacity 更新了限流器的容量，并重新计算了分配给激活器实例的跟踪器数量。
+// 目前，updateCapacity 方法确保仅由单个协程调用，并且这不会进行同步操作
 func (rt *revisionThrottler) updateCapacity(backendCount int) {
 	// We have to make assignments on each updateCapacity, since if number
 	// of activators changes, then we need to rebalance the assignedTrackers.
@@ -773,4 +593,179 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 
 	rt.backendCount = backendCount
 	rt.breaker.UpdateConcurrency(capacity)
+}
+
+func (t *Throttler) publicEndpointsUpdated(newObj interface{}) {
+	endpoints := newObj.(*corev1.Endpoints)
+	t.logger.Info("Updated public Endpoints: ", endpoints.Name)
+	t.epsUpdateCh <- endpoints
+}
+
+func newRevisionThrottler(revID types.NamespacedName,
+	containerConcurrency int, proto string,
+	breakerParams overqueue.BreakerParams,
+	logger *zap.SugaredLogger,
+) *revisionThrottler {
+	logger = logger.With(zap.String(logkey.Key, revID.String()))
+	var (
+		revBreaker breaker
+		lbp        lbPolicy
+	)
+	switch {
+	case containerConcurrency == 0:
+		revBreaker = newInfiniteBreaker(logger)
+		lbp = randomChoice2Policy
+	case containerConcurrency <= 3:
+		// For very low CC values use first available pod.
+		revBreaker = overqueue.NewBreaker(breakerParams)
+		lbp = firstAvailableLBPolicy
+	default:
+		// Otherwise RR.
+		revBreaker = overqueue.NewBreaker(breakerParams)
+		lbp = newRoundRobinPolicy()
+	}
+	t := &revisionThrottler{
+		revID:                revID,
+		containerConcurrency: containerConcurrency,
+		breaker:              revBreaker,
+		logger:               logger,
+		protocol:             proto,
+		lbPolicy:             lbp,
+	}
+
+	// Start with unknown
+	t.activatorIndex.Store(-1)
+	return t
+}
+
+func (t *Throttler) handlePubEpsUpdate(eps *corev1.Endpoints) {
+	t.logger.Infof("Public EPS updates: %#v", eps)
+
+	revN := eps.Labels[serving.RevisionLabelKey]
+	if revN == "" {
+		// Perhaps, we're not the only ones using the same selector label.
+		t.logger.Infof("Ignoring update for PublicService %s/%s", eps.Namespace, eps.Name)
+		return
+	}
+	rev := types.NamespacedName{Name: revN, Namespace: eps.Namespace}
+	if rt, err := t.getOrCreateRevisionThrottler(rev); err != nil {
+		if k8serrors.IsNotFound(err) {
+			t.logger.Debugw("Revision not found. It was probably removed", zap.String(logkey.Key, rev.String()))
+		} else {
+			t.logger.Errorw("Failed to get revision throttler", zap.Error(err), zap.String(logkey.Key, rev.String()))
+		}
+	} else {
+		rt.handlePubEpsUpdate(eps, t.ipAddress)
+	}
+}
+
+func (t *Throttler) handleUpdate(update revisionDestsUpdate) {
+	if rt, err := t.getOrCreateRevisionThrottler(update.Rev); err != nil {
+		if k8serrors.IsNotFound(err) {
+			t.logger.Debugw("Revision not found. It was probably removed", zap.String(logkey.Key, update.Rev.String()))
+		} else {
+			t.logger.Errorw("Failed to get revision throttler", zap.Error(err), zap.String(logkey.Key, update.Rev.String()))
+		}
+	} else {
+		rt.handleUpdate(update)
+	}
+}
+
+func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP string) {
+	// NB: this is guaranteed to be executed on a single thread.
+	epSet := healthyAddresses(eps, rt.protocol) // http
+	if !epSet.Has(selfIP) {
+		// No need to do anything, this activator is not in path.
+		return
+	}
+	// 只取出 activator endpoint
+	// We are using List to have the IP addresses sorted for consistent results.
+	epsL := sets.List(epSet)
+	//nolint:gosec // number of k8s replicas is bounded by int32
+	newNA, newAI := int32(len(epsL)), int32(inferIndex(epsL, selfIP))
+	if newAI == -1 {
+		// No need to do anything, this activator is not in path.
+		return
+	}
+
+	na, ai := rt.numActivators.Load(), rt.activatorIndex.Load()
+	if na == newNA && ai == newAI {
+		// The state didn't change, do nothing
+		return
+	}
+
+	rt.numActivators.Store(newNA)
+	rt.activatorIndex.Store(newAI)
+	rt.logger.Infof("This activator index is %d/%d was %d/%d",
+		newAI, newNA, ai, na)
+	rt.updateCapacity(rt.backendCount)
+}
+
+// Run starts the throttler and blocks until the context is done.
+func (t *Throttler) Run(ctx context.Context, probeTransport http.RoundTripper, usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode) {
+	rbm := newRevisionBackendsManager(ctx, probeTransport, usePassthroughLb, meshMode)
+	// Update channel is closed when ctx is done.
+	t.run(rbm.updates())
+}
+
+// This function will never be called in parallel but `try` can be called in parallel to this so we need
+// to lock on updating concurrency / trackers
+func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
+	rt.logger.Debugw("Handling update", zap.String("ClusterIP", update.ClusterIPDest), zap.Object("dests", overlogging.StringSet(update.Dests)))
+
+	// ClusterIP is not yet ready, so we want to send requests directly to the pods.
+	// NB: this will not be called in parallel, thus we can build a new podTrackers
+	// array before taking out a lock.
+	if update.ClusterIPDest == "" {
+		// Create a map for fast lookup of existing trackers.
+		trackersMap := make(map[string]*podTracker, len(rt.podTrackers))
+		for _, tracker := range rt.podTrackers {
+			trackersMap[tracker.dest] = tracker
+		}
+		trackers := make([]*podTracker, 0, len(update.Dests))
+		// Loop over dests, reuse existing tracker if we have one, otherwise create
+		// a new one.
+		for newDest := range update.Dests {
+			tracker, ok := trackersMap[newDest]
+			if !ok {
+				if rt.containerConcurrency == 0 {
+					tracker = newPodTracker(newDest, nil)
+				} else {
+					tracker = newPodTracker(newDest, overqueue.NewBreaker(overqueue.BreakerParams{
+						QueueDepth:      breakerQueueDepth,
+						MaxConcurrency:  rt.containerConcurrency,
+						InitialCapacity: rt.containerConcurrency, // Presume full unused capacity.
+					}))
+				}
+			}
+			trackers = append(trackers, tracker)
+		}
+
+		rt.updateThrottlerState(len(update.Dests), trackers, nil /*clusterIP*/)
+		return
+	}
+
+	rt.updateThrottlerState(len(update.Dests), nil /*trackers*/, newPodTracker(update.ClusterIPDest, nil))
+}
+func (rt *revisionThrottler) updateThrottlerState(backendCount int, trackers []*podTracker, clusterIPDest *podTracker) {
+	rt.logger.Infof("Updating Revision Throttler with: clusterIP = %v, trackers = %d, backends = %d", clusterIPDest, len(trackers), backendCount)
+
+	// Update trackers / clusterIP before capacity. Otherwise we can race updating our breaker when
+	// we increase capacity, causing a request to fall through before a tracker is added, causing an
+	// incorrect LB decision.
+	if func() bool {
+		rt.mux.Lock()
+		defer rt.mux.Unlock()
+		rt.podTrackers = trackers
+		rt.clusterIPTracker = clusterIPDest
+		return clusterIPDest != nil || len(trackers) > 0
+	}() {
+		// If we have an address to target, then pass through an accurate
+		// accounting of the number of backends.
+		rt.updateCapacity(backendCount)
+	} else {
+		// If we do not have an address to target, then we should treat it
+		// as though we have zero backends.
+		rt.updateCapacity(0)
+	}
 }

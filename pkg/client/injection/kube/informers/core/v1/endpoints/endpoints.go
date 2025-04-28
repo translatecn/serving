@@ -23,9 +23,9 @@ import (
 
 	v1 "k8s.io/client-go/informers/core/v1"
 	factory "knative.dev/serving/pkg/client/injection/kube/informers/factory"
-	controller "knative.dev/serving/pkg/controller"
+	controller "knative.dev/serving/pkg/overcontroller"
 	injection "knative.dev/serving/pkg/injection"
-	logging "knative.dev/serving/pkg/over_logging"
+	logging "knative.dev/serving/pkg/overlogging"
 )
 
 func init() {

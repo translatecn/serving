@@ -26,7 +26,7 @@ import (
 
 	"knative.dev/serving/pkg/apis"
 	"knative.dev/serving/pkg/apis/duck/ducktypes"
-	"knative.dev/serving/pkg/kmeta"
+	"knative.dev/serving/pkg/overkmeta"
 )
 
 // +genduck
@@ -87,8 +87,8 @@ type AddressStatus struct {
 // Verify AddressableType resources meet duck contracts.
 var (
 	_ apis.Listable         = (*AddressableType)(nil)
-	_ ducktypes.Populatable = (*AddressableType)(nil)
-	_ kmeta.OwnerRefable    = (*AddressableType)(nil)
+	_ ducktypes.Populatable  = (*AddressableType)(nil)
+	_ overkmeta.OwnerRefable = (*AddressableType)(nil)
 )
 
 // GetFullType implements duck.Implementable
@@ -121,7 +121,7 @@ func (t *AddressableType) Populate() {
 	}
 }
 
-// GetGroupVersionKind implements kmeta.OwnerRefable
+// GetGroupVersionKind implements overkmeta.OwnerRefable
 func (t *AddressableType) GetGroupVersionKind() schema.GroupVersionKind {
 	return t.GroupVersionKind()
 }

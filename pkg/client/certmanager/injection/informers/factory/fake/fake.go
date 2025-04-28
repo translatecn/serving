@@ -24,7 +24,7 @@ import (
 	externalversions "github.com/cert-manager/cert-manager/pkg/client/informers/externalversions"
 	fake "knative.dev/serving/pkg/client/certmanager/injection/client/fake"
 	factory "knative.dev/serving/pkg/client/certmanager/injection/informers/factory"
-	controller "knative.dev/serving/pkg/controller"
+	controller "knative.dev/serving/pkg/overcontroller"
 	injection "knative.dev/serving/pkg/injection"
 )
 

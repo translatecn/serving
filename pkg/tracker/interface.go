@@ -65,8 +65,7 @@ type Interface interface {
 	// Deprecated: use TrackReference.
 	Track(ref corev1.ObjectReference, obj interface{}) error
 
-	// Track tells us that "obj" is tracking changes to the
-	// referenced object.
+	// TrackReference 提示我们“obj”正在跟踪 "所引用对象" 的变化情况。
 	TrackReference(ref Reference, obj interface{}) error
 
 	// OnChanged is a callback to register with the InformerFactory

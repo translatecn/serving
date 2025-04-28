@@ -119,7 +119,7 @@ func (g *reconcilerReconcilerGenerator) GenerateType(c *generator.Context, t *ty
 		"recordEventRecorder": c.Universe.Type(types.Name{Name: "EventRecorder", Package: "k8s.io/client-go/tools/record"}),
 		// methods
 		"loggingFromContext": c.Universe.Function(types.Name{
-			Package: "knative.dev/serving/pkg/over_logging",
+			Package: "knative.dev/serving/pkg/overlogging",
 			Name:    "FromContext",
 		}),
 		"diffWrite": c.Universe.Function(types.Name{
@@ -179,7 +179,7 @@ func (g *reconcilerReconcilerGenerator) GenerateType(c *generator.Context, t *ty
 			Name:    "Context",
 		}),
 		"kmpSafeDiff": c.Universe.Function(types.Name{
-			Package: "knative.dev/serving/pkg/over_kmp",
+			Package: "knative.dev/serving/pkg/overkmp",
 			Name:    "SafeDiff",
 		}),
 		"fmtErrorf":           c.Universe.Package("fmt").Function("Errorf"),

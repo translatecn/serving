@@ -21,8 +21,8 @@ import (
 	"sync/atomic"
 
 	netcfg "knative.dev/serving/networking/pkg/config"
-	"knative.dev/serving/pkg/configmap"
-	tracingconfig "knative.dev/serving/pkg/over_tracing/config"
+	"knative.dev/serving/pkg/overconfigmap"
+	tracingconfig "knative.dev/serving/pkg/overtracing/config"
 )
 
 type cfgKey struct{}
@@ -40,14 +40,14 @@ func FromContext(ctx context.Context) *Config {
 
 // Store loads/unloads our untyped configuration.
 type Store struct {
-	*configmap.UntypedStore
+	*overconfigmap.UntypedStore
 
 	// current is the current Config.
 	current atomic.Value
 }
 
 // NewStore creates a new configuration Store.
-func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
+func NewStore(logger overconfigmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
 	s := &Store{}
 
 	// Append an update function to run after a ConfigMap has updated to update the
@@ -68,10 +68,10 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 		}
 		s.current.Store(c)
 	})
-	s.UntypedStore = configmap.NewUntypedStore(
+	s.UntypedStore = overconfigmap.NewUntypedStore(
 		"activator",
 		logger,
-		configmap.Constructors{
+		overconfigmap.Constructors{
 			tracingconfig.ConfigName: tracingconfig.NewTracingConfigFromConfigMap,
 			netcfg.ConfigMapName:     netcfg.NewConfigFromConfigMap,
 		},

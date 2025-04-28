@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/metrics"
-	"knative.dev/serving/pkg/over_logging/logkey"
+	"knative.dev/serving/pkg/overlogging/logkey"
 )
 
 // tickInterval is how often the Autoscaler evaluates the metrics
@@ -95,7 +95,7 @@ type ScaleResult struct {
 	DesiredPodCount int32
 	// ExcessBurstCapacity is computed headroom of the revision taking into
 	// the account target burst capacity.
-	ExcessBurstCapacity int32
+	ExcessBurstCapacity int32 // 超额突发容量
 	// ScaleValid specifies whether this scale result is valid, i.e. whether
 	// Autoscaler had all the necessary information to compute a suggestion.
 	ScaleValid bool
@@ -144,23 +144,6 @@ func (sr *scalerRunner) safeDecider() *ReversionReplicasByLoad {
 	sr.mux.RLock()
 	defer sr.mux.RUnlock()
 	return sr.decider.DeepCopy()
-}
-
-func (sr *scalerRunner) updateLatestScale(sRes ScaleResult) bool {
-	ret := false
-	sr.mux.Lock()
-	defer sr.mux.Unlock()
-	if sr.decider.Status.DesiredScale != sRes.DesiredPodCount {
-		sr.decider.Status.DesiredScale = sRes.DesiredPodCount
-		ret = true
-	}
-
-	// If sign has changed -- then we have to update KPA.
-	ret = ret || !sameSign(sr.decider.Status.ExcessBurstCapacity, sRes.ExcessBurstCapacity)
-
-	// Update with the latest calculation anyway.
-	sr.decider.Status.ExcessBurstCapacity = sRes.ExcessBurstCapacity
-	return ret
 }
 
 // MultiScaler maintains a collection of UniScalers.
@@ -279,11 +262,7 @@ func (m *MultiScaler) Poke(key types.NamespacedName, stat metrics.Stat) {
 	}
 }
 
-func NewMultiScaler(
-	stopCh <-chan struct{},
-	uniScalerFactory UniScalerFactory,
-	logger *zap.SugaredLogger,
-) *MultiScaler {
+func NewMultiScaler(stopCh <-chan struct{}, uniScalerFactory UniScalerFactory, logger *zap.SugaredLogger) *MultiScaler {
 	return &MultiScaler{
 		scalers:          make(map[types.NamespacedName]*scalerRunner),
 		scalersStopCh:    stopCh,
@@ -344,4 +323,21 @@ func (m *MultiScaler) Update(_ context.Context, decider *ReversionReplicasByLoad
 	}
 	// This GroupResource is a lie, but unfortunately this interface requires one.
 	return nil, errors.NewNotFound(autoscalingv1alpha1.Resource("Deciders"), key.String())
+}
+
+func (sr *scalerRunner) updateLatestScale(sRes ScaleResult) bool {
+	ret := false
+	sr.mux.Lock()
+	defer sr.mux.Unlock()
+	if sr.decider.Status.DesiredScale != sRes.DesiredPodCount {
+		sr.decider.Status.DesiredScale = sRes.DesiredPodCount
+		ret = true
+	}
+
+	// If sign has changed -- then we have to update KPA.
+	ret = ret || !sameSign(sr.decider.Status.ExcessBurstCapacity, sRes.ExcessBurstCapacity) // ✅
+
+	// Update with the latest calculation anyway.
+	sr.decider.Status.ExcessBurstCapacity = sRes.ExcessBurstCapacity // ✅
+	return ret
 }

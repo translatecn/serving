@@ -22,9 +22,9 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
 
-	"knative.dev/serving/pkg/controller"
-	"knative.dev/serving/pkg/over_logging"
-	"knative.dev/serving/pkg/over_signals"
+	"knative.dev/serving/pkg/overcontroller"
+	"knative.dev/serving/pkg/overlogging"
+	"knative.dev/serving/pkg/oversignals"
 )
 
 // EnableInjectionOrDie enables Knative Client Injection, and provides a
@@ -42,7 +42,7 @@ import (
 // ```
 func EnableInjectionOrDie(ctx context.Context, cfg *rest.Config) (context.Context, func()) {
 	if ctx == nil {
-		ctx = over_signals.NewContext()
+		ctx = oversignals.NewContext()
 	}
 	if cfg == nil {
 		cfg = ParseAndGetRESTConfigOrDie()
@@ -60,9 +60,9 @@ func EnableInjectionOrDie(ctx context.Context, cfg *rest.Config) (context.Contex
 	ctx, informers := Default.SetupInformers(ctx, cfg)
 
 	return ctx, func() {
-		over_logging.FromContext(ctx).Info("Starting informers...")
-		if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-			over_logging.FromContext(ctx).Fatalw("Failed to start informers", zap.Error(err))
+		overlogging.FromContext(ctx).Info("Starting informers...")
+		if err := overcontroller.StartInformers(ctx.Done(), informers...); err != nil {
+			overlogging.FromContext(ctx).Fatalw("Failed to start informers", zap.Error(err))
 		}
 	}
 }

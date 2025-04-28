@@ -19,7 +19,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -42,25 +41,25 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler/bucket"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
-	"knative.dev/serving/pkg/autoscaler/over_statserver"
+	"knative.dev/serving/pkg/autoscaler/overstatserver"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	"knative.dev/serving/pkg/autoscaler/statforwarder"
 	filteredpodinformer "knative.dev/serving/pkg/client/injection/kube/informers/core/v1/pod/filtered"
 	filteredinformerfactory "knative.dev/serving/pkg/client/injection/kube/informers/factory/filtered"
-	configmap "knative.dev/serving/pkg/configmap/informer"
-	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/overcontroller"
 	"knative.dev/serving/pkg/injection"
 	"knative.dev/serving/pkg/injection/sharedmain"
-	"knative.dev/serving/pkg/leaderelection"
+	"knative.dev/serving/pkg/overleaderelection"
 	"knative.dev/serving/pkg/metrics"
 	smetrics "knative.dev/serving/pkg/metrics"
-	"knative.dev/serving/pkg/over_logging"
-	"knative.dev/serving/pkg/over_profiling"
-	"knative.dev/serving/pkg/over_signals"
-	"knative.dev/serving/pkg/over_system"
-	"knative.dev/serving/pkg/over_version"
-	"knative.dev/serving/pkg/reconciler/autoscaling/over_kpa"
-	"knative.dev/serving/pkg/reconciler/over_metric"
+	configmap "knative.dev/serving/pkg/overconfigmap/informer"
+	"knative.dev/serving/pkg/overlogging"
+	"knative.dev/serving/pkg/overprofiling"
+	"knative.dev/serving/pkg/oversignals"
+	"knative.dev/serving/pkg/oversystem"
+	"knative.dev/serving/pkg/overversion"
+	"knative.dev/serving/pkg/reconciler/autoscaling/overkpa"
+	"knative.dev/serving/pkg/reconciler/overmetric"
 	"knative.dev/serving/pkg/resources"
 )
 
@@ -73,7 +72,7 @@ const (
 
 func main() {
 	// Set up signals so we handle the first shutdown signal gracefully.
-	ctx := over_signals.NewContext()
+	ctx := oversignals.NewContext()
 
 	// Report stats on Go memory usage every 30 seconds.
 	metrics.MemStatsOrDie(ctx)
@@ -97,7 +96,7 @@ func main() {
 	// We sometimes startup faster than we can reach kube-api. Poll on failure to prevent us terminating
 	var err error
 	if perr := wait.PollUntilContextTimeout(ctx, time.Second, 60*time.Second, true, func(context.Context) (bool, error) {
-		if err = over_version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
+		if err = overversion.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
 			log.Print("Failed to get k8s version ", err)
 		}
 		return err == nil, nil
@@ -112,19 +111,19 @@ func main() {
 		log.Fatal("Error loading/parsing logging configuration: ", err)
 	}
 	loggingConfig.LoggingLevel[component] = zapcore.DebugLevel
-	logger, atomicLevel := over_logging.NewLoggerFromConfig(loggingConfig, component)
+	logger, atomicLevel := overlogging.NewLoggerFromConfig(loggingConfig, component)
 	defer flush(logger)
-	ctx = over_logging.WithLogger(ctx, logger)
+	ctx = overlogging.WithLogger(ctx, logger)
 
 	// statsCh is the main communication channel between the stats server and multiscaler.
 	statsCh := make(chan asmetrics.StatMessage, statsBufferLen)
 	defer close(statsCh)
 
-	profilingHandler := over_profiling.NewHandler(logger, false)
+	profilingHandler := overprofiling.NewHandler(logger, false)
 
-	cmw := configmap.NewInformedWatcher(kubeclient.Get(ctx), over_system.Namespace())
+	cmw := configmap.NewInformedWatcher(kubeclient.Get(ctx), oversystem.Namespace())
 	// Watch the logging config map and dynamically update logging levels.
-	cmw.Watch(over_logging.ConfigMapName(), over_logging.UpdateLevelFromConfigMap(logger, atomicLevel, component)) // ✅
+	cmw.Watch(overlogging.ConfigMapName(), overlogging.UpdateLevelFromConfigMap(logger, atomicLevel, component)) // ✅
 	// Watch the observability config map
 	cmw.Watch(
 		metrics.ConfigMapName(),
@@ -133,13 +132,11 @@ func main() {
 	)
 
 	podLister := filteredpodinformer.Get(ctx, serving.RevisionUID).Lister()
-	networkCM, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(over_system.Namespace()).Get(ctx, netcfg.ConfigMapName, metav1.GetOptions{})
+	networkCM, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(oversystem.Namespace()).Get(ctx, netcfg.ConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		logger.Fatalw("Failed to fetch network config", zap.Error(err))
 	}
 	networkConfig, err := netcfg.NewConfigFromMap(networkCM.Data)
-	marshal, _ := json.Marshal(networkConfig)
-	fmt.Println(string(marshal))
 	if err != nil {
 		logger.Fatalw("Failed to construct network config", zap.Error(err))
 	}
@@ -155,9 +152,9 @@ func main() {
 	// Set up scalers.
 	multiScaler := scaling.NewMultiScaler(ctx.Done(), uniScalerFactoryFunc(podLister, collector), logger)
 
-	controllers := []*controller.Impl{
-		over_kpa.NewController(ctx, cmw, multiScaler), // 这里很重要 ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️
-		over_metric.NewController(ctx, cmw, collector),
+	controllers := []*overcontroller.Impl{
+		overkpa.NewController(ctx, cmw, multiScaler), // 这里很重要 ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️ ✈️
+		overmetric.NewController(ctx, cmw, collector),
 	}
 
 	// Start watching the configs.
@@ -166,7 +163,7 @@ func main() {
 	}
 
 	// Start all of the informers and wait for them to sync.
-	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
+	if err := overcontroller.StartInformers(ctx.Done(), informers...); err != nil {
 		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
@@ -183,16 +180,16 @@ func main() {
 	var electorCtx context.Context
 
 	var f *statforwarder.Forwarder
-	if b, bs, err := leaderelection.NewStatefulSetBucketAndSet(int(cc.Buckets)); err == nil {
+	if b, bs, err := overleaderelection.NewStatefulSetBucketAndSet(int(cc.Buckets)); err == nil {
 		logger.Info("Running with StatefulSet leader election")
-		electorCtx = leaderelection.WithStatefulSetElectorBuilder(ctx, cc, b)
+		electorCtx = overleaderelection.WithStatefulSetElectorBuilder(ctx, cc, b)
 		f = statforwarder.New(ctx, bs)
 		if err := statforwarder.StatefulSetBasedProcessor(ctx, f, accept); err != nil {
 			logger.Fatalw("Failed to set up statefulset processors", zap.Error(err))
 		}
 	} else {
 		logger.Info("Running with Standard leader election")
-		electorCtx = leaderelection.WithStandardLeaderElectorBuilder(ctx, kubeClient, cc)
+		electorCtx = overleaderelection.WithStandardLeaderElectorBuilder(ctx, kubeClient, cc)
 		f = statforwarder.New(ctx, bucket.AutoscalerBucketSet(cc.Buckets))
 		if err := statforwarder.LeaseBasedProcessor(ctx, f, accept); err != nil {
 			logger.Fatalw("Failed to set up lease tracking", zap.Error(err))
@@ -205,7 +202,7 @@ func main() {
 	}
 
 	// Set up a statserver.
-	statsServer := over_statserver.New(statsServerAddr, statsCh, logger, f.IsBucketOwner) // ✅
+	statsServer := overstatserver.New(statsServerAddr, statsCh, logger, f.IsBucketOwner) // ✅
 	defer f.Cancel()
 
 	go func() {
@@ -218,7 +215,7 @@ func main() {
 		}
 	}()
 
-	profilingServer := over_profiling.NewServer(profilingHandler) // ✅
+	profilingServer := overprofiling.NewServer(profilingHandler) // ✅
 
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
@@ -228,7 +225,7 @@ func main() {
 	eg.Go(statsServer.ListenAndServe)
 	eg.Go(profilingServer.ListenAndServe)
 	eg.Go(func() error {
-		return controller.StartAll(egCtx, controllers...)
+		return overcontroller.StartAll(egCtx, controllers...)
 	})
 
 	// This will block until either a signal arrives or one of the grouped functions
@@ -246,27 +243,6 @@ func main() {
 func flush(logger *zap.SugaredLogger) {
 	logger.Sync()
 	metrics.FlushExporter()
-}
-
-func componentConfigAndIP(ctx context.Context) leaderelection.ComponentConfig {
-	id, err := bucket.Identity()
-	if err != nil {
-		over_logging.FromContext(ctx).Fatalw("Failed to generate Lease holder identity", zap.Error(err))
-	}
-
-	// Set up leader election config
-	leaderElectionConfig, err := sharedmain.GetLeaderElectionConfig(ctx)
-	if err != nil {
-		over_logging.FromContext(ctx).Fatalw("Error loading leader election configuration", zap.Error(err))
-	}
-
-	cc := leaderElectionConfig.GetComponentConfig(component)
-	cc.LeaseName = func(i uint32) string {
-		return bucket.AutoscalerBucketName(i, cc.Buckets)
-	}
-	cc.Identity = id
-
-	return cc
 }
 
 func statsScraperFactoryFunc(podLister corev1listers.PodLister, usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode) asmetrics.StatsScraperFactory {
@@ -307,4 +283,25 @@ func uniScalerFactoryFunc(podLister corev1listers.PodLister,
 		podAccessor := resources.NewPodAccessor(podLister, decider.Namespace, revisionName)
 		return scaling.New(ctx, decider.Namespace, decider.Name, metricClient, podAccessor, &decider.Spec), nil
 	}
+}
+
+func componentConfigAndIP(ctx context.Context) overleaderelection.ComponentConfig {
+	id, err := bucket.Identity()
+	if err != nil {
+		overlogging.FromContext(ctx).Fatalw("Failed to generate Lease holder identity", zap.Error(err))
+	}
+
+	// Set up leader election config
+	leaderElectionConfig, err := sharedmain.GetLeaderElectionConfig(ctx)
+	if err != nil {
+		overlogging.FromContext(ctx).Fatalw("Error loading leader election configuration", zap.Error(err))
+	}
+
+	cc := leaderElectionConfig.GetComponentConfig(component)
+	cc.LeaseName = func(i uint32) string {
+		return bucket.AutoscalerBucketName(i, cc.Buckets)
+	}
+	cc.Identity = id
+
+	return cc
 }

@@ -29,7 +29,7 @@ import (
 	_ "github.com/ahmetb/gen-crd-api-reference-docs/template"
 
 	// Migration job.
-	_ "knative.dev/serving/pkg/apiextensions/storageversion/cmd/migrate"
+	_ "knative.dev/serving/pkg/overapiextensions/storageversion/cmd/migrate"
 
 	_ "k8s.io/code-generator/cmd/client-gen"
 	_ "k8s.io/code-generator/cmd/deepcopy-gen"
@@ -40,7 +40,7 @@ import (
 	_ "knative.dev/serving/pkg/codegen/cmd/injection-gen"
 
 	// For chaos testing the leaderelection stuff.
-	_ "knative.dev/serving/pkg/leaderelection/chaosduck"
+	_ "knative.dev/serving/pkg/overleaderelection/chaosduck"
 
 	// caching resource
 	_ "knative.dev/serving/caching/config"

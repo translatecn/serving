@@ -95,7 +95,7 @@ func (g *fakeClientGenerator) GenerateType(c *generator.Context, t *types.Type, 
 			Name:    "Fake.RegisterClientFetcher",
 		}),
 		"loggingFromContext": c.Universe.Function(types.Name{
-			Package: "knative.dev/serving/pkg/over_logging",
+			Package: "knative.dev/serving/pkg/overlogging",
 			Name:    "FromContext",
 		}),
 		"contextContext": c.Universe.Type(types.Name{

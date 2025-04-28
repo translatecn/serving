@@ -3,14 +3,21 @@ kind: Service
 metadata:
   name: stock-service-example
   namespace: default
+  labels:
+    a: "1"
+  annotations:
+    b: "1"
 spec:
   template:
     metadata:
       name: stock-service-example-v1
+      labels:
+        c: "1"
       annotations:
-#        'autoscaling.knative.dev/initial-scale': 12
-#        'serving.knative.dev/progress-deadline': 12s
+        "autoscaling.knative.dev/window":  "20s"
+        d: "1"
     spec:
+      containerConcurrency: 10
       containers:
         - image: registry.cn-hangzhou.aliyuncs.com/knative-sample/rest-api-go:v1
           env:

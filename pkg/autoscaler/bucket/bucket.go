@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
-	"knative.dev/serving/pkg/hash"
+	"knative.dev/serving/pkg/overhash"
 )
 
 const prefix = "autoscaler-bucket"
@@ -85,10 +85,10 @@ func ExtractPodNameAndIP(id string) (string, string, error) {
 	return arr[0], arr[1], nil
 }
 
-func AutoscalerBucketSet(total uint32) *hash.BucketSet {
+func AutoscalerBucketSet(total uint32) *overhash.BucketSet {
 	names := make(sets.Set[string], total)
 	for i := range total {
 		names.Insert(AutoscalerBucketName(i, total))
 	}
-	return hash.NewBucketSet(names)
+	return overhash.NewBucketSet(names)
 }

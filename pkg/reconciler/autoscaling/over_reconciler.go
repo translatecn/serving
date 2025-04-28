@@ -22,8 +22,8 @@ import (
 
 	"knative.dev/serving/debug/diff"
 	nv1alpha1 "knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/over_logging"
-	anames "knative.dev/serving/pkg/reconciler/autoscaling/over_resources/names"
+	"knative.dev/serving/pkg/overlogging"
+	anames "knative.dev/serving/pkg/reconciler/autoscaling/overresources/names"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -34,7 +34,7 @@ import (
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	listers "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
-	"knative.dev/serving/pkg/reconciler/autoscaling/over_resources"
+	"knative.dev/serving/pkg/reconciler/autoscaling/overresources"
 )
 
 // Base implements the core controller logic for autoscaling, given a Reconciler.
@@ -47,7 +47,7 @@ type Base struct {
 
 // ReconcileMetric reconciles a metric instance out of the given PodAutoscaler to control metric collection.
 func (c *Base) ReconcileMetric(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, metricSN string) error {
-	desiredMetric := over_resources.MakeMetric(pa, metricSN, config.FromContext(ctx).Autoscaler)
+	desiredMetric := overresources.MakeMetric(pa, metricSN, config.FromContext(ctx).Autoscaler)
 	metric, err := c.MetricLister.Metrics(desiredMetric.Namespace).Get(desiredMetric.Name)
 	if errors.IsNotFound(err) {
 		_, err = c.Client.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Create(ctx, desiredMetric, metav1.CreateOptions{})
@@ -74,13 +74,13 @@ func (c *Base) ReconcileMetric(ctx context.Context, pa *autoscalingv1alpha1.PodA
 func (c *Base) ReconcileSKS(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler,
 	mode nv1alpha1.ServerlessServiceOperationMode, numActivators int32,
 ) (*nv1alpha1.ServerlessService, error) {
-	logger := over_logging.FromContext(ctx)
+	logger := overlogging.FromContext(ctx)
 
 	sksName := anames.SKS(pa.Name)
 	sks, err := c.SKSLister.ServerlessServices(pa.Namespace).Get(sksName)
 	if errors.IsNotFound(err) {
 		logger.Info("SKS does not exist; creating.")
-		sks = over_resources.MakeSKS(pa, mode, numActivators)
+		sks = overresources.MakeSKS(pa, mode, numActivators)
 		if _, err = c.NetworkingClient.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(ctx, sks, metav1.CreateOptions{}); err != nil {
 			return nil, fmt.Errorf("error creating SKS %s: %w", sksName, err)
 		}
@@ -91,7 +91,7 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *autoscalingv1alpha1.PodAuto
 		pa.Status.MarkResourceNotOwned("ServerlessService", sksName)
 		return nil, fmt.Errorf("PA: %s does not own SKS: %s", pa.Name, sksName)
 	} else {
-		tmpl := over_resources.MakeSKS(pa, mode, numActivators)
+		tmpl := overresources.MakeSKS(pa, mode, numActivators)
 		if !equality.Semantic.DeepEqual(tmpl.Spec, sks.Spec) {
 			want := sks.DeepCopy()
 			want.Spec = tmpl.Spec

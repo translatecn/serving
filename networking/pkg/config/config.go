@@ -28,7 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/lru"
-	cm "knative.dev/serving/pkg/configmap"
+	cm "knative.dev/serving/pkg/overconfigmap"
 	"sigs.k8s.io/yaml"
 )
 
@@ -330,20 +330,6 @@ func tlsEnabled(encryptionConfig EncryptionConfig) bool {
 	return encryptionConfig == EncryptionEnabled
 }
 
-// GetDomainTemplate returns the golang Template from the config map
-// or panics (the value is validated during CM validation and at
-// this point guaranteed to be parseable).
-func (c *Config) GetDomainTemplate() *template.Template {
-	if tt, ok := templateCache.Get(c.DomainTemplate); ok {
-		return tt.(*template.Template)
-	}
-	// Should not really happen outside of route/ingress unit tests.
-	nt := template.Must(template.New("domain-template").Parse(
-		c.DomainTemplate))
-	templateCache.Add(c.DomainTemplate, nt)
-	return nt
-}
-
 func checkDomainTemplate(t *template.Template) error {
 	// To a test run of applying the template, and see if the
 	// result is a valid URL.
@@ -568,4 +554,17 @@ func defaultConfig() *Config {
 		SystemInternalTLS:             EncryptionDisabled,
 		ClusterLocalDomainTLS:         EncryptionDisabled,
 	}
+}
+
+// GetDomainTemplate returns the golang Template from the config map
+// or panics (the value is validated during CM validation and at
+// this point guaranteed to be parseable).
+func (c *Config) GetDomainTemplate() *template.Template {
+	if tt, ok := templateCache.Get(c.DomainTemplate); ok {
+		return tt.(*template.Template)
+	}
+	// Should not really happen outside of route/ingress unit tests.
+	nt := template.Must(template.New("domain-template").Parse(c.DomainTemplate))
+	templateCache.Add(c.DomainTemplate, nt)
+	return nt
 }

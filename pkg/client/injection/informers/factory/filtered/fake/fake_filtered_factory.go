@@ -25,9 +25,9 @@ import (
 	externalversions "knative.dev/serving/pkg/client/informers/externalversions"
 	fake "knative.dev/serving/pkg/client/injection/client/fake"
 	filtered "knative.dev/serving/pkg/client/injection/informers/factory/filtered"
-	controller "knative.dev/serving/pkg/controller"
+	controller "knative.dev/serving/pkg/overcontroller"
 	injection "knative.dev/serving/pkg/injection"
-	overlogging "knative.dev/serving/pkg/over_logging"
+	overlogging "knative.dev/serving/pkg/overlogging"
 )
 
 var Get = filtered.Get

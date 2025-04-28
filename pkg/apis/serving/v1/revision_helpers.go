@@ -22,7 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	net "knative.dev/serving/networking/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/kmeta"
+	"knative.dev/serving/pkg/overkmeta"
 )
 
 const (
@@ -92,10 +92,10 @@ func (r *Revision) SetRoutingState(state RoutingState, tm time.Time) {
 		return // Don't update timestamp if no change.
 	}
 
-	r.Labels = kmeta.UnionMaps(r.Labels,
+	r.Labels = overkmeta.UnionMaps(r.Labels,
 		map[string]string{serving.RoutingStateLabelKey: stateStr})
 
-	r.Annotations = kmeta.UnionMaps(r.Annotations,
+	r.Annotations = overkmeta.UnionMaps(r.Annotations,
 		map[string]string{
 			serving.RoutingStateModifiedAnnotationKey: RoutingStateModifiedString(tm),
 		},

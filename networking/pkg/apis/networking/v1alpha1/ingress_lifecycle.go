@@ -60,15 +60,6 @@ func (is *IngressStatus) MarkResourceNotOwned(kind, name string) {
 		fmt.Sprintf("There is an existing %s %q that we do not own.", kind, name))
 }
 
-// MarkLoadBalancerReady marks the Ingress with IngressConditionLoadBalancerReady,
-// and also populate the address of the load balancer.
-func (is *IngressStatus) MarkLoadBalancerReady(publicLbs []LoadBalancerIngressStatus, privateLbs []LoadBalancerIngressStatus) {
-	is.PublicLoadBalancer = &LoadBalancerStatus{Ingress: publicLbs}
-	is.PrivateLoadBalancer = &LoadBalancerStatus{Ingress: privateLbs}
-
-	ingressCondSet.Manage(is).MarkTrue(IngressConditionLoadBalancerReady)
-}
-
 // MarkLoadBalancerNotReady marks the "IngressConditionLoadBalancerReady" condition to unknown to
 // reflect that the load balancer is not ready yet.
 func (is *IngressStatus) MarkLoadBalancerNotReady() {
@@ -92,4 +83,11 @@ func (i *Ingress) IsReady() bool {
 	is := i.Status
 	return is.ObservedGeneration == i.Generation &&
 		is.GetCondition(IngressConditionReady).IsTrue()
+}
+
+func (is *IngressStatus) MarkLoadBalancerReady(publicLbs []LoadBalancerIngressStatus, privateLbs []LoadBalancerIngressStatus) {
+	is.PublicLoadBalancer = &LoadBalancerStatus{Ingress: publicLbs}
+	is.PrivateLoadBalancer = &LoadBalancerStatus{Ingress: privateLbs}
+
+	ingressCondSet.Manage(is).MarkTrue(IngressConditionLoadBalancerReady)
 }

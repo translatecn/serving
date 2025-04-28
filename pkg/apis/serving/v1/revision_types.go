@@ -21,7 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/serving/pkg/apis"
 	duckv1 "knative.dev/serving/pkg/apis/duck/v1"
-	"knative.dev/serving/pkg/kmeta"
+	"knative.dev/serving/pkg/overkmeta"
 )
 
 // +genclient
@@ -55,7 +55,7 @@ var (
 	_ apis.Convertible = (*Revision)(nil)
 
 	// Check that we can create OwnerReferences to a Revision.
-	_ kmeta.OwnerRefable = (*Revision)(nil)
+	_ overkmeta.OwnerRefable = (*Revision)(nil)
 
 	// Check that the type conforms to the duck Knative Resource shape.
 	_ duckv1.KRShaped = (*Revision)(nil)
@@ -147,10 +147,10 @@ type RevisionStatus struct {
 	// +optional
 	InitContainerStatuses []ContainerStatus `json:"initContainerStatuses,omitempty"`
 
-	// ActualReplicas reflects the amount of ready pods running this revision.
+	// ActualReplicas 反映了此次revision 中正在运行的 ready Pod 的数量。
 	// +optional
 	ActualReplicas *int32 `json:"actualReplicas,omitempty"`
-	// DesiredReplicas reflects the desired amount of pods running this revision.
+	// DesiredReplicasn 反映了此次revision 中需要运行的 ready Pod 的数量。
 	// +optional
 	DesiredReplicas *int32 `json:"desiredReplicas,omitempty"`
 }

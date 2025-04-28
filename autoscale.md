@@ -8,9 +8,10 @@ KServices、Configurations、Route -> KServices
     创建更新 Configurations、KServices、Route
 
 Revision、PodAutoscaler Owner、Deployment Owner、Certificates -> Revision
-    创建更新 Deployment、PodAutoscaler、创建Image
+    创建更新 Deployment、PodAutoscaler、Revision  创建Image
+
 Configurations、Revision Owner -> Revision
-    删除一些不活跃的 Revision
+    删除一些不活跃的 Revision、创建 Revision
 
 Namespace、Certificates Owner -> Namespace
     删除、创建 Certificates
@@ -22,10 +23,21 @@ Metric -> Metric
     // 每个revision 都会定时去统计范围内的所有pod 的请求数
 
 
-Route、Configurations、Revision -> Route
+Route、Configurations、Revision、Service Owner、Certificate Owner、Ingress Owner -> Route
+    设置Configurations Revision 的owner、创建Service、ClusterDomainClaims、CertManger Certificate
 
 DomainMapping、Certificate Owner、Ingress Owner -> DomainMapping
-    创建 Certificate
+    创建 Certificate、Ingress、ClusterDomainClaims
+
+Revision Owner、Configurations  -> Configurations
+    更新Configurations
 
 
 dynamicClient查询所有deployment : Unstructured, 并转换成  PodScalable
+
+
+Revision.desiredReplicas
+Revision.actualReplicas
+
+PodAutoscaler.desiredScale
+ServerlessService.numActivators

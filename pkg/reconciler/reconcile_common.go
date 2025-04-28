@@ -25,7 +25,7 @@ import (
 
 	"knative.dev/serving/pkg/apis"
 	duckv1 "knative.dev/serving/pkg/apis/duck/v1"
-	"knative.dev/serving/pkg/over_logging"
+	"knative.dev/serving/pkg/overlogging"
 )
 
 const failedGenerationBump = "NewObservedGenFailure"
@@ -69,7 +69,7 @@ func PreProcessReconcile(ctx context.Context, resource duckv1.KRShaped) {
 
 // PostProcessReconcile contains logic to apply after reconciliation of a resource.
 func PostProcessReconcile(ctx context.Context, resource, oldResource duckv1.KRShaped) {
-	logger := over_logging.FromContext(ctx)
+	logger := overlogging.FromContext(ctx)
 	status := resource.GetStatus()
 	mgr := resource.GetConditionSet().Manage(status)
 

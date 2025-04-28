@@ -25,18 +25,18 @@ import (
 	"time"
 
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
-	"knative.dev/serving/pkg/over_logging"
+	"knative.dev/serving/pkg/overlogging"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
-	netstats "knative.dev/serving/networking/pkg/http/over_stats"
+	netstats "knative.dev/serving/networking/pkg/http/overstats"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
 	"knative.dev/serving/pkg/metrics"
 	pkgmetrics "knative.dev/serving/pkg/metrics"
-	"knative.dev/serving/pkg/over_logging/logkey"
+	"knative.dev/serving/pkg/overlogging/logkey"
 )
 
 const reportInterval = time.Second
@@ -197,7 +197,7 @@ func (cr *ConcurrencyReporter) Handler(next http.Handler) http.HandlerFunc {
 // ReqEvents on reqCh and ticks on reportCh and reports stats on statCh.
 func NewConcurrencyReporter(ctx context.Context, podName string, statCh chan []asmetrics.StatMessage) *ConcurrencyReporter {
 	return &ConcurrencyReporter{
-		logger:  over_logging.FromContext(ctx),
+		logger:  overlogging.FromContext(ctx),
 		podName: podName,
 		statCh:  statCh,
 		rl:      revisioninformer.Get(ctx).Lister(),
@@ -246,7 +246,7 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 func (cr *ConcurrencyReporter) handleRequestIn(event netstats.ReqEvent) *revisionStats {
 	stat, msg := cr.getOrCreateStat(event)
 	if msg != nil {
-		cr.statCh <- []asmetrics.StatMessage{*msg}
+		cr.statCh <- []asmetrics.StatMessage{*msg} // 一个go 发出去
 	}
 	stat.stats.HandleEvent(event)
 	return stat

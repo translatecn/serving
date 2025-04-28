@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"knative.dev/serving/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/over_network"
+	"knative.dev/serving/pkg/overnetwork"
 )
 
 // Validate makes sure that DomainMapping is properly configured.
@@ -50,7 +50,7 @@ func (dm *DomainMapping) validateMetadata(ctx context.Context) (errs *apis.Field
 			"invalid name %q: %s", dm.Name, err.ToAggregate()), "name"))
 	}
 
-	clusterLocalDomain := over_network.GetClusterDomainName()
+	clusterLocalDomain := overnetwork.GetClusterDomainName()
 	if strings.HasSuffix(dm.Name, "."+clusterLocalDomain) {
 		errs = errs.Also(apis.ErrGeneric(
 			fmt.Sprintf("invalid name %q: must not be a subdomain of cluster local domain %q", dm.Name, clusterLocalDomain), "name"))

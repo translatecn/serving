@@ -21,39 +21,39 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
-	"knative.dev/serving/pkg/configmap"
-	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/overcontroller"
 	"knative.dev/serving/pkg/injection/sharedmain"
-	"knative.dev/serving/pkg/leaderelection"
+	"knative.dev/serving/pkg/overleaderelection"
 	"knative.dev/serving/pkg/metrics"
-	"knative.dev/serving/pkg/over_logging"
-	"knative.dev/serving/pkg/over_signals"
-	"knative.dev/serving/pkg/over_webhook"
-	"knative.dev/serving/pkg/over_webhook/configmaps"
-	"knative.dev/serving/pkg/over_webhook/over_certificates"
-	"knative.dev/serving/pkg/over_webhook/over_resourcesemantics"
-	"knative.dev/serving/pkg/over_webhook/over_resourcesemantics/defaulting"
-	"knative.dev/serving/pkg/over_webhook/over_resourcesemantics/validation"
-	certconfig "knative.dev/serving/pkg/reconciler/over_certificate/config"
+	"knative.dev/serving/pkg/overconfigmap"
+	"knative.dev/serving/pkg/overlogging"
+	"knative.dev/serving/pkg/oversignals"
+	"knative.dev/serving/pkg/overwebhook"
+	"knative.dev/serving/pkg/overwebhook/configmaps"
+	"knative.dev/serving/pkg/overwebhook/overcertificates"
+	"knative.dev/serving/pkg/overwebhook/overresourcesemantics"
+	"knative.dev/serving/pkg/overwebhook/overresourcesemantics/defaulting"
+	"knative.dev/serving/pkg/overwebhook/overresourcesemantics/validation"
+	certconfig "knative.dev/serving/pkg/reconciler/overcertificate/config"
 
 	// resource validation types
 	net "knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
-	extravalidation "knative.dev/serving/pkg/over_webhook"
+	extravalidation "knative.dev/serving/pkg/overwebhook"
 
 	// config validation constructors
 	network "knative.dev/serving/networking/pkg"
 	netcfg "knative.dev/serving/networking/pkg/config"
 	apisconfig "knative.dev/serving/pkg/apis/config"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
-	"knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/gc"
-	tracingconfig "knative.dev/serving/pkg/over_tracing/config"
-	domainconfig "knative.dev/serving/pkg/reconciler/route/config"
+	"knative.dev/serving/pkg/overdeployment"
+	"knative.dev/serving/pkg/overgc"
+	tracingconfig "knative.dev/serving/pkg/overtracing/config"
+	domainconfig "knative.dev/serving/pkg/reconciler/overroute/overconfig"
 )
 
-var types = map[schema.GroupVersionKind]over_resourcesemantics.GenericCRD{
+var types = map[schema.GroupVersionKind]overresourcesemantics.GenericCRD{
 	servingv1.SchemeGroupVersion.WithKind("Revision"):      &servingv1.Revision{},
 	servingv1.SchemeGroupVersion.WithKind("Configuration"): &servingv1.Configuration{},
 	servingv1.SchemeGroupVersion.WithKind("Route"):         &servingv1.Route{},
@@ -70,19 +70,19 @@ var types = map[schema.GroupVersionKind]over_resourcesemantics.GenericCRD{
 }
 
 var serviceValidation = validation.NewCallback(
-	extravalidation.ValidateService, over_webhook.Create, over_webhook.Update)
+	extravalidation.ValidateService, overwebhook.Create, overwebhook.Update)
 
 var configValidation = validation.NewCallback(
-	extravalidation.ValidateConfiguration, over_webhook.Create, over_webhook.Update)
+	extravalidation.ValidateConfiguration, overwebhook.Create, overwebhook.Update)
 
 var callbacks = map[schema.GroupVersionKind]validation.Callback{
 	servingv1.SchemeGroupVersion.WithKind("Service"):       serviceValidation,
 	servingv1.SchemeGroupVersion.WithKind("Configuration"): configValidation,
 }
 
-func newDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+func newDefaultingAdmissionController(ctx context.Context, cmw overconfigmap.Watcher) *overcontroller.Impl {
 	// Decorate contexts with the current state of the config.
-	store := apisconfig.NewStore(over_logging.FromContext(ctx).Named("config-store"))
+	store := apisconfig.NewStore(overlogging.FromContext(ctx).Named("config-store"))
 	store.WatchConfigs(cmw)
 
 	return defaulting.NewAdmissionController(ctx,
@@ -105,9 +105,9 @@ func newDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher
 	)
 }
 
-func newValidationAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+func newValidationAdmissionController(ctx context.Context, cmw overconfigmap.Watcher) *overcontroller.Impl {
 	// Decorate contexts with the current state of the config.
-	store := apisconfig.NewStore(over_logging.FromContext(ctx).Named("config-store"))
+	store := apisconfig.NewStore(overlogging.FromContext(ctx).Named("config-store"))
 	store.WatchConfigs(cmw)
 
 	return validation.NewAdmissionController(ctx,
@@ -133,7 +133,7 @@ func newValidationAdmissionController(ctx context.Context, cmw configmap.Watcher
 	)
 }
 
-func newConfigValidationController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+func newConfigValidationController(ctx context.Context, cmw overconfigmap.Watcher) *overcontroller.Impl {
 	return configmaps.NewAdmissionController(ctx,
 
 		// Name of the configmap webhook.
@@ -143,34 +143,34 @@ func newConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 		"/config-validation",
 
 		// The configmaps to validate.
-		configmap.Constructors{
-			tracingconfig.ConfigName:         tracingconfig.NewTracingConfigFromConfigMap,
-			autoscalerconfig.ConfigName:      autoscalerconfig.NewConfigFromConfigMap,
-			gc.ConfigName:                    gc.NewConfigFromConfigMapFunc(ctx),
-			netcfg.ConfigMapName:             network.NewConfigFromConfigMap,
-			deployment.ConfigName:            deployment.NewConfigFromConfigMap,
-			apisconfig.FeaturesConfigName:    apisconfig.NewFeaturesConfigFromConfigMap,
-			metrics.ConfigMapName():          metrics.NewObservabilityConfigFromConfigMap,
-			over_logging.ConfigMapName():     over_logging.NewConfigFromConfigMap,
-			leaderelection.ConfigMapName():   leaderelection.NewConfigFromConfigMap,
-			domainconfig.DomainConfigName:    domainconfig.NewDomainFromConfigMap,
-			apisconfig.DefaultsConfigName:    apisconfig.NewDefaultsConfigFromConfigMap,
-			certconfig.CertManagerConfigName: certconfig.NewCertManagerConfigFromConfigMap,
+		overconfigmap.Constructors{
+			tracingconfig.ConfigName:           tracingconfig.NewTracingConfigFromConfigMap,
+			autoscalerconfig.ConfigName:        autoscalerconfig.NewConfigFromConfigMap,
+			overgc.ConfigName:                  overgc.NewConfigFromConfigMapFunc(ctx),
+			netcfg.ConfigMapName:               network.NewConfigFromConfigMap,
+			overdeployment.ConfigName:          overdeployment.NewConfigFromConfigMap,
+			apisconfig.FeaturesConfigName:      apisconfig.NewFeaturesConfigFromConfigMap,
+			metrics.ConfigMapName():            metrics.NewObservabilityConfigFromConfigMap,
+			overlogging.ConfigMapName():        overlogging.NewConfigFromConfigMap,
+			overleaderelection.ConfigMapName(): overleaderelection.NewConfigFromConfigMap,
+			domainconfig.DomainConfigName:      domainconfig.NewDomainFromConfigMap,
+			apisconfig.DefaultsConfigName:      apisconfig.NewDefaultsConfigFromConfigMap,
+			certconfig.CertManagerConfigName:   certconfig.NewCertManagerConfigFromConfigMap,
 		},
 	)
 }
 
 func main() {
 	// Set up a signal context with our webhook options
-	ctx := over_webhook.WithOptions(over_signals.NewContext(), over_webhook.Options{
-		ServiceName: over_webhook.NameFromEnv(),
-		Port:        over_webhook.PortFromEnv(8443),
+	ctx := overwebhook.WithOptions(oversignals.NewContext(), overwebhook.Options{
+		ServiceName: overwebhook.NameFromEnv(),
+		Port:        overwebhook.PortFromEnv(8443),
 		SecretName:  "webhook-certs",
 	})
 
 	ctx = sharedmain.WithHealthProbesDisabled(ctx)
 	sharedmain.WebhookMainWithContext(ctx, "webhook",
-		over_certificates.NewController,
+		overcertificates.NewController,
 		newDefaultingAdmissionController,
 		newValidationAdmissionController,
 		newConfigValidationController,

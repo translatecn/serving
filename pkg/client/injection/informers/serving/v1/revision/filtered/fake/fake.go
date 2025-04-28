@@ -23,9 +23,9 @@ import (
 
 	factoryfiltered "knative.dev/serving/pkg/client/injection/informers/factory/filtered"
 	filtered "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/filtered"
-	controller "knative.dev/serving/pkg/controller"
+	controller "knative.dev/serving/pkg/overcontroller"
 	injection "knative.dev/serving/pkg/injection"
-	overlogging "knative.dev/serving/pkg/over_logging"
+	overlogging "knative.dev/serving/pkg/overlogging"
 )
 
 var Get = filtered.Get

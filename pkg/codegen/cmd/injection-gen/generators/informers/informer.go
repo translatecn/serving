@@ -90,7 +90,7 @@ func (g *injectionGenerator) GenerateType(c *generator.Context, t *types.Type, w
 		"informersTypedInformer":    c.Universe.Type(types.Name{Package: g.typedInformerPackage, Name: t.Name.Name + "Informer"}),
 		"factoryGet":                c.Universe.Type(types.Name{Package: g.groupInformerFactoryPackage, Name: "Get"}),
 		"loggingFromContext": c.Universe.Function(types.Name{
-			Package: "knative.dev/serving/pkg/over_logging",
+			Package: "knative.dev/serving/pkg/overlogging",
 			Name:    "FromContext",
 		}),
 		"contextContext": c.Universe.Type(types.Name{

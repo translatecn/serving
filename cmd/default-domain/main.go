@@ -40,11 +40,11 @@ import (
 	netv1alpha1 "knative.dev/serving/networking/pkg/apis/networking/v1alpha1"
 	netclient "knative.dev/serving/networking/pkg/client/clientset/versioned"
 	netcfg "knative.dev/serving/networking/pkg/config"
-	netprobe "knative.dev/serving/networking/pkg/http/over_probe"
-	"knative.dev/serving/pkg/over_logging"
-	"knative.dev/serving/pkg/over_signals"
-	"knative.dev/serving/pkg/over_system"
-	routecfg "knative.dev/serving/pkg/reconciler/route/config"
+	netprobe "knative.dev/serving/networking/pkg/http/overprobe"
+	"knative.dev/serving/pkg/overlogging"
+	"knative.dev/serving/pkg/oversignals"
+	"knative.dev/serving/pkg/oversystem"
+	routecfg "knative.dev/serving/pkg/reconciler/overroute/overconfig"
 )
 
 var (
@@ -78,7 +78,7 @@ func clientsFromFlags() (kubernetes.Interface, *netclient.Clientset, error) {
 }
 
 func lookupConfigMap(ctx context.Context, kubeClient kubernetes.Interface, name string) (*corev1.ConfigMap, error) {
-	return kubeClient.CoreV1().ConfigMaps(over_system.Namespace()).Get(ctx, name, metav1.GetOptions{})
+	return kubeClient.CoreV1().ConfigMaps(oversystem.Namespace()).Get(ctx, name, metav1.GetOptions{})
 }
 
 func findGatewayAddress(ctx context.Context, kubeclient kubernetes.Interface, client *netclient.Clientset, logging *zap.SugaredLogger) (*corev1.LoadBalancerIngress, error) {
@@ -91,10 +91,10 @@ func findGatewayAddress(ctx context.Context, kubeclient kubernetes.Interface, cl
 		return nil, err
 	}
 	// Create a KIngress that points at that Service
-	ing, err := client.NetworkingV1alpha1().Ingresses(over_system.Namespace()).Create(ctx, &netv1alpha1.Ingress{
+	ing, err := client.NetworkingV1alpha1().Ingresses(oversystem.Namespace()).Create(ctx, &netv1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "default-domain-",
-			Namespace:    over_system.Namespace(),
+			Namespace:    oversystem.Namespace(),
 			Annotations: map[string]string{
 				netapi.IngressClassAnnotationKey: netCfg.DefaultIngressClass,
 			},
@@ -108,7 +108,7 @@ func findGatewayAddress(ctx context.Context, kubeclient kubernetes.Interface, cl
 						Splits: []netv1alpha1.IngressBackendSplit{{
 							IngressBackend: netv1alpha1.IngressBackend{
 								ServiceName:      "default-domain-service",
-								ServiceNamespace: over_system.Namespace(),
+								ServiceNamespace: oversystem.Namespace(),
 								ServicePort:      intstr.FromInt(80),
 							},
 						}},
@@ -120,11 +120,11 @@ func findGatewayAddress(ctx context.Context, kubeclient kubernetes.Interface, cl
 	if err != nil {
 		return nil, err
 	}
-	defer client.NetworkingV1alpha1().Ingresses(over_system.Namespace()).Delete(ctx, ing.Name, metav1.DeleteOptions{})
+	defer client.NetworkingV1alpha1().Ingresses(oversystem.Namespace()).Delete(ctx, ing.Name, metav1.DeleteOptions{})
 
 	// Wait for the Ingress to be Ready.
 	if err := wait.PollUntilContextTimeout(ctx, pollInterval, waitTimeout, true, func(context.Context) (done bool, err error) {
-		ing, err = client.NetworkingV1alpha1().Ingresses(over_system.Namespace()).Get(
+		ing, err = client.NetworkingV1alpha1().Ingresses(oversystem.Namespace()).Get(
 			ctx, ing.Name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
@@ -172,8 +172,8 @@ func buildMagicDNSName(ip, magicDNS string) string {
 
 func main() {
 	flag.Parse()
-	ctx := over_signals.NewContext()
-	logger := over_logging.FromContext(ctx).Named(appName)
+	ctx := oversignals.NewContext()
+	logger := overlogging.FromContext(ctx).Named(appName)
 	defer logger.Sync()
 
 	kubeClient, client, err := clientsFromFlags()
@@ -229,7 +229,7 @@ func main() {
 	// and send it back to the API server.
 	domain := buildMagicDNSName(ip, *magicDNS)
 	domainCM.Data[domain] = ""
-	if _, err = kubeClient.CoreV1().ConfigMaps(over_system.Namespace()).Update(ctx, domainCM, metav1.UpdateOptions{}); err != nil {
+	if _, err = kubeClient.CoreV1().ConfigMaps(oversystem.Namespace()).Update(ctx, domainCM, metav1.UpdateOptions{}); err != nil {
 		logger.Fatalw("Error updating ConfigMap", zap.Error(err))
 	}
 

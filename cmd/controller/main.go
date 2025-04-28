@@ -19,59 +19,49 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 
 	// The set of controllers this controller process runs.
 	"flag"
 	"log"
 
+	versioned "github.com/cert-manager/cert-manager/pkg/client/clientset/versioned"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	netcfg "knative.dev/serving/networking/pkg/config"
-	"knative.dev/serving/pkg/injection"
-	"knative.dev/serving/pkg/injection/sharedmain"
-	"knative.dev/serving/pkg/networking"
-	"knative.dev/serving/pkg/over_signals"
-	"knative.dev/serving/pkg/over_system"
-	"knative.dev/serving/pkg/reconciler"
-	"knative.dev/serving/pkg/reconciler/configuration"
-	"knative.dev/serving/pkg/reconciler/domainmapping"
-	"knative.dev/serving/pkg/reconciler/labeler"
-	"knative.dev/serving/pkg/reconciler/over_certificate"
-	"knative.dev/serving/pkg/reconciler/over_gc"
-	"knative.dev/serving/pkg/reconciler/over_nscert"
-	"knative.dev/serving/pkg/reconciler/over_revision"
-	"knative.dev/serving/pkg/reconciler/over_serverlessservice"
-	"knative.dev/serving/pkg/reconciler/over_service"
-	"knative.dev/serving/pkg/reconciler/route"
-
-	versioned "github.com/cert-manager/cert-manager/pkg/client/clientset/versioned"
 	"knative.dev/serving/pkg/client/certmanager/injection/informers/acme/v1/challenge"
 	v1certificate "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1/certificate"
 	"knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1/certificaterequest"
 	"knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1/clusterissuer"
 	"knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1/issuer"
+	"knative.dev/serving/pkg/injection"
+	"knative.dev/serving/pkg/injection/sharedmain"
+	"knative.dev/serving/pkg/overnetworking"
+	"knative.dev/serving/pkg/oversignals"
+	"knative.dev/serving/pkg/oversystem"
+	"knative.dev/serving/pkg/reconciler"
+	"knative.dev/serving/pkg/reconciler/overcertificate"
+	"knative.dev/serving/pkg/reconciler/overconfiguration"
+	"knative.dev/serving/pkg/reconciler/overdomainmapping"
+	"knative.dev/serving/pkg/reconciler/overgc"
+	"knative.dev/serving/pkg/reconciler/overlabeler"
+	"knative.dev/serving/pkg/reconciler/overnscert"
+	"knative.dev/serving/pkg/reconciler/overrevision"
+	"knative.dev/serving/pkg/reconciler/overroute"
+	"knative.dev/serving/pkg/reconciler/overserverlessservice"
+	"knative.dev/serving/pkg/reconciler/overservice"
 )
 
 var ctors = []injection.ControllerConstructor{
-	configuration.NewController,
-	labeler.NewController,
-	over_revision.NewController,
-	route.NewController,
-	over_serverlessservice.NewController,
-	over_service.NewController,
-	over_gc.NewController,
-	over_nscert.NewController,
-	domainmapping.NewController,
-}
-
-func init() {
-	os.Setenv("CONFIG_LOGGING_NAME", "logging")
-	os.Setenv("CONFIG_OBSERVABILITY_NAME", "config-observability")
-	os.Setenv("POD_NAME", "ace")
-	os.Setenv("SYSTEM_NAMESPACE", "knative-serving")
-	os.Setenv("KUBECONFIG", "/Users/acejilam/.kube/koord")
+	overconfiguration.NewController,
+	overlabeler.NewController,
+	overrevision.NewController,
+	overroute.NewController,
+	overserverlessservice.NewController,
+	overservice.NewController,
+	overgc.NewController,
+	overnscert.NewController,
+	overdomainmapping.NewController,
 }
 
 func main() {
@@ -79,7 +69,7 @@ func main() {
 		"reconciliation-timeout", reconciler.DefaultTimeout,
 		"The amount of time to give each reconciliation of a resource to complete before its context is canceled.")
 
-	ctx := over_signals.NewContext()
+	ctx := oversignals.NewContext()
 
 	// HACK: This parses flags, so the above should be set once this runs.
 	cfg := injection.ParseAndGetRESTConfigOrDie()
@@ -100,24 +90,10 @@ func main() {
 			issuer.WithInformer} {
 			injection.Default.RegisterInformer(inf)
 		}
-		ctors = append(ctors, over_certificate.NewController)
+		ctors = append(ctors, overcertificate.NewController)
 	}
 
 	sharedmain.MainWithConfig(ctx, "controller", cfg, ctors...)
-}
-
-func shouldEnableNetCertManagerController(ctx context.Context, client *kubernetes.Clientset) bool {
-	var cm *v1.ConfigMap
-	var err error
-	if cm, err = client.CoreV1().ConfigMaps(over_system.Namespace()).Get(ctx, "config-network", metav1.GetOptions{}); err != nil {
-		log.Fatalf("Failed to get cm config-network: %v", err)
-	}
-	netCfg, err := netcfg.NewConfigFromMap(cm.Data)
-	if err != nil {
-		log.Fatalf("Failed to construct network config: %v", err)
-	}
-
-	return networking.IsNetCertManagerControllerRequired(netCfg)
 }
 
 func certManagerCRDsExist(client *versioned.Clientset) (bool, error) {
@@ -147,4 +123,18 @@ func findCRD(client *versioned.Clientset, groupVersion string, crds []string) (b
 		}
 	}
 	return true, nil
+}
+
+func shouldEnableNetCertManagerController(ctx context.Context, client *kubernetes.Clientset) bool {
+	var cm *v1.ConfigMap
+	var err error
+	if cm, err = client.CoreV1().ConfigMaps(oversystem.Namespace()).Get(ctx, "config-network", metav1.GetOptions{}); err != nil {
+		log.Fatalf("Failed to get cm config-network: %v", err)
+	}
+	netCfg, err := netcfg.NewConfigFromMap(cm.Data)
+	if err != nil {
+		log.Fatalf("Failed to construct network config: %v", err)
+	}
+
+	return overnetworking.IsNetCertManagerControllerRequired(netCfg)
 }

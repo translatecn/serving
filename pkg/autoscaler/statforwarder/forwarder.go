@@ -24,10 +24,10 @@ import (
 
 	"go.uber.org/zap"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
-	"knative.dev/serving/pkg/hash"
-	"knative.dev/serving/pkg/over_logging"
-	"knative.dev/serving/pkg/over_logging/logkey"
-	"knative.dev/serving/pkg/over_network"
+	"knative.dev/serving/pkg/overhash"
+	"knative.dev/serving/pkg/overlogging"
+	"knative.dev/serving/pkg/overlogging/logkey"
+	"knative.dev/serving/pkg/overnetwork"
 )
 
 const (
@@ -42,7 +42,7 @@ const (
 	retryProcessingInterval = 500 * time.Millisecond
 )
 
-var svcURLSuffix = fmt.Sprintf("svc.%s:%d", over_network.GetClusterDomainName(), autoscalerPort)
+var svcURLSuffix = fmt.Sprintf("svc.%s:%d", overnetwork.GetClusterDomainName(), autoscalerPort)
 
 // statProcessor is a function to process a single StatMessage.
 type statProcessor func(sm asmetrics.StatMessage)
@@ -61,7 +61,7 @@ type stat struct {
 type Forwarder struct {
 	logger *zap.SugaredLogger
 	// bs is the BucketSet including all Autoscaler buckets.
-	bs *hash.BucketSet
+	bs *overhash.BucketSet
 
 	// processorsLock is the lock for processors.
 	processorsLock sync.RWMutex
@@ -122,12 +122,29 @@ func (f *Forwarder) IsBucketOwner(bkt string) bool {
 	return owned
 }
 
-// Process enqueues the given Stat for processing asynchronously.
-// It calls Forwarder.accept if the pod where this Forwarder is running is the owner
-// of the given StatMessage. Otherwise it forwards the given StatMessage to the right
-// owner pod. It will retry if any error happens during the processing.
-func (f *Forwarder) Process(sm asmetrics.StatMessage) {
-	f.statCh <- stat{sm: sm, retry: 0}
+// New creates a new Forwarder.
+// This must be configured with a mechanism for setting up its "processors",
+// such as LeaseBasedProcessor or StatefulSetBasedProcessor, which correlates
+// with the mechanism of leader election being used.
+func New(ctx context.Context, bs *overhash.BucketSet) *Forwarder {
+	bkts := bs.Buckets()
+	f := &Forwarder{
+		logger:     overlogging.FromContext(ctx),
+		bs:         bs,
+		processors: make(map[string]bucketProcessor, len(bkts)),
+		statCh:     make(chan stat, 1000),
+		stopCh:     make(chan struct{}),
+	}
+
+	f.processingWg.Add(1)
+	go f.process() // 非常重要
+
+	return f
+}
+func (f *Forwarder) getProcessor(bkt string) bucketProcessor {
+	f.processorsLock.RLock()
+	defer f.processorsLock.RUnlock()
+	return f.processors[bkt]
 }
 
 func (f *Forwarder) process() {
@@ -160,27 +177,10 @@ func (f *Forwarder) process() {
 	}
 }
 
-// New creates a new Forwarder.
-// This must be configured with a mechanism for setting up its "processors",
-// such as LeaseBasedProcessor or StatefulSetBasedProcessor, which correlates
-// with the mechanism of leader election being used.
-func New(ctx context.Context, bs *hash.BucketSet) *Forwarder {
-	bkts := bs.Buckets()
-	f := &Forwarder{
-		logger:     over_logging.FromContext(ctx),
-		bs:         bs,
-		processors: make(map[string]bucketProcessor, len(bkts)),
-		statCh:     make(chan stat, 1000),
-		stopCh:     make(chan struct{}),
-	}
-
-	f.processingWg.Add(1)
-	go f.process()
-
-	return f
-}
-func (f *Forwarder) getProcessor(bkt string) bucketProcessor {
-	f.processorsLock.RLock()
-	defer f.processorsLock.RUnlock()
-	return f.processors[bkt]
+// Process enqueues the given Stat for processing asynchronously.
+// It calls Forwarder.accept if the pod where this Forwarder is running is the owner
+// of the given StatMessage. Otherwise it forwards the given StatMessage to the right
+// owner pod. It will retry if any error happens during the processing.
+func (f *Forwarder) Process(sm asmetrics.StatMessage) {
+	f.statCh <- stat{sm: sm, retry: 0}
 }

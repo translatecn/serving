@@ -30,8 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/serving/pkg/apis"
 	"knative.dev/serving/pkg/apis/config"
-	"knative.dev/serving/pkg/networking"
-	"knative.dev/serving/pkg/over_profiling"
+	"knative.dev/serving/pkg/overnetworking"
+	"knative.dev/serving/pkg/overprofiling"
 )
 
 const (
@@ -58,12 +58,12 @@ var (
 	)
 
 	reservedPorts = sets.NewInt32(
-		networking.BackendHTTPPort,
-		networking.BackendHTTP2Port,
-		networking.QueueAdminPort,
-		networking.AutoscalingQueueMetricsPort,
-		networking.UserQueueMetricsPort,
-		over_profiling.ProfilingPort)
+		overnetworking.BackendHTTPPort,
+		overnetworking.BackendHTTP2Port,
+		overnetworking.QueueAdminPort,
+		overnetworking.AutoscalingQueueMetricsPort,
+		overnetworking.UserQueueMetricsPort,
+		overprofiling.ProfilingPort)
 
 	reservedSidecarEnvVars = reservedEnvVars.Difference(sets.New("PORT"))
 

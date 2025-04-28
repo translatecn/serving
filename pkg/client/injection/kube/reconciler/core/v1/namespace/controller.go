@@ -34,9 +34,9 @@ import (
 	record "k8s.io/client-go/tools/record"
 	client "knative.dev/serving/pkg/client/injection/kube/client"
 	namespace "knative.dev/serving/pkg/client/injection/kube/informers/core/v1/namespace"
-	controller "knative.dev/serving/pkg/controller"
-	logging "knative.dev/serving/pkg/over_logging"
-	logkey "knative.dev/serving/pkg/over_logging/logkey"
+	controller "knative.dev/serving/pkg/overcontroller"
+	logging "knative.dev/serving/pkg/overlogging"
+	logkey "knative.dev/serving/pkg/overlogging/logkey"
 	reconciler "knative.dev/serving/pkg/reconciler"
 )
 
@@ -45,10 +45,10 @@ const (
 	defaultFinalizerName       = "namespaces."
 )
 
-// NewImpl returns a controller.Impl that handles queuing and feeding work from
-// the queue through an implementation of controller.Reconciler, delegating to
+// NewImpl returns a overcontroller.Impl that handles queuing and feeding work from
+// the queue through an implementation of overcontroller.Reconciler, delegating to
 // the provided Interface and optional Finalizer methods. OptionsFn is used to return
-// controller.ControllerOptions to be used by the internal reconciler.
+// overcontroller.ControllerOptions to be used by the internal reconciler.
 func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsFn) *controller.Impl {
 	logger := logging.FromContext(ctx)
 

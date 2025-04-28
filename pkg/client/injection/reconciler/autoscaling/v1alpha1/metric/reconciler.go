@@ -38,9 +38,9 @@ import (
 	v1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	versioned "knative.dev/serving/pkg/client/clientset/versioned"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
-	controller "knative.dev/serving/pkg/controller"
-	overkmp "knative.dev/serving/pkg/over_kmp"
-	overlogging "knative.dev/serving/pkg/over_logging"
+	controller "knative.dev/serving/pkg/overcontroller"
+	overkmp "knative.dev/serving/pkg/overkmp"
+	overlogging "knative.dev/serving/pkg/overlogging"
 	reconciler "knative.dev/serving/pkg/reconciler"
 )
 
@@ -78,7 +78,7 @@ type ReadOnlyInterface interface {
 
 type doReconcile func(ctx context.Context, o *v1alpha1.Metric) reconciler.Event
 
-// reconcilerImpl implements controller.Reconciler for v1alpha1.Metric resources.
+// reconcilerImpl implements overcontroller.Reconciler for v1alpha1.Metric resources.
 type reconcilerImpl struct {
 	// LeaderAwareFuncs is inlined to help us implement reconciler.LeaderAware.
 	reconciler.LeaderAwareFuncs
@@ -108,7 +108,7 @@ type reconcilerImpl struct {
 	skipStatusUpdates bool
 }
 
-// Check that our Reconciler implements controller.Reconciler.
+// Check that our Reconciler implements overcontroller.Reconciler.
 var _ controller.Reconciler = (*reconcilerImpl)(nil)
 
 // Check that our generated Reconciler is always LeaderAware.
@@ -168,7 +168,7 @@ func NewReconciler(ctx context.Context, logger *zap.SugaredLogger, client versio
 	return rec
 }
 
-// Reconcile implements controller.Reconciler
+// Reconcile implements overcontroller.Reconciler
 func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	logger := overlogging.FromContext(ctx)
 

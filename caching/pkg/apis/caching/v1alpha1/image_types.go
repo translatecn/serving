@@ -22,7 +22,7 @@ import (
 
 	"knative.dev/serving/pkg/apis"
 	duckv1 "knative.dev/serving/pkg/apis/duck/v1"
-	"knative.dev/serving/pkg/kmeta"
+	"knative.dev/serving/pkg/overkmeta"
 )
 
 // +genclient
@@ -46,7 +46,7 @@ type Image struct { // 它封装了 Knative 组件通过何种方式表达出希
 // Check that Image can be validated and defaulted.
 var _ apis.Validatable = (*Image)(nil)
 var _ apis.Defaultable = (*Image)(nil)
-var _ kmeta.OwnerRefable = (*Image)(nil)
+var _ overkmeta.OwnerRefable = (*Image)(nil)
 var _ duckv1.KRShaped = (*Image)(nil)
 
 // ImageSpec holds the desired state of the Image (from the client).

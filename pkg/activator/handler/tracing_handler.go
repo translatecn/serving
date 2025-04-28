@@ -20,14 +20,14 @@ import (
 	"net/http"
 
 	activatorconfig "knative.dev/serving/pkg/activator/config"
-	"knative.dev/serving/pkg/over_tracing"
-	tracingconfig "knative.dev/serving/pkg/over_tracing/config"
+	"knative.dev/serving/pkg/overtracing"
+	tracingconfig "knative.dev/serving/pkg/overtracing/config"
 )
 
-// NewTracingHandler creates a wrapper around over_tracing.HTTPSpanMiddleware that completely
+// NewTracingHandler creates a wrapper around overtracing.HTTPSpanMiddleware that completely
 // bypasses said handler when tracing is disabled via the Activator's configuration.
 func NewTracingHandler(next http.Handler) http.HandlerFunc {
-	tracingHandler := over_tracing.HTTPSpanMiddleware(next)
+	tracingHandler := overtracing.HTTPSpanMiddleware(next)
 	return func(w http.ResponseWriter, r *http.Request) {
 		tracingEnabled := activatorconfig.FromContext(r.Context()).Tracing.Backend != tracingconfig.None
 		if !tracingEnabled {

@@ -36,9 +36,9 @@ import (
 	client "knative.dev/serving/pkg/client/injection/client"
 	podautoscaler "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 	kubeclient "knative.dev/serving/pkg/client/injection/kube/client"
-	controller "knative.dev/serving/pkg/controller"
-	overlogging "knative.dev/serving/pkg/over_logging"
-	logkey "knative.dev/serving/pkg/over_logging/logkey"
+	controller "knative.dev/serving/pkg/overcontroller"
+	overlogging "knative.dev/serving/pkg/overlogging"
+	logkey "knative.dev/serving/pkg/overlogging/logkey"
 	reconciler "knative.dev/serving/pkg/reconciler"
 )
 
@@ -50,10 +50,10 @@ const (
 	ClassAnnotationKey = "autoscaling.knative.dev/class"
 )
 
-// NewImpl returns a controller.Impl that handles queuing and feeding work from
-// the queue through an implementation of controller.Reconciler, delegating to
+// NewImpl returns a overcontroller.Impl that handles queuing and feeding work from
+// the queue through an implementation of overcontroller.Reconciler, delegating to
 // the provided Interface and optional Finalizer methods. OptionsFn is used to return
-// controller.ControllerOptions to be used by the internal reconciler.
+// overcontroller.ControllerOptions to be used by the internal reconciler.
 func NewImpl(ctx context.Context, r Interface, classValue string, optionsFns ...controller.OptionsFn) *controller.Impl {
 	logger := overlogging.FromContext(ctx)
 
@@ -104,6 +104,7 @@ func NewImpl(ctx context.Context, r Interface, classValue string, optionsFns ...
 	ctrType := reflect.TypeOf(r).Elem()
 	ctrTypeName := fmt.Sprintf("%s.%s", ctrType.PkgPath(), ctrType.Name())
 	ctrTypeName = strings.ReplaceAll(ctrTypeName, "/", ".")
+	ctrTypeName = strings.ReplaceAll(ctrTypeName, "_", "-")
 
 	logger = logger.With(
 		zap.String(logkey.ControllerType, ctrTypeName),

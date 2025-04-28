@@ -34,7 +34,7 @@ export PATH="./bin:$PATH"
 
 source /etc/profile
 set -x
-go build -tags=trace -o out/autoscaler ./cmd/autoscaler
-dlv --listen=:2345 --headless=true --api-version=2 --accept-multiclient exec out/autoscaler
+go build -tags=trace -o out/activator ./cmd/activator
+dlv --listen=:2345 --headless=true --api-version=2 --accept-multiclient exec out/activator
 # Open shell
 bash --norc

@@ -24,7 +24,7 @@ import (
 	externalversions "knative.dev/serving/pkg/client/informers/externalversions"
 	fake "knative.dev/serving/pkg/client/injection/client/fake"
 	factory "knative.dev/serving/pkg/client/injection/informers/factory"
-	controller "knative.dev/serving/pkg/controller"
+	controller "knative.dev/serving/pkg/overcontroller"
 	injection "knative.dev/serving/pkg/injection"
 )
 

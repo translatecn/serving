@@ -22,7 +22,7 @@ import (
 
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
-	cm "knative.dev/serving/pkg/configmap"
+	cm "knative.dev/serving/pkg/overconfigmap"
 
 	corev1 "k8s.io/api/core/v1"
 )

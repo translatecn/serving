@@ -16,7 +16,7 @@ limitations under the License.
 
 package networking
 
-import "knative.dev/serving/pkg/over_kmap"
+import "knative.dev/serving/pkg/overkmap"
 
 const (
 	// GroupName is the name for the networking API group.
@@ -120,17 +120,17 @@ const (
 
 // Pseudo-constants
 var (
-	IngressClassAnnotation = over_kmap.KeyPriority{
+	IngressClassAnnotation = overkmap.KeyPriority{
 		IngressClassAnnotationKey,
 		IngressClassAnnotationAltKey,
 	}
 
-	CertificateClassAnnotation = over_kmap.KeyPriority{
+	CertificateClassAnnotation = overkmap.KeyPriority{
 		CertificateClassAnnotationKey,
 		CertificateClassAnnotationAltKey,
 	}
 
-	DisableExternalDomainTLSAnnotation = over_kmap.KeyPriority{
+	DisableExternalDomainTLSAnnotation = overkmap.KeyPriority{
 		// backward compatibility
 		DisableAutoTLSAnnotationKey,
 		DisableAutoTLSAnnotationAltKey,
@@ -138,7 +138,7 @@ var (
 		DisableExternalDomainTLSAnnotationKey,
 	}
 
-	HTTPProtocolAnnotation = over_kmap.KeyPriority{
+	HTTPProtocolAnnotation = overkmap.KeyPriority{
 		HTTPOptionAnnotationKey,
 		HTTPProtocolAnnotationKey,
 	}

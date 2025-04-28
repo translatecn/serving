@@ -1,0 +1,30 @@
+apiVersion: serving.knative.dev/v1beta1
+kind: DomainMapping
+metadata:
+  name: helloworld.wgs.com
+  namespace: default
+spec:
+  ref:
+    name: stock-service-example
+    kind: Service
+    apiVersion: serving.knative.dev/v1
+    namespace: default
+#    group: ""
+#    address: ""
+#  tls:
+#    secretName: ""
+
+  
+  #---
+## 自动创建cdc
+#apiVersion: serving.knative.dev/v1beta1
+#kind: DomainMapping
+#metadata:
+#  name: helloworld-go.wgs.com
+#  namespace: knative-demo
+#spec:
+#  ref:
+#    name: helloworld-go
+#    kind: route
+#    apiVersion: serving.knative.dev/v1
+#    namespace: knative-demo

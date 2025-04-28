@@ -29,12 +29,12 @@ import (
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
-	"knative.dev/serving/pkg/over_logging"
-	"knative.dev/serving/pkg/over_ptr"
+	"knative.dev/serving/pkg/overlogging"
+	"knative.dev/serving/pkg/overptr"
 	pkgreconciler "knative.dev/serving/pkg/reconciler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
-	"knative.dev/serving/pkg/reconciler/autoscaling/hpa/resources"
+	"knative.dev/serving/pkg/reconciler/autoscaling/hpa/overresources"
 )
 
 // Reconciler implements the control loop for the HPA resources.
@@ -53,11 +53,11 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
 	defer cancel()
 
-	logger := over_logging.FromContext(ctx)
+	logger := overlogging.FromContext(ctx)
 	logger.Debug("PA exists")
 
 	// HPA-class PA delegates autoscaling to the Kubernetes Horizontal Pod Autoscaler.
-	desiredHpa := resources.MakeHPA(pa, config.FromContext(ctx).Autoscaler)
+	desiredHpa := overresources.MakeHPA(pa, config.FromContext(ctx).Autoscaler)
 	hpa, err := c.hpaLister.HorizontalPodAutoscalers(pa.Namespace).Get(desiredHpa.Name)
 	if errors.IsNotFound(err) {
 		logger.Infof("Creating HPA %q", desiredHpa.Name)
@@ -107,8 +107,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 	// HPA is always _active_.
 	pa.Status.MarkActive()
 
-	pa.Status.DesiredScale = over_ptr.Int32(hpa.Status.DesiredReplicas)
-	pa.Status.ActualScale = over_ptr.Int32(hpa.Status.CurrentReplicas)
+	pa.Status.DesiredScale = overptr.Int32(hpa.Status.DesiredReplicas)
+	pa.Status.ActualScale = overptr.Int32(hpa.Status.CurrentReplicas)
 	return nil
 }
 

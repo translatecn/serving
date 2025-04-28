@@ -24,7 +24,7 @@ import (
 	kubernetes "k8s.io/client-go/kubernetes"
 	rest "k8s.io/client-go/rest"
 	injection "knative.dev/serving/pkg/injection"
-	logging "knative.dev/serving/pkg/over_logging"
+	logging "knative.dev/serving/pkg/overlogging"
 )
 
 func init() {

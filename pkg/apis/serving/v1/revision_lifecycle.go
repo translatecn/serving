@@ -164,7 +164,7 @@ func (rs *RevisionStatus) PropagateDeploymentStatus(original *appsv1.DeploymentS
 func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *autoscalingv1alpha1.PodAutoscalerStatus) {
 	resUnavailable := rs.GetCondition(RevisionConditionResourcesAvailable).IsFalse() || rs.GetCondition(RevisionConditionContainerHealthy).IsFalse()
 
-	// Reflect the PA status in our own.
+	// 将 PA 状态反映在我们自己的系统中。
 	cond := ps.GetCondition(autoscalingv1alpha1.PodAutoscalerConditionReady)
 	rs.ActualReplicas = nil
 	if ps.ActualScale != nil && *ps.ActualScale >= 0 {

@@ -24,7 +24,7 @@ import (
 	rest "k8s.io/client-go/rest"
 	versioned "knative.dev/serving/networking/pkg/client/clientset/versioned"
 	injection "knative.dev/serving/pkg/injection"
-	overlogging "knative.dev/serving/pkg/over_logging"
+	overlogging "knative.dev/serving/pkg/overlogging"
 )
 
 func init() {

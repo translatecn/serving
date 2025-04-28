@@ -25,8 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/serving/pkg/apis"
 	"knative.dev/serving/pkg/apis/duck/ducktypes"
-	"knative.dev/serving/pkg/kmeta"
-	"knative.dev/serving/pkg/over_ptr"
+	"knative.dev/serving/pkg/overkmeta"
+	"knative.dev/serving/pkg/overptr"
 )
 
 // +genduck
@@ -69,8 +69,8 @@ var (
 
 	// Verify AuthenticatableType resources meet duck contracts.
 	_ apis.Listable         = (*AuthenticatableType)(nil)
-	_ ducktypes.Populatable = (*AuthenticatableType)(nil)
-	_ kmeta.OwnerRefable    = (*AuthenticatableType)(nil)
+	_ ducktypes.Populatable  = (*AuthenticatableType)(nil)
+	_ overkmeta.OwnerRefable = (*AuthenticatableType)(nil)
 )
 
 // GetFullType implements duck.Implementable
@@ -93,7 +93,7 @@ func (t *AuthenticatableType) Populate() {
 	t.Status = AuthenticatableStatus{
 		Auth: &AuthStatus{
 			// Populate ALL fields
-			ServiceAccountName: over_ptr.String("foo"),
+			ServiceAccountName: overptr.String("foo"),
 			ServiceAccountNames: []string{
 				"bar",
 				"baz",
@@ -102,7 +102,7 @@ func (t *AuthenticatableType) Populate() {
 	}
 }
 
-// GetGroupVersionKind implements kmeta.OwnerRefable
+// GetGroupVersionKind implements overkmeta.OwnerRefable
 func (t *AuthenticatableType) GetGroupVersionKind() schema.GroupVersionKind {
 	return t.GroupVersionKind()
 }

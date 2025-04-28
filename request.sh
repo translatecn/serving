@@ -1,4 +1,10 @@
-#docker run --rm -it -v `pwd`:/data -w /data registry.cn-hangzhou.aliyuncs.com/ls-2018/mygo:v1.24.0 ./hack/update-codegen.sh
-export KUBECONFIG=~/.kube/knative
+#docker run --rm -it -v `pwd`:/data -w /data registry.cn-hangzhou.aliyuncs.com/ls-2018/mygo:v1.24.1 ./hack/update-codegen.sh
 kubectl -n default exec -it title -c title -- curl -H 'Host: stock-service-example.default.127.0.0.1.sslip.io' kourier-ingress.kourier-system
-#curl -H 'Host: stock-service-example.default.127.0.0.1.sslip.io' kourier-ingress.kourier-system
+apt install apache2-utils -y
+# ab -n 100 -c 10 -H 'Host: stock-service-example.default.127.0.0.1.sslip.io' http://kourier-ingress.kourier-system:80/
+
+
+# hey -c 200 -z 30s -m GET -H 'Host: stock-service-example.default.127.0.0.1.sslip.io' http://kourier-ingress.kourier-system:80/
+
+pod_name=`kubectl get pods -n kourier-system |grep -v NAME|awk -F ' ' '{print $1}'`
+istioctl proxy-config --proxy-admin-port=9901 all ${pod_name}.kourier-system

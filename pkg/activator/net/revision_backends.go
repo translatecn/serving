@@ -48,13 +48,13 @@ import (
 	endpointsinformer "knative.dev/serving/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/serving/pkg/client/injection/kube/informers/core/v1/service"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
-	"knative.dev/serving/pkg/controller"
-	"knative.dev/serving/pkg/networking"
-	"knative.dev/serving/pkg/over_logging"
-	"knative.dev/serving/pkg/over_logging/logkey"
-	"knative.dev/serving/pkg/over_queue"
+	"knative.dev/serving/pkg/overcontroller"
+	"knative.dev/serving/pkg/overlogging"
+	"knative.dev/serving/pkg/overlogging/logkey"
+	"knative.dev/serving/pkg/overnetworking"
+	"knative.dev/serving/pkg/overqueue"
 	"knative.dev/serving/pkg/reconciler"
-	"knative.dev/serving/pkg/reconciler/over_serverlessservice/resources/over_names"
+	"knative.dev/serving/pkg/reconciler/overserverlessservice/resources/overnames"
 )
 
 // revisionDestsUpdate contains the state of healthy l4 dests for talking to a revision and is the
@@ -132,32 +132,6 @@ type revisionWatcher struct {
 	enableProbeOptimisation bool
 }
 
-func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol pkgnet.ProtocolType,
-	updateCh chan<- revisionDestsUpdate, destsCh chan dests,
-	transport http.RoundTripper, serviceLister corev1listers.ServiceLister,
-	usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode,
-	enableProbeOptimisation bool,
-	logger *zap.SugaredLogger,
-) *revisionWatcher {
-	ctx, cancel := context.WithCancel(ctx)
-	return &revisionWatcher{
-		stopCh:                  ctx.Done(),
-		cancel:                  cancel,
-		rev:                     rev,
-		protocol:                protocol,
-		updateCh:                updateCh, // ✅
-		done:                    make(chan struct{}),
-		transport:               transport,
-		destsCh:                 destsCh,
-		serviceLister:           serviceLister,
-		podsAddressable:         true, // By default we presume we can talk to pods directly.
-		usePassthroughLb:        usePassthroughLb,
-		meshMode:                meshMode,
-		enableProbeOptimisation: enableProbeOptimisation,
-		logger:                  logger.With(zap.String(logkey.Key, rev.String())),
-	}
-}
-
 // revisionBackendsManager listens to revision endpoints and keeps track of healthy
 // l4 dests which can be used to reach a revision
 type revisionBackendsManager struct {
@@ -176,12 +150,6 @@ type revisionBackendsManager struct {
 	probeFrequency   time.Duration
 }
 
-// NewRevisionBackendsManager returns a new RevisionBackendsManager with default
-// probe time out.
-func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper, usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode) *revisionBackendsManager {
-	return newRevisionBackendsManagerWithProbeFrequency(ctx, tr, usePassthroughLb, meshMode, defaultProbeFrequency)
-}
-
 // newRevisionBackendsManagerWithProbeFrequency creates a fully spec'd RevisionBackendsManager.
 func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.RoundTripper,
 	usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode, probeFreq time.Duration,
@@ -195,7 +163,7 @@ func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.R
 		transport:        tr,
 		usePassthroughLb: usePassthroughLb,
 		meshMode:         meshMode,
-		logger:           over_logging.FromContext(ctx),
+		logger:           overlogging.FromContext(ctx),
 		probeFrequency:   probeFreq,
 	}
 	endpointsInformer := endpointsinformer.Get(ctx)
@@ -204,11 +172,11 @@ func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.R
 			reconciler.LabelExistsFilterFunc(serving.RevisionUID),
 			// We are only interested in the private services, since that is
 			// what is populated by the actual revision backends.
-			reconciler.LabelFilterFunc(networking.ServiceTypeKey, string(networking.ServiceTypePrivate), false),
+			reconciler.LabelFilterFunc(overnetworking.ServiceTypeKey, string(overnetworking.ServiceTypePrivate), false),
 		),
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    rbm.endpointsUpdated,
-			UpdateFunc: controller.PassNew(rbm.endpointsUpdated),
+			UpdateFunc: overcontroller.PassNew(rbm.endpointsUpdated),
 			DeleteFunc: rbm.endpointsDeleted,
 		},
 	})
@@ -229,41 +197,6 @@ func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.R
 	}()
 
 	return rbm
-}
-
-func (rbm *revisionBackendsManager) updates() <-chan revisionDestsUpdate {
-	return rbm.updateCh
-}
-
-func (rbm *revisionBackendsManager) getOrCreateRevisionWatcher(revID types.NamespacedName) (*revisionWatcher, error) {
-	rbm.revisionWatchersMux.Lock()
-	defer rbm.revisionWatchersMux.Unlock()
-
-	rwCh, ok := rbm.revisionWatchers[revID]
-	if !ok {
-		rev, err := rbm.revisionLister.Revisions(revID.Namespace).Get(revID.Name)
-		if err != nil {
-			return nil, err
-		}
-
-		enableProbeOptimisation := true
-		if rp := rev.Spec.GetContainer().ReadinessProbe; rp != nil && rp.Exec != nil {
-			enableProbeOptimisation = false
-		}
-		// Startup probes are executed by Kubelet, so we can only mark the container as ready
-		// once K8s sees it as ready.
-		if sp := rev.Spec.GetContainer().StartupProbe; sp != nil {
-			enableProbeOptimisation = false
-		}
-
-		destsCh := make(chan dests)
-		rw := newRevisionWatcher(rbm.ctx, revID, rev.GetProtocol(), rbm.updateCh, destsCh, rbm.transport, rbm.serviceLister, rbm.usePassthroughLb, rbm.meshMode, enableProbeOptimisation, rbm.logger)
-		rbm.revisionWatchers[revID] = rw
-		go rw.run(rbm.probeFrequency)
-		return rw, nil
-	}
-
-	return rwCh, nil
 }
 
 // deleteRevisionWatcher deletes the revision watcher for rev if it exists. It expects
@@ -289,31 +222,6 @@ func (rbm *revisionBackendsManager) endpointsDeleted(obj interface{}) {
 	rbm.revisionWatchersMux.Lock()
 	defer rbm.revisionWatchersMux.Unlock()
 	rbm.deleteRevisionWatcher(revID)
-}
-
-// endpointsUpdated is a handler function to be used by the Endpoints informer.
-// It updates the endpoints in the RevisionBackendsManager if the hosts changed
-func (rbm *revisionBackendsManager) endpointsUpdated(newObj interface{}) {
-	// Ignore the updates when we've terminated.
-	select {
-	case <-rbm.ctx.Done():
-		return
-	default:
-	}
-	endpoints := newObj.(*corev1.Endpoints)
-	revID := types.NamespacedName{Namespace: endpoints.Namespace, Name: endpoints.Labels[serving.RevisionLabelKey]}
-
-	rw, err := rbm.getOrCreateRevisionWatcher(revID)
-	if err != nil {
-		rbm.logger.Errorw("Failed to get revision watcher", zap.Error(err), zap.String(logkey.Key, revID.String()))
-		return
-	}
-	ready, notReady := endpointsToDests(endpoints, pkgnet.ServicePortName(rw.protocol))
-	select {
-	case <-rbm.ctx.Done():
-		return
-	case rw.destsCh <- dests{ready: ready, notReady: notReady}:
-	}
 }
 
 // probePodIPs will probe the given target Pod IPs and will return
@@ -388,6 +296,13 @@ func (rw *revisionWatcher) probePodIPs(ready, notReady sets.Set[string]) (succee
 	return healthy, unchanged, sawNotMesh.Load(), err
 }
 
+func (rw *revisionWatcher) probeClusterIP(dest string) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
+	defer cancel()
+	match, _, err := rw.probe(ctx, dest)
+	return match, err
+}
+
 // probe probes the destination and returns whether it is ready according to
 // the probe. If the failure is not compatible with having been caused by mesh
 // being enabled, notMesh will be true.
@@ -407,12 +322,12 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (pass bool, n
 
 	// NOTE: changes below may require changes to testing/roundtripper.go to make unit tests pass.
 	options := []interface{}{
-		netprober.WithHeader(netheader.ProbeKey, over_queue.Name),
+		netprober.WithHeader(netheader.ProbeKey, overqueue.Name),
 		netprober.WithHeader(netheader.UserAgentKey, netheader.ActivatorUserAgent),
 		// Order is important since first failing verification short-circuits the rest: checkMesh must be first.
 		checkMesh,
 		netprober.ExpectsStatusCodes([]int{http.StatusOK}),
-		netprober.ExpectsBody(over_queue.Name),
+		netprober.ExpectsBody(overqueue.Name),
 	}
 
 	if rw.usePassthroughLb {
@@ -423,7 +338,7 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (pass bool, n
 		// configured, which will cause the request to "pass" but doesn't guarantee it
 		// actually lands on the correct pod, which breaks our state keeping.
 		options = append(options,
-			netprober.WithHost(over_names.PrivateService(rw.rev.Name)+"."+rw.rev.Namespace),
+			netprober.WithHost(overnames.PrivateService(rw.rev.Name)+"."+rw.rev.Namespace),
 			netprober.WithHeader(netheader.PassthroughLoadbalancingKey, "true"))
 	}
 
@@ -431,20 +346,109 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (pass bool, n
 	return match, notMesh, err
 }
 
-func (rw *revisionWatcher) getDest() (string, error) {
-	svc, err := rw.serviceLister.Services(rw.rev.Namespace).Get(over_names.PrivateService(rw.rev.Name))
-	if err != nil {
-		return "", err
+func (rw *revisionWatcher) sendUpdate(clusterIP string, dests sets.Set[string]) {
+	select {
+	case <-rw.stopCh:
+		return
+	default:
+		rw.updateCh <- revisionDestsUpdate{Rev: rw.rev, ClusterIPDest: clusterIP, Dests: dests}
 	}
-	if svc.Spec.ClusterIP == "" {
-		return "", fmt.Errorf("private service %s/%s clusterIP is nil, this should never happen", svc.ObjectMeta.Namespace, svc.ObjectMeta.Name)
+}
+
+// NewRevisionBackendsManager returns a new RevisionBackendsManager with default
+// probe time out.
+func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper, usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode) *revisionBackendsManager {
+	return newRevisionBackendsManagerWithProbeFrequency(ctx, tr, usePassthroughLb, meshMode, defaultProbeFrequency)
+}
+
+func (rbm *revisionBackendsManager) updates() <-chan revisionDestsUpdate {
+	return rbm.updateCh
+}
+
+// endpointsUpdated is a handler function to be used by the Endpoints informer.
+// It updates the endpoints in the RevisionBackendsManager if the hosts changed
+func (rbm *revisionBackendsManager) endpointsUpdated(newObj interface{}) {
+	// Ignore the updates when we've terminated.
+	select {
+	case <-rbm.ctx.Done():
+		return
+	default:
+	}
+	endpoints := newObj.(*corev1.Endpoints)
+	revID := types.NamespacedName{Namespace: endpoints.Namespace, Name: endpoints.Labels[serving.RevisionLabelKey]}
+
+	rw, err := rbm.getOrCreateRevisionWatcher(revID)
+	if err != nil {
+		rbm.logger.Errorw("Failed to get revision watcher", zap.Error(err), zap.String(logkey.Key, revID.String()))
+		return
+	}
+	ready, notReady := endpointsToDests(endpoints, pkgnet.ServicePortName(rw.protocol))
+	select {
+	case <-rbm.ctx.Done():
+		return
+	case rw.destsCh <- dests{ready: ready, notReady: notReady}:
+	}
+}
+
+func (rbm *revisionBackendsManager) getOrCreateRevisionWatcher(revID types.NamespacedName) (*revisionWatcher, error) {
+	rbm.revisionWatchersMux.Lock()
+	defer rbm.revisionWatchersMux.Unlock()
+
+	rwCh, ok := rbm.revisionWatchers[revID]
+	if !ok {
+		rev, err := rbm.revisionLister.Revisions(revID.Namespace).Get(revID.Name)
+		if err != nil {
+			return nil, err
+		}
+
+		enableProbeOptimisation := true
+		if rp := rev.Spec.GetContainer().ReadinessProbe; rp != nil && rp.Exec != nil {
+			enableProbeOptimisation = false
+		}
+		// Startup probes are executed by Kubelet, so we can only mark the container as ready
+		// once K8s sees it as ready.
+		if sp := rev.Spec.GetContainer().StartupProbe; sp != nil {
+			enableProbeOptimisation = false
+		}
+
+		destsCh := make(chan dests)
+		rw := newRevisionWatcher(rbm.ctx, revID, rev.GetProtocol(),
+			rbm.updateCh, destsCh, rbm.transport,
+			rbm.serviceLister, rbm.usePassthroughLb,
+			rbm.meshMode,
+			enableProbeOptimisation, rbm.logger,
+		)
+		rbm.revisionWatchers[revID] = rw
+		go rw.run(rbm.probeFrequency) // 200ms
+		return rw, nil
 	}
 
-	svcPort, ok := getServicePort(rw.protocol, svc)
-	if !ok {
-		return "", fmt.Errorf("unable to find port in service %s/%s", svc.Namespace, svc.Name)
+	return rwCh, nil
+}
+func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol pkgnet.ProtocolType,
+	updateCh chan<- revisionDestsUpdate, destsCh chan dests,
+	transport http.RoundTripper, serviceLister corev1listers.ServiceLister,
+	usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode,
+	enableProbeOptimisation bool,
+	logger *zap.SugaredLogger,
+) *revisionWatcher {
+	ctx, cancel := context.WithCancel(ctx)
+	return &revisionWatcher{
+		stopCh:                  ctx.Done(),
+		cancel:                  cancel,
+		rev:                     rev,
+		protocol:                protocol,
+		updateCh:                updateCh, // ✅
+		done:                    make(chan struct{}),
+		transport:               transport,
+		destsCh:                 destsCh,
+		serviceLister:           serviceLister,
+		podsAddressable:         true, // By default we presume we can talk to pods directly.
+		usePassthroughLb:        usePassthroughLb,
+		meshMode:                meshMode,
+		enableProbeOptimisation: enableProbeOptimisation,
+		logger:                  logger.With(zap.String(logkey.Key, rev.String())),
 	}
-	return net.JoinHostPort(svc.Spec.ClusterIP, strconv.Itoa(svcPort)), nil
 }
 
 func (rw *revisionWatcher) run(probeFrequency time.Duration) {
@@ -459,11 +463,8 @@ func (rw *revisionWatcher) run(probeFrequency time.Duration) {
 		// If we have at least one pod and either there are pods that have not been
 		// successfully probed or clusterIP has not been probed (no pod addressability),
 		// then we want to probe on timer.
-		rw.logger.Debugw("Revision state", zap.Object("dests", curDests),
-			zap.Object("healthy", over_logging.StringSet(rw.healthyPods)),
-			zap.Bool("clusterIPHealthy", rw.clusterIPHealthy))
-		if len(curDests.ready)+len(curDests.notReady) > 0 && !(rw.clusterIPHealthy ||
-			curDests.ready.Union(curDests.notReady).Equal(rw.healthyPods)) {
+		rw.logger.Debugw("Revision state", zap.Object("dests", curDests), zap.Object("healthy", overlogging.StringSet(rw.healthyPods)), zap.Bool("clusterIPHealthy", rw.clusterIPHealthy))
+		if len(curDests.ready)+len(curDests.notReady) > 0 && !(rw.clusterIPHealthy || curDests.ready.Union(curDests.notReady).Equal(rw.healthyPods)) {
 			rw.logger.Debug("Probing on timer")
 			tickCh = timer.C
 		} else {
@@ -483,12 +484,6 @@ func (rw *revisionWatcher) run(probeFrequency time.Duration) {
 		rw.checkDests(curDests, prevDests)
 	}
 }
-func (rw *revisionWatcher) probeClusterIP(dest string) (bool, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
-	defer cancel()
-	match, _, err := rw.probe(ctx, dest)
-	return match, err
-}
 
 // checkDests performs probing and potentially sends a dests update. It is
 // assumed this method is not called concurrently.
@@ -499,7 +494,7 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 		rw.healthyPods = nil
 		rw.logger.Debug("ClusterIP is no longer healthy.")
 		// Send update that we are now inactive (both params invalid).
-		rw.sendUpdate("", nil)
+		rw.sendUpdate("", nil) // 发送更新信息表明我们目前处于停机状态（两个参数均无效）。
 		return
 	}
 
@@ -511,7 +506,7 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 		reprobe := curDests.becameNonReady(prevDests)
 		if len(reprobe) > 0 {
 			rw.logger.Infow("Need to reprobe pods who became non-ready",
-				zap.Object("IPs", over_logging.StringSet(reprobe)))
+				zap.Object("IPs", overlogging.StringSet(reprobe)))
 			// Trim the pods that migrated to the non-ready set from the
 			// ready set from the healthy pods. They will automatically
 			// probed below.
@@ -591,11 +586,19 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 		rw.sendUpdate(dest, curDests.ready)
 	}
 }
-func (rw *revisionWatcher) sendUpdate(clusterIP string, dests sets.Set[string]) {
-	select {
-	case <-rw.stopCh:
-		return
-	default:
-		rw.updateCh <- revisionDestsUpdate{Rev: rw.rev, ClusterIPDest: clusterIP, Dests: dests}
+
+func (rw *revisionWatcher) getDest() (string, error) {
+	svc, err := rw.serviceLister.Services(rw.rev.Namespace).Get(overnames.PrivateService(rw.rev.Name))
+	if err != nil {
+		return "", err
 	}
+	if svc.Spec.ClusterIP == "" {
+		return "", fmt.Errorf("private service %s/%s clusterIP is nil, this should never happen", svc.ObjectMeta.Namespace, svc.ObjectMeta.Name)
+	}
+
+	svcPort, ok := getServicePort(rw.protocol, svc)
+	if !ok {
+		return "", fmt.Errorf("unable to find port in service %s/%s", svc.Namespace, svc.Name)
+	}
+	return net.JoinHostPort(svc.Spec.ClusterIP, strconv.Itoa(svcPort)), nil
 }

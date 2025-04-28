@@ -34,12 +34,6 @@ type PodAccessor struct {
 	selector   labels.Selector
 }
 
-// ReadyCount implements EndpointsCounter.
-func (pa PodAccessor) ReadyCount() (int, error) {
-	r, _, _, _, err := pa.PodCountsByState()
-	return r, err
-}
-
 // NotReadyCount implements EndpointsCounter.
 func (pa PodAccessor) NotReadyCount() (int, error) {
 	_, nr, _, _, err := pa.PodCountsByState()
@@ -195,4 +189,10 @@ func (pa PodAccessor) PodCountsByState() (ready, notReady, pending, terminating 
 	}
 
 	return ready, notReady, pending, terminating, nil
+}
+
+// ReadyCount implements EndpointsCounter.
+func (pa PodAccessor) ReadyCount() (int, error) {
+	r, _, _, _, err := pa.PodCountsByState()
+	return r, err
 }

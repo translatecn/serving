@@ -21,7 +21,7 @@ import (
 
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
-	"knative.dev/serving/pkg/over_logging"
+	"knative.dev/serving/pkg/overlogging"
 )
 
 type metricsWorker struct {
@@ -71,7 +71,7 @@ func (cmd *setMetricsConfig) handleCommand(w *metricsWorker) {
 
 func (cmd *updateMetricsConfigWithExporter) handleCommand(w *metricsWorker) {
 	ctx := cmd.ctx
-	logger := over_logging.FromContext(ctx)
+	logger := overlogging.FromContext(ctx)
 	if isNewExporterRequired(cmd.newConfig) {
 		logger.Debug("Flushing the existing exporter before setting up the new exporter.")
 		flushGivenExporter(curMetricsExporter)

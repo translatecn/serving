@@ -8,7 +8,7 @@ metadata:
 spec:
   containers:
     - name: title
-      image: registry.cn-hangzhou.aliyuncs.com/acejilam/centos:7
+      image: registry.cn-hangzhou.aliyuncs.com/ls-2018/mygo:v1.24.1
       command:
         - "/bin/bash"
         - "-c"

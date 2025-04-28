@@ -23,7 +23,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"knative.dev/serving/pkg/injection"
-	"knative.dev/serving/pkg/over_logging"
+	"knative.dev/serving/pkg/overlogging"
 )
 
 func init() {
@@ -42,7 +42,7 @@ func withClient(ctx context.Context, cfg *rest.Config) context.Context {
 func Get(ctx context.Context) dynamic.Interface {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
-		over_logging.FromContext(ctx).Panic(
+		overlogging.FromContext(ctx).Panic(
 			"Unable to fetch k8s.io/client-go/dynamic.Interface from context.")
 	}
 	return untyped.(dynamic.Interface)

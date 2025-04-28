@@ -20,7 +20,7 @@ pipelines:
 
 #images:
 #  app:
-#    image: registry.cn-hangzhou.aliyuncs.com/acejilam/centos:7
+#    image: registry.cn-hangzhou.aliyuncs.com/ls-2018/mygo:v1.24.1
 #    dockerfile: ./debug/Dockerfile
 
 
@@ -30,14 +30,15 @@ deployments:
     # This deployment uses `kubectl` but you can also define `helm` deployments
     kubectl:
       manifests:
-        - debug/autoscaler.yaml
+        - debug/activator.yaml
 
 # This is a list of `dev` containers that are based on the containers created by your deployments
 dev:
   app:
     # Replace the container image with this dev-optimized image (allows to skip image building during development)
-    devImage: registry.cn-hangzhou.aliyuncs.com/ls-2018/mygo:v1.24.0
-    imageSelector: gcr.io/knative-releases/knative.dev/serving/cmd/autoscaler@sha256:ac1a83ba7c278ce9482b7bbfffe00e266f657b7d2356daed88ffe666bc68978e
+    devImage: registry.cn-hangzhou.aliyuncs.com/ls-2018/mygo:v1.24.1
+#    imageSelector: gcr.io/knative-releases/knative.dev/serving/cmd/autoscaler@sha256:ac1a83ba7c278ce9482b7bbfffe00e266f657b7d2356daed88ffe666bc68978e
+    imageSelector: registry.cn-hangzhou.aliyuncs.com/acejilam/knative-serving-activator:v1.17.0
     # Sync files between the local filesystem and the development container
     sync:
       - path: ./:/data

@@ -22,16 +22,16 @@ import (
 
 	"k8s.io/client-go/rest"
 
-	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/overcontroller"
 )
 
 // InformerInjector holds the type of a callback that attaches a particular
 // informer type to a context.
-type InformerInjector func(context.Context) (context.Context, controller.Informer)
+type InformerInjector func(context.Context) (context.Context, overcontroller.Informer)
 
 // FilteredInformersInjector holds the type of a callback that attaches a set of particular
 // filtered informers type to a context.
-type FilteredInformersInjector func(context.Context) (context.Context, []controller.Informer)
+type FilteredInformersInjector func(context.Context) (context.Context, []overcontroller.Informer)
 
 func (i *impl) RegisterInformer(ii InformerInjector) {
 	i.m.Lock()
@@ -63,7 +63,7 @@ func (i *impl) GetFilteredInformers() []FilteredInformersInjector {
 	return append(i.filteredInformers[:0:0], i.filteredInformers...)
 }
 
-func (i *impl) SetupInformers(ctx context.Context, cfg *rest.Config) (context.Context, []controller.Informer) {
+func (i *impl) SetupInformers(ctx context.Context, cfg *rest.Config) (context.Context, []overcontroller.Informer) {
 	// Based on the reconcilers we have linked, build up a set of clients and inject
 	// them onto the context.
 	for _, ci := range i.GetClients() {
@@ -84,9 +84,9 @@ func (i *impl) SetupInformers(ctx context.Context, cfg *rest.Config) (context.Co
 
 	// Based on the reconcilers we have linked, build up a set of informers
 	// and inject them onto the context.
-	var inf controller.Informer
-	var filteredinfs []controller.Informer
-	informers := make([]controller.Informer, 0, len(i.GetInformers()))
+	var inf overcontroller.Informer
+	var filteredinfs []overcontroller.Informer
+	informers := make([]overcontroller.Informer, 0, len(i.GetInformers()))
 	for _, ii := range i.GetInformers() {
 		ctx, inf = ii(ctx)
 		informers = append(informers, inf)

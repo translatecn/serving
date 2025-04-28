@@ -22,8 +22,8 @@ import (
 
 	"k8s.io/client-go/rest"
 
-	"knative.dev/serving/pkg/configmap"
-	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/overcontroller"
+	"knative.dev/serving/pkg/overconfigmap"
 )
 
 // Interface is the interface for interacting with injection
@@ -73,12 +73,12 @@ type Interface interface {
 	// SetupInformers runs all of the injectors against a context, starting with
 	// the clients and the given rest.Config.  The resulting context is returned
 	// along with a list of the .Informer() for each of the injected informers,
-	// which is suitable for passing to controller.StartInformers().
+	// which is suitable for passing to overcontroller.StartInformers().
 	// This does not setup or start any controllers.
-	SetupInformers(context.Context, *rest.Config) (context.Context, []controller.Informer)
+	SetupInformers(context.Context, *rest.Config) (context.Context, []overcontroller.Informer)
 }
 
-type ControllerConstructor func(context.Context, configmap.Watcher) *controller.Impl
+type ControllerConstructor func(context.Context, overconfigmap.Watcher) *overcontroller.Impl
 
 // NamedControllerConstructor is a ControllerConstructor with an associated name.
 type NamedControllerConstructor struct {

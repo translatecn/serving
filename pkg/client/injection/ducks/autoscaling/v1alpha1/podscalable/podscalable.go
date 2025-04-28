@@ -23,10 +23,10 @@ import (
 
 	v1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	duck "knative.dev/serving/pkg/apis/duck"
-	controller "knative.dev/serving/pkg/controller"
+	controller "knative.dev/serving/pkg/overcontroller"
 	injection "knative.dev/serving/pkg/injection"
 	dynamicclient "knative.dev/serving/pkg/injection/clients/dynamicclient"
-	overlogging "knative.dev/serving/pkg/over_logging"
+	overlogging "knative.dev/serving/pkg/overlogging"
 )
 
 func init() {

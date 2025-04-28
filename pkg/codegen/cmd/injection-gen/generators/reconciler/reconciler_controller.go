@@ -85,7 +85,7 @@ func (g *reconcilerControllerGenerator) GenerateType(c *generator.Context, t *ty
 			Name:    "NewContext",
 		}),
 		"loggingFromContext": c.Universe.Function(types.Name{
-			Package: "knative.dev/serving/pkg/over_logging",
+			Package: "knative.dev/serving/pkg/overlogging",
 			Name:    "FromContext",
 		}),
 		"ptrString": c.Universe.Function(types.Name{
@@ -173,11 +173,11 @@ func (g *reconcilerControllerGenerator) GenerateType(c *generator.Context, t *ty
 			Name:    "Sprintf",
 		}),
 		"logkeyControllerType": c.Universe.Constant(types.Name{
-			Package: "knative.dev/serving/pkg/over_logging/logkey",
+			Package: "knative.dev/serving/pkg/overlogging/logkey",
 			Name:    "ControllerType",
 		}),
 		"logkeyControllerKind": c.Universe.Constant(types.Name{
-			Package: "knative.dev/serving/pkg/over_logging/logkey",
+			Package: "knative.dev/serving/pkg/overlogging/logkey",
 			Name:    "Kind",
 		}),
 		"zapString": c.Universe.Function(types.Name{
@@ -267,6 +267,7 @@ func NewImpl(ctx {{.contextContext|raw}}, r Interface{{if .hasClass}}, classValu
 	ctrType := {{.reflectTypeOf|raw}}(r).Elem()
 	ctrTypeName := {{.fmtSprintf|raw}}("%s.%s", ctrType.PkgPath(), ctrType.Name())
 	ctrTypeName = {{.stringsReplaceAll|raw}}(ctrTypeName, "/", ".")
+	ctrTypeName = {{.stringsReplaceAll|raw}}(ctrTypeName, "_", "-")
 
 	logger = logger.With(
 			{{.zapString|raw}}({{.logkeyControllerType|raw}}, ctrTypeName),

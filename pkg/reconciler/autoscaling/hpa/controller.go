@@ -27,15 +27,15 @@ import (
 	kubeclient "knative.dev/serving/pkg/client/injection/kube/client"
 	hpainformer "knative.dev/serving/pkg/client/injection/kube/informers/autoscaling/v2/horizontalpodautoscaler"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
-	"knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/over_logging"
+	"knative.dev/serving/pkg/overdeployment"
+	"knative.dev/serving/pkg/overlogging"
 
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
-	"knative.dev/serving/pkg/configmap"
-	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/overcontroller"
+	"knative.dev/serving/pkg/overconfigmap"
 	pkgreconciler "knative.dev/serving/pkg/reconciler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
@@ -44,9 +44,9 @@ import (
 // NewController returns a new HPA reconcile controller.
 func NewController(
 	ctx context.Context,
-	cmw configmap.Watcher,
-) *controller.Impl {
-	logger := over_logging.FromContext(ctx)
+	cmw overconfigmap.Watcher,
+) *overcontroller.Impl {
+	logger := overlogging.FromContext(ctx)
 	paInformer := painformer.Get(ctx)
 	sksInformer := sksinformer.Get(ctx)
 	hpaInformer := hpainformer.Get(ctx)
@@ -67,40 +67,40 @@ func NewController(
 	}
 	_ = c.ReconcileKind
 
-	impl := pareconciler.NewImpl(ctx, c, autoscaling.HPA, func(impl *controller.Impl) controller.Options {
+	impl := pareconciler.NewImpl(ctx, c, autoscaling.HPA, func(impl *overcontroller.Impl) overcontroller.Options {
 		logger.Info("Setting up ConfigMap receivers")
 		configsToResync := []interface{}{
 			&autoscalerconfig.Config{},
-			&deployment.Config{},
+			&overdeployment.Config{},
 		}
-		resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
+		resync := overconfigmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 			impl.FilteredGlobalResync(onlyHPAClass, paInformer.Informer())
 		})
 		configStore := config.NewStore(logger.Named("config-store"), resync)
 		configStore.WatchConfigs(cmw)
-		return controller.Options{ConfigStore: configStore}
+		return overcontroller.Options{ConfigStore: configStore}
 	})
 
 	logger.Info("Setting up hpa-class event handlers")
 
 	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: onlyHPAClass,
-		Handler:    controller.HandleAll(impl.Enqueue),
+		Handler:    overcontroller.HandleAll(impl.Enqueue),
 	})
 
-	onlyPAControlled := controller.FilterController(&autoscalingv1alpha1.PodAutoscaler{})
+	onlyPAControlled := overcontroller.FilterController(&autoscalingv1alpha1.PodAutoscaler{})
 
 	hpaInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: pkgreconciler.ChainFilterFuncs(onlyHPAClass, onlyPAControlled),
-		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+		Handler:    overcontroller.HandleAll(impl.EnqueueControllerOf),
 	})
 	sksInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: pkgreconciler.ChainFilterFuncs(onlyHPAClass, onlyPAControlled),
-		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+		Handler:    overcontroller.HandleAll(impl.EnqueueControllerOf),
 	})
 	metricInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: pkgreconciler.ChainFilterFuncs(onlyHPAClass, onlyPAControlled),
-		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+		Handler:    overcontroller.HandleAll(impl.EnqueueControllerOf),
 	})
 
 	return impl

@@ -20,10 +20,10 @@ import (
 	"context"
 
 	v1 "k8s.io/client-go/informers/core/v1"
-	"knative.dev/serving/pkg/controller"
+	"knative.dev/serving/pkg/overcontroller"
 	"knative.dev/serving/pkg/injection"
 	"knative.dev/serving/pkg/injection/clients/namespacedkube/informers/factory"
-	"knative.dev/serving/pkg/over_logging"
+	"knative.dev/serving/pkg/overlogging"
 )
 
 func init() {
@@ -33,7 +33,7 @@ func init() {
 // Key is used for associating the Informer inside the context.Context.
 type Key struct{}
 
-func withInformer(ctx context.Context) (context.Context, controller.Informer) {
+func withInformer(ctx context.Context) (context.Context, overcontroller.Informer) {
 	f := factory.Get(ctx)
 	inf := f.Core().V1().ConfigMaps()
 	return context.WithValue(ctx, Key{}, inf), inf.Informer()
@@ -43,7 +43,7 @@ func withInformer(ctx context.Context) (context.Context, controller.Informer) {
 func Get(ctx context.Context) v1.ConfigMapInformer {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
-		over_logging.FromContext(ctx).Panic(
+		overlogging.FromContext(ctx).Panic(
 			"Unable to fetch k8s.io/client-go/informers/core/v1.ConfigMapInformer from context.")
 	}
 	return untyped.(v1.ConfigMapInformer)

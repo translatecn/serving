@@ -21,7 +21,7 @@ import (
 	"sort"
 	"strings"
 
-	"knative.dev/serving/pkg/over_kmp"
+	"knative.dev/serving/pkg/overkmp"
 )
 
 // CurrentField is a constant to supply as a fieldPath for when there is
@@ -483,7 +483,7 @@ func ErrOutOfBoundsValue(value, lower, upper interface{}, fieldPath string) *Fie
 // that are set in the request object that are unset in the mask are reported back as disallowed fields. If
 // there is an error comparing the two objects FieldError of "Internal Error" is returned.
 func CheckDisallowedFields(request, maskedRequest interface{}) *FieldError {
-	if disallowed, err := over_kmp.CompareSetFields(request, maskedRequest); err != nil {
+	if disallowed, err := overkmp.CompareSetFields(request, maskedRequest); err != nil {
 		return &FieldError{
 			Message: "Internal Error",
 			Paths:   []string{CurrentField},

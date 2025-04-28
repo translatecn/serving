@@ -24,13 +24,13 @@ import (
 	"knative.dev/serving/pkg/apis"
 )
 
-// Destination represents a target of an invocation over HTTP.
+// Destination 表示通过 HTTP 进行调用的目标。
 type Destination struct {
 	// Ref points to an Addressable.
 	// +optional
 	Ref *KReference `json:"ref,omitempty"`
 
-	// URI can be an absolute URL(non-empty scheme and non-empty host) pointing to the target or a relative URI. Relative URIs will be resolved using the base URI retrieved from Ref.
+	// URI 可以是一个绝对 URL 指向目标位置，也可以是一个相对 URI。相对 URI 将使用从 Ref 中获取的基 URI 进行解析。
 	// +optional
 	URI *apis.URL `json:"uri,omitempty"`
 
@@ -41,11 +41,9 @@ type Destination struct {
 	// +optional
 	CACerts *string `json:"CACerts,omitempty"`
 
-	// Audience is the OIDC audience.
-	// This need only be set, if the target is not an Addressable
-	// and thus the Audience can't be received from the Addressable itself.
-	// In case the Addressable specifies an Audience too, the Destinations
-	// Audience takes preference.
+	// 受众是 OIDC 的受众。
+	// 只要目标对象不是可寻址对象（Addressable），且因此无法从该对象自身获取受众信息，才需要设置此值。
+	// 如果可寻址对象指定了受众信息，则目的地受众（Destinations Audience）将优先使用。
 	// +optional
 	Audience *string `json:"audience,omitempty"`
 }

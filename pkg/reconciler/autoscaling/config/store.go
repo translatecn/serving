@@ -23,8 +23,8 @@ import (
 	netcfg "knative.dev/serving/networking/pkg/config"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
-	"knative.dev/serving/pkg/configmap"
-	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/overdeployment"
+	"knative.dev/serving/pkg/overconfigmap"
 )
 
 type cfgKey struct{}
@@ -32,7 +32,7 @@ type cfgKey struct{}
 // Config of the Autoscaler.
 type Config struct {
 	Autoscaler *autoscalerconfig.Config
-	Deployment *deployment.Config
+	Deployment *overdeployment.Config
 	Network    *netcfg.Config
 }
 
@@ -46,29 +46,29 @@ func ToContext(ctx context.Context, c *Config) context.Context {
 	return context.WithValue(ctx, cfgKey{}, c)
 }
 
-// Store is configmap.UntypedStore based config store.
+// Store is overconfigmap.UntypedStore based config store.
 type Store struct {
-	*configmap.UntypedStore
+	*overconfigmap.UntypedStore
 }
 
-// NewStore creates a configmap.UntypedStore based config store.
+// NewStore creates a overconfigmap.UntypedStore based config store.
 //
-// logger must be non-nil implementation of configmap.Logger (commonly used
+// logger must be non-nil implementation of overconfigmap.Logger (commonly used
 // loggers conform)
 //
 // onAfterStore is a variadic list of callbacks to run
 // after the ConfigMap has been processed and stored.
 //
-// See also: configmap.NewUntypedStore().
-func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
+// See also: overconfigmap.NewUntypedStore().
+func NewStore(logger overconfigmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
 	store := &Store{
-		UntypedStore: configmap.NewUntypedStore(
+		UntypedStore: overconfigmap.NewUntypedStore(
 			"autoscaler",
 			logger,
-			configmap.Constructors{
-				asconfig.ConfigName:   asconfig.NewConfigFromConfigMap,
-				deployment.ConfigName: deployment.NewConfigFromConfigMap,
-				netcfg.ConfigMapName:  network.NewConfigFromConfigMap,
+			overconfigmap.Constructors{
+				asconfig.ConfigName:       asconfig.NewConfigFromConfigMap,
+				overdeployment.ConfigName: overdeployment.NewConfigFromConfigMap,
+				netcfg.ConfigMapName:      network.NewConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),
@@ -85,7 +85,7 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 func (s *Store) Load() *Config {
 	return &Config{
 		Autoscaler: s.UntypedLoad(asconfig.ConfigName).(*autoscalerconfig.Config).DeepCopy(),
-		Deployment: s.UntypedLoad(deployment.ConfigName).(*deployment.Config).DeepCopy(),
+		Deployment: s.UntypedLoad(overdeployment.ConfigName).(*overdeployment.Config).DeepCopy(),
 		Network:    s.UntypedLoad(netcfg.ConfigMapName).(*netcfg.Config).DeepCopy(),
 	}
 }

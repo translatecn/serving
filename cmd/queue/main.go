@@ -19,11 +19,11 @@ package main
 import (
 	"os"
 
-	"knative.dev/serving/pkg/over_queue/over_sharedmain"
+	"knative.dev/serving/pkg/overqueue/oversharedmain"
 )
 
 func main() {
-	if over_sharedmain.Main() != nil {
+	if oversharedmain.Main() != nil {
 		os.Exit(1)
 	}
 }

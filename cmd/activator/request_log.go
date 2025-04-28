@@ -24,7 +24,7 @@ import (
 	"knative.dev/serving/pkg/activator/handler"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/metrics"
-	pkghttp "knative.dev/serving/pkg/over_http"
+	pkghttp "knative.dev/serving/pkg/overhttp"
 )
 
 func updateRequestLogFromConfigMap(logger *zap.SugaredLogger, h *pkghttp.RequestLogHandler) func(configMap *corev1.ConfigMap) {

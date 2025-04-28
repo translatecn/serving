@@ -519,17 +519,17 @@ spec:
             - name: metrics
               containerPort: 9000
               protocol: TCP
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
-            runAsNonRoot: true
-            runAsUser: 65534
-            runAsGroup: 65534
-            capabilities:
-              drop:
-                - ALL
-            seccompProfile:
-              type: RuntimeDefault
+#          securityContext:
+#            allowPrivilegeEscalation: false
+#            readOnlyRootFilesystem: false
+#            runAsNonRoot: true
+#            runAsUser: 65534
+#            runAsGroup: 65534
+#            capabilities:
+#              drop:
+#                - ALL
+#            seccompProfile:
+#              type: RuntimeDefault
           volumeMounts:
             - name: config-volume
               mountPath: /tmp/config

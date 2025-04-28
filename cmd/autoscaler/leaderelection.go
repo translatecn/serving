@@ -20,17 +20,17 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/serving/pkg/controller"
-	"knative.dev/serving/pkg/leaderelection"
+	"knative.dev/serving/pkg/overcontroller"
+	"knative.dev/serving/pkg/overleaderelection"
 	"knative.dev/serving/pkg/reconciler"
 )
 
 type leaderAwareReconciler interface {
 	reconciler.LeaderAware
-	controller.Reconciler
+	overcontroller.Reconciler
 }
 
-// leaderAware is intended to wrap a controller.Reconciler in order to disable
+// leaderAware is intended to wrap a overcontroller.Reconciler in order to disable
 // leader election. It accomplishes this by not implementing the reconciler.LeaderAware
 // interface. Bucket promotion/demotion needs to be done manually
 //
@@ -40,7 +40,7 @@ type leaderAware struct {
 	enqueue    func(bkt reconciler.Bucket, key types.NamespacedName)
 }
 
-func setupSharedElector(ctx context.Context, controllers []*controller.Impl) (leaderelection.Elector, error) {
+func setupSharedElector(ctx context.Context, controllers []*overcontroller.Impl) (overleaderelection.Elector, error) {
 	reconcilers := make([]*leaderAware, 0, len(controllers))
 
 	for _, c := range controllers {
@@ -61,12 +61,12 @@ func setupSharedElector(ctx context.Context, controllers []*controller.Impl) (le
 	// MaybeEnqueueBucketKey when we promote buckets
 	noopEnqueue := func(reconciler.Bucket, types.NamespacedName) {}
 
-	el, err := leaderelection.BuildElector(ctx, coalesce(reconcilers), queueName, noopEnqueue)
+	el, err := overleaderelection.BuildElector(ctx, coalesce(reconcilers), queueName, noopEnqueue)
 	if err != nil {
 		return nil, err
 	}
 
-	electorWithBuckets, ok := el.(leaderelection.ElectorWithInitialBuckets)
+	electorWithBuckets, ok := el.(overleaderelection.ElectorWithInitialBuckets)
 	if !ok || len(electorWithBuckets.InitialBuckets()) == 0 {
 		return el, nil
 	}

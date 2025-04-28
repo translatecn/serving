@@ -20,7 +20,7 @@ limitations under the License.
 //
 // There are two primary contexts where the usage of the injection package is
 // interesting.  The first is in the context of implementations of
-// `controller.Reconciler` being wrapped in a `*controller.Impl`:
+// `overcontroller.Reconciler` being wrapped in a `*overcontroller.Impl`:
 //
 //	import (
 //	  // Simply linking this triggers the injection of the informer, which links

@@ -21,7 +21,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
-	"knative.dev/serving/pkg/kmeta"
+	"knative.dev/serving/pkg/overkmeta"
 	"knative.dev/serving/pkg/tracker"
 )
 
@@ -32,10 +32,10 @@ type InformerFactory interface {
 }
 
 // OneOfOurs is the union of our Accessor interface and the OwnerRefable interface
-// that is implemented by our resources that implement the kmeta.Accessor.
+// that is implemented by our resources that implement the overkmeta.Accessor.
 type OneOfOurs interface {
-	kmeta.Accessor
-	kmeta.OwnerRefable
+	overkmeta.Accessor
+	overkmeta.OwnerRefable
 }
 
 // BindableStatus is the interface that the .status of Bindable resources must

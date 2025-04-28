@@ -38,9 +38,9 @@ import (
 	kubernetes "k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/listers/core/v1"
 	record "k8s.io/client-go/tools/record"
-	controller "knative.dev/serving/pkg/controller"
-	kmp "knative.dev/serving/pkg/over_kmp"
-	logging "knative.dev/serving/pkg/over_logging"
+	controller "knative.dev/serving/pkg/overcontroller"
+	kmp "knative.dev/serving/pkg/overkmp"
+	logging "knative.dev/serving/pkg/overlogging"
 	reconciler "knative.dev/serving/pkg/reconciler"
 )
 
@@ -78,7 +78,7 @@ type ReadOnlyInterface interface {
 
 type doReconcile func(ctx context.Context, o *v1.Namespace) reconciler.Event
 
-// reconcilerImpl implements controller.Reconciler for v1.Namespace resources.
+// reconcilerImpl implements overcontroller.Reconciler for v1.Namespace resources.
 type reconcilerImpl struct {
 	// LeaderAwareFuncs is inlined to help us implement reconciler.LeaderAware.
 	reconciler.LeaderAwareFuncs
@@ -108,7 +108,7 @@ type reconcilerImpl struct {
 	skipStatusUpdates bool
 }
 
-// Check that our Reconciler implements controller.Reconciler.
+// Check that our Reconciler implements overcontroller.Reconciler.
 var _ controller.Reconciler = (*reconcilerImpl)(nil)
 
 // Check that our generated Reconciler is always LeaderAware.
@@ -168,7 +168,7 @@ func NewReconciler(ctx context.Context, logger *zap.SugaredLogger, client kubern
 	return rec
 }
 
-// Reconcile implements controller.Reconciler
+// Reconcile implements overcontroller.Reconciler
 func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	logger := logging.FromContext(ctx)
 

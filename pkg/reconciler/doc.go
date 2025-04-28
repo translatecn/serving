@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // Package reconciler defines implementations of the Reconciler interface
-// defined at github.com/knative/pkg/controller.Reconciler.  These implement
+// defined at github.com/knative/pkg/overcontroller.Reconciler.  These implement
 // the basic workhorse functionality of controllers, while leaving the
 // shared controller implementation to manage things like the workqueue.
 //
@@ -26,7 +26,7 @@ limitations under the License.
 //
 // These constructors will:
 //  1. Construct the Reconciler,
-//  2. Construct a controller.Impl with that Reconciler,
+//  2. Construct a overcontroller.Impl with that Reconciler,
 //  3. Wire the assorted informers this Reconciler watches to call appropriate
 //     enqueue methods on the controller.
 package reconciler

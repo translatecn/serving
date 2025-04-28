@@ -20,10 +20,10 @@ import (
 	context "context"
 
 	v1 "k8s.io/client-go/informers/core/v1"
-	controller "knative.dev/serving/pkg/controller"
+	controller "knative.dev/serving/pkg/overcontroller"
 	injection "knative.dev/serving/pkg/injection"
 	factory "knative.dev/serving/pkg/injection/clients/namespacedkube/informers/factory"
-	logging "knative.dev/serving/pkg/over_logging"
+	logging "knative.dev/serving/pkg/overlogging"
 )
 
 func init() {

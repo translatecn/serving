@@ -29,8 +29,8 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/over_kmap"
-	"knative.dev/serving/pkg/over_kmp"
+	"knative.dev/serving/pkg/overkmap"
+	"knative.dev/serving/pkg/overkmp"
 )
 
 // Validate ensures Revision is properly configured.
@@ -41,7 +41,7 @@ func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 
 	if apis.IsInUpdate(ctx) {
 		original := apis.GetBaseline(ctx).(*Revision)
-		if diff, err := over_kmp.ShortDiff(original.Spec, r.Spec); err != nil {
+		if diff, err := overkmp.ShortDiff(original.Spec, r.Spec); err != nil {
 			return &apis.FieldError{
 				Message: "Failed to diff Revision",
 				Paths:   []string{"spec"},
@@ -87,7 +87,7 @@ func (rts *RevisionTemplateSpec) VerifyNameChange(_ context.Context, og *Revisio
 		return nil
 	}
 
-	diff, err := over_kmp.ShortDiff(og, rts)
+	diff, err := overkmp.ShortDiff(og, rts)
 	if err != nil {
 		return &apis.FieldError{
 			Message: "Failed to diff RevisionTemplate",
@@ -197,7 +197,7 @@ func validateQueueSidecarResourceAnnotations(m map[string]string) *apis.FieldErr
 			errs = errs.Also(apis.ErrOutOfBoundsValue(value, 0.1, 100.0, apis.CurrentField).ViaKey(k))
 		}
 	}
-	annoKeys := []over_kmap.KeyPriority{
+	annoKeys := []overkmap.KeyPriority{
 		serving.QueueSidecarCPUResourceRequestAnnotation,
 		serving.QueueSidecarCPUResourceLimitAnnotation,
 		serving.QueueSidecarMemoryResourceRequestAnnotation,

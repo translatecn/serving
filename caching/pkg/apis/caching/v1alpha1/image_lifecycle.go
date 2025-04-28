@@ -31,7 +31,7 @@ const (
 
 var condSet = apis.NewLivingConditionSet()
 
-// GetGroupVersionKind implements kmeta.OwnerRefable
+// GetGroupVersionKind implements overkmeta.OwnerRefable
 func (i *Image) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Image")
 }

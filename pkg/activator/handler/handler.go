@@ -30,18 +30,18 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	netheader "knative.dev/serving/networking/pkg/http/header"
-	netproxy "knative.dev/serving/networking/pkg/http/over_proxy"
+	netproxy "knative.dev/serving/networking/pkg/http/overproxy"
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	apiconfig "knative.dev/serving/pkg/apis/config"
-	"knative.dev/serving/pkg/networking"
-	pkghttp "knative.dev/serving/pkg/over_http"
-	"knative.dev/serving/pkg/over_logging/logkey"
-	pkghandler "knative.dev/serving/pkg/over_network/over_handlers"
-	"knative.dev/serving/pkg/over_queue"
-	tracingconfig "knative.dev/serving/pkg/over_tracing/config"
-	"knative.dev/serving/pkg/over_tracing/propagation/tracecontextb3"
-	"knative.dev/serving/pkg/reconciler/over_serverlessservice/resources/over_names"
+	"knative.dev/serving/pkg/overnetworking"
+	pkghttp "knative.dev/serving/pkg/overhttp"
+	"knative.dev/serving/pkg/overlogging/logkey"
+	pkghandler "knative.dev/serving/pkg/overnetwork/overhandlers"
+	"knative.dev/serving/pkg/overqueue"
+	tracingconfig "knative.dev/serving/pkg/overtracing/config"
+	"knative.dev/serving/pkg/overtracing/propagation/tracecontextb3"
+	"knative.dev/serving/pkg/reconciler/overserverlessservice/resources/overnames"
 )
 
 // Throttler is the interface that Handler calls to Try to proxy the user request.
@@ -105,7 +105,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		a.logger.Errorw("Throttler try error", zap.String(logkey.Key, revID.String()), zap.Error(err))
 
-		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, over_queue.ErrRequestQueueFull) {
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, overqueue.ErrRequestQueueFull) {
 			http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -143,12 +143,12 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 	// Set up the reverse proxy.
 	hostOverride := pkghttp.NoHostOverride
 	if usePassthroughLb {
-		hostOverride = over_names.PrivateService(revID.Name) + "." + revID.Namespace
+		hostOverride = overnames.PrivateService(revID.Name) + "." + revID.Namespace
 	}
 
 	var proxy *httputil.ReverseProxy
 	if a.tls {
-		tlsTargetPort := networking.BackendHTTPSPort
+		tlsTargetPort := overnetworking.BackendHTTPSPort
 		if isClusterIP {
 			tlsTargetPort = 443
 		}

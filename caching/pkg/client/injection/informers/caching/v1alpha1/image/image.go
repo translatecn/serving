@@ -23,9 +23,9 @@ import (
 
 	v1alpha1 "knative.dev/serving/caching/pkg/client/informers/externalversions/caching/v1alpha1"
 	factory "knative.dev/serving/caching/pkg/client/injection/informers/factory"
-	controller "knative.dev/serving/pkg/controller"
+	controller "knative.dev/serving/pkg/overcontroller"
 	injection "knative.dev/serving/pkg/injection"
-	overlogging "knative.dev/serving/pkg/over_logging"
+	overlogging "knative.dev/serving/pkg/overlogging"
 )
 
 func init() {

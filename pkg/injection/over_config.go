@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"strings"
 
-	"knative.dev/serving/pkg/over_environment"
+	"knative.dev/serving/pkg/overenvironment"
 
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -31,7 +31,7 @@ import (
 // ParseAndGetRESTConfigOrDie parses the rest config flags and creates a client or
 // dies by calling log.Fatalf.
 func ParseAndGetRESTConfigOrDie() *rest.Config {
-	env := new(over_environment.ClientConfig)
+	env := new(overenvironment.ClientConfig)
 	env.InitFlags(flag.CommandLine)
 	klog.InitFlags(flag.CommandLine)
 	flag.Parse()

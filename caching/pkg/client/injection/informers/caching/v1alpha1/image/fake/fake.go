@@ -23,7 +23,7 @@ import (
 
 	image "knative.dev/serving/caching/pkg/client/injection/informers/caching/v1alpha1/image"
 	fake "knative.dev/serving/caching/pkg/client/injection/informers/factory/fake"
-	controller "knative.dev/serving/pkg/controller"
+	controller "knative.dev/serving/pkg/overcontroller"
 	injection "knative.dev/serving/pkg/injection"
 )
 
