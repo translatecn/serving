@@ -45,7 +45,7 @@ kubectl patch configmap/config-network \
 	--type merge \
 	--patch '{"data":{"ingress-class":"kourier.ingress.networking.knative.dev"}}'
 
-kubectl apply -f ./debug/yaml/kourier-ingress.yaml
+kubectl apply -f ./debug/yaml/kourier-internal.yaml
 
 kubectl patch configmap/config-domain \
 	--namespace knative-serving \
@@ -56,6 +56,10 @@ kubectl patch configmap/config-autoscaler \
 	--namespace knative-serving \
 	--type merge \
 	--patch '{"data":{"max-scale":"10","min-scale":"0","initial-scale":"1"}}'
+kubectl patch configmap/config-network \
+	--namespace knative-serving \
+	--type merge \
+	--patch '{"data":{"external-domain-tls":"Enabled","autocreate-cluster-domain-claims":"true"}}'
 
 #kubectl apply -f ./yaml
 #export https_proxy=http://127.0.0.1:7890 http_proxy=http://127.0.0.1:7890 all_proxy=socks5://127.0.0.1:7890
@@ -67,11 +71,15 @@ kubectl patch configmap/config-autoscaler \
 kubectl get pods --namespace knative-serving
 
 #git clone https://github.com/knative/docs.git
-#cd docs/code-samples/serving/hello-world/helloworld-go
-#docker build -t registry.cn-hangzhou.aliyuncs.com/ls-2018/knative:helloworld-go .
-#docker push registry.cn-hangzhou.aliyuncs.com/ls-2018/knative:helloworld-go
-#sed -i 's@docker.io/{username}/helloworld-go@registry.cn-hangzhou.aliyuncs.com/ls-2018/knative:helloworld-go@g' service.yaml
+cd debug/rest-api-go
+docker build -t registry.cn-hangzhou.aliyuncs.com/ls-2018/knative:helloworld-go .
+docker push registry.cn-hangzhou.aliyuncs.com/ls-2018/knative:helloworld-go
+cd -
 kubectl apply -f debug/helloworld-go/pod.yaml
 #kubectl apply -f debug/helloworld-go/revision-v1.yaml
 #cd -
 # k exec -it title -c title -- curl -H 'Host: helloworld-go.default.127.0.0.1.sslip.io' kourier.kourier-system
+
+
+
+

@@ -9,7 +9,7 @@ spec:
       name: stock-service-example-v3
     spec:
       containers:
-        - image: registry.cn-hangzhou.aliyuncs.com/knative-sample/rest-api-go:v1
+        - image: registry.cn-hangzhou.aliyuncs.com/ls-2018/knative:helloworld-go
           env:
             - name: RESOURCE
               value: v3

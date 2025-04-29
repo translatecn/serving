@@ -16,3 +16,55 @@ autoscaling.knative.dev/initial-scale: "2"
 autoscaling.knative.dev/scale-down-delay: ""
 
 #        'serving.knative.dev/progress-deadline': 12s
+
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+ name: config-autoscaler
+ namespace: knative-serving
+data:
+    # 默认Pod最大并发数，默认值为100。
+     container-concurrency-target-default: "100"
+    # 并发数目标使用率。默认值为70，70实际表示0.7。
+     container-concurrency-target-percentage: "70"
+    # 默认每秒请求数（RPS）。默认值为200。
+     requests-per-second-target-default: "200"
+    # 突发请求容量参数主要是为了应对突发流量，以防止Pod业务容器被过载。当前默认值211，也就意味着当前如果服务设置的目标阈值*Ready的Pod数小于 211，那么会通过Activator进行路由
+    # 它通过Activator作为请求缓冲区，通过这个参数的计算结果，来调节是否请求通过Activator组件。
+    # 当该值为0时，只有Pod缩容到0时，才切换到Activator。
+    # 当该值大于0并且container-concurrency-target-percentage设置为100时，请求总是会通过Activator。
+    # 当该值为-1，表示无限的请求突发容量。请求也总是会通过Activator。其他负值无效。
+    # 如果当前Ready Pod数*最大并发数-突发请求容量-恐慌模式计算出来的并发数<0，意味着突发流量超过了容量阈值，则切换到Activator进行请求缓冲。
+     target-burst-capacity: "211"
+    # 稳定窗口，默认值为60秒。
+     stable-window: "60s"
+    # 恐慌窗口比例，默认值为10，则表示默认恐慌窗口期为6秒（60*0.1=6）。
+     panic-window-percentage: "10.0"
+    # 恐慌阈值比例，默认值200。
+     panic-threshold-percentage: "200.0"
+    # 最大扩缩容速率，表示一次扩容最大数。实际计算方式：math.Ceil(MaxScaleUpRate*readyPodsCount) 。
+     max-scale-up-rate: "1000.0"
+    # 最大缩容速率，默认值为2，表示每次缩容一半。
+     max-scale-down-rate: "2.0"
+    # 是否开始缩容到0，默认开启。
+     enable-scale-to-zero: "true"
+    # 优雅缩容到0的时间，即延迟多久缩容到0，默认30秒。
+     scale-to-zero-grace-period: "30s"
+    # Pod缩容到0保留期，该参数适用于Pod启动成本较高的情况
+     scale-to-zero-pod-retention-period: "0s"
+    # 弹性插件类型，当前支持的弹性插件包括：KPA、HPA、AHPA。
+     pod-autoscaler-class: "kpa.autoscaling.knative.dev"
+    # activator请求容量。
+     activator-capacity: "100.0"
+    # 创建revision时，初始化启动的Pod数，默认1。
+     initial-scale: "1"
+    # 是否允许创建revision时，初始化0个Pod， 默认false，表示不允许。
+     allow-zero-initial-scale: "false"
+    # revision级别最小保留的Pod数量。默认0，表示最小值可以为0。
+     min-scale: "0"
+    # revision级别最大扩容的Pod数量。默认0，表示无最大扩容上限。
+     max-scale: "0"
+    # 表示延迟缩容时间。默认0，表示立即缩容。
+     scale-down-delay: "0s"

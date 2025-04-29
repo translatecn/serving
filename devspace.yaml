@@ -30,7 +30,7 @@ deployments:
     # This deployment uses `kubectl` but you can also define `helm` deployments
     kubectl:
       manifests:
-        - debug/activator.yaml
+        - debug/controller.yaml
 
 # This is a list of `dev` containers that are based on the containers created by your deployments
 dev:
@@ -38,7 +38,7 @@ dev:
     # Replace the container image with this dev-optimized image (allows to skip image building during development)
     devImage: registry.cn-hangzhou.aliyuncs.com/ls-2018/mygo:v1.24.1
 #    imageSelector: gcr.io/knative-releases/knative.dev/serving/cmd/autoscaler@sha256:ac1a83ba7c278ce9482b7bbfffe00e266f657b7d2356daed88ffe666bc68978e
-    imageSelector: registry.cn-hangzhou.aliyuncs.com/acejilam/knative-serving-activator:v1.17.0
+    imageSelector: registry.cn-hangzhou.aliyuncs.com/acejilam/knative-serving-controller:v1.17.0
     # Sync files between the local filesystem and the development container
     sync:
       - path: ./:/data

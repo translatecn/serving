@@ -34,7 +34,7 @@ export PATH="./bin:$PATH"
 
 source /etc/profile
 set -x
-go build -tags=trace -o out/activator ./cmd/activator
-dlv --listen=:2345 --headless=true --api-version=2 --accept-multiclient exec out/activator
+go build -gcflags "all=-N -l" -tags=trace -o out/controller ./cmd/controller
+dlv --listen=:2345 --headless=true --api-version=2 --accept-multiclient exec out/controller
 # Open shell
 bash --norc
